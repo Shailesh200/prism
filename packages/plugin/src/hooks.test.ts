@@ -824,13 +824,13 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       ]);
       expect(stop.out.systemMessage).toBe(
         "Prism · checking… verdict in a moment\n" +
-          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it",
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it",
       );
       expect(wait.code).toBe(2);
       expect(wait.stderr.trimEnd()).toBe(
         [
           "Prism · SHIP",
-          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it",
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it",
           'Prism · Say first: "Prism: SHIP — the checks this change reaches passed." Then stop.',
         ].join("\n"),
       );
@@ -895,7 +895,7 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       // Final at stop: the terminal line, then the SMK-8 summary line.
       expect(stop.out.systemMessage).toBe(
         "Prism · NOT PROVEN (no tests reach this change) — add a test that covers it\n" +
-          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NOT PROVEN (no tests reach this change)",
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NOT PROVEN (no tests reach this change)",
       );
       expect(wait.code).toBe(2);
       expect(wait.stderr).toMatch(
@@ -1005,25 +1005,25 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
     [
       "no_node_modules",
       { reason: "no_node_modules" },
-      "Prism · NOT PROVEN (no_node_modules)",
+      "Prism · NOT PROVEN (dependencies not installed)",
       'Prism · Say first: "Prism: NOT PROVEN — dependencies aren\'t installed." Then stop.',
     ],
     [
       "unknown_runner",
       { reason: "unknown_runner" },
-      "Prism · NOT PROVEN (unknown_runner)",
+      "Prism · NOT PROVEN (no known test runner)",
       'Prism · Say first: "Prism: NOT PROVEN — no known runner ran its tests." Then stop.',
     ],
     [
       "skipped_offline",
       { reason: "skipped_offline" },
-      "Prism · NOT PROVEN (skipped_offline)",
+      "Prism · NOT PROVEN (checks skipped)",
       'Prism · Say first: "Prism: NOT PROVEN — checks are off for this run." Then stop.',
     ],
     [
       "timeout",
       { reason: "timeout" },
-      "Prism · NOT PROVEN (timeout)",
+      "Prism · NOT PROVEN (checks timed out)",
       'Prism · Say first: "Prism: NOT PROVEN — a check ran past its time limit." Then stop.',
     ],
     [
@@ -1052,15 +1052,59 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
         checks: [{ name: "lint", status: "failed", cause: "unknown" }],
       },
       "Prism · NOT PROVEN (can't tell if this failure is new)",
-      'Prism · Say first: "NOT PROVEN: Prism can\'t tell if this test failure is new." Then ask the user.',
+      'Prism · Say first: "NOT PROVEN: Prism can\'t tell if this failure is new." Then ask the user.',
+    ],
+    [
+      "outside_change",
+      {
+        reason: "outside_change",
+        checks: [{ name: "lint", status: "failed", cause: "outside-change" }],
+      },
+      "Prism · NOT PROVEN (failure is in files outside this change)",
+      'Prism · Say first: "Prism: NOT PROVEN — the failure is in files outside this change." Then stop.',
     ],
     [
       "unsupported_language",
       { reason: "unsupported_language" },
-      "Prism · NOT PROVEN (unsupported_language)",
+      "Prism · NOT PROVEN (unsupported language)",
       'Prism · Say first: "Prism: NOT PROVEN — only TS and JS files are checked." Then stop.',
     ],
   ];
+
+  /** `{ code: "words", … }` pairs from a TS or JS object literal. */
+  const labelsIn = (source: string, start: string) => {
+    const body = source.slice(source.indexOf(start)).split("\n};")[0]!;
+    return Object.fromEntries(
+      [...body.matchAll(/^\s+(\w+): "([^"]+)",$/gm)].map((m) => [m[1], m[2]]),
+    );
+  };
+
+  it("every NOT PROVEN reason has words, the same as shared, and a wake row (Arc)", () => {
+    const shared = readFileSync(
+      join(dirname(hook), "..", "..", "shared", "src", "receipt.ts"),
+      "utf8",
+    );
+    const reasons = [
+      ...shared
+        .slice(shared.indexOf("NOT_PROVEN_REASONS = ["))
+        .split("]")[0]!
+        .matchAll(/"(\w+)"/g),
+    ].map((m) => m[1]!);
+    expect(reasons.length).toBeGreaterThan(8);
+    const mine = labelsIn(readFileSync(hook, "utf8"), "const REASON_LABEL = {");
+    expect(mine).toEqual(labelsIn(shared, "REASON_LABEL: Readonly"));
+    for (const reason of reasons) {
+      expect(mine[reason], reason).toMatch(/^[a-z][a-z' ]+[a-z]$/i);
+      expect(mine[reason], reason).not.toBe(reason);
+      // Every reason that wakes is in the table; these two never wake.
+      if (reason !== "still_running" && reason !== "superseded") {
+        expect(
+          WAKES.map(([name]) => name),
+          reason,
+        ).toContain(reason);
+      }
+    }
+  });
 
   async function wakeFor(name: string, over: Record<string, unknown>) {
     const { home, cwd } = layout(snapshot);
@@ -1094,11 +1138,12 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       const lines = wait.stderr.trimEnd().split("\n");
       expect(lines, name).toEqual([
         l1,
-        "Prism receipt: changed 1 file, 2 dependents, 1 test reach it",
+        "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it",
         l3,
       ]);
-      // Reason codes never reach the user for these two (Arc).
-      expect(wait.stderr, name).not.toMatch(/already_failing|baseline_unknown/);
+      // Reason codes never reach the user (Arc).
+      expect(wait.stderr, name).not.toMatch(/\b[a-z]+_[a-z_]+\b|\(timeout\)/);
+      expect(wait.stderr, name).not.toMatch(/caused|outside-change/);
       for (const line of lines) expect(line.length, line).toBeLessThan(100);
     }
   });
@@ -1197,6 +1242,21 @@ describe("stop-time lines (Muse v2.1)", () => {
     }
   }
 
+  it("summary grammar: 1 test reaches it, N tests reach it (Arc)", async () => {
+    const done = { verdict: "proven", reason: undefined, checksState: "done" };
+    const one = await stopText({ ...done, testFiles: ["a.test.ts"] });
+    expect(one.split("\n")[1]).toBe(
+      "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — SHIP",
+    );
+    const two = await stopText({
+      ...done,
+      testFiles: ["a.test.ts", "b.test.ts"],
+    });
+    expect(two.split("\n")[1]).toBe(
+      "Prism receipt: changed 1 file, 2 dependents, 2 tests reach it — SHIP",
+    );
+  });
+
   it("the interim line changes text only: no verdict word, the record stays pending (Arc)", async () => {
     const { home, cwd } = layout(snapshot);
     const server = await fakeDaemon(home, { receipt: stopReceipt({}) });
@@ -1245,7 +1305,7 @@ describe("stop-time lines (Muse v2.1)", () => {
   it("an off-limits path at stop says NO-SHIP while the checks still run (no wake: next receipt)", async () => {
     expect(await stopText(offLimitsPending)).toBe(
       "Prism · NO-SHIP (1 off-limits path) — checks still running; the verdict comes with your next receipt\n" +
-        "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",
+        "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NO-SHIP",
     );
   });
 
@@ -1254,7 +1314,7 @@ describe("stop-time lines (Muse v2.1)", () => {
       await stopText(offLimitsPending, { CLAUDE_PROJECT_DIR: "/repo" }),
     ).toBe(
       "Prism · NO-SHIP (1 off-limits path) — checks still running; the verdict follows\n" +
-        "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",
+        "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NO-SHIP",
     );
   });
 
@@ -1273,7 +1333,7 @@ describe("stop-time lines (Muse v2.1)", () => {
         }),
       ).toBe(
         "Prism · NO-SHIP (1 check failed) — the agent is fixing it\n" +
-          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NO-SHIP",
       );
     });
 
@@ -1284,7 +1344,7 @@ describe("stop-time lines (Muse v2.1)", () => {
       });
       expect(text).toBe(
         "Prism · NOT PROVEN (tests already failing) — its tests failed before this session\n" +
-          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NOT PROVEN (tests already failing)",
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NOT PROVEN (tests already failing)",
       );
       expect(text).not.toMatch(/NO-SHIP|caused|fixing/i);
       expect(text).not.toContain("already_failing");
@@ -1297,9 +1357,23 @@ describe("stop-time lines (Muse v2.1)", () => {
       });
       expect(text).toBe(
         "Prism · NOT PROVEN (can't tell if this failure is new) — a check failed; it may not be from this change\n" +
-          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NOT PROVEN (can't tell if this failure is new)",
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NOT PROVEN (can't tell if this failure is new)",
       );
       expect(text).not.toMatch(/NO-SHIP|caused|fixing/i);
+    });
+
+    it("(d) failure only in gitignored or unchanged files: NOT PROVEN (failure is in files outside this change), never NO-SHIP", async () => {
+      const text = await stopText({
+        ...failed("outside-change"),
+        reason: "outside_change",
+      });
+      expect(text).toBe(
+        "Prism · NOT PROVEN (failure is in files outside this change) — the failing files aren't part of this change\n" +
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NOT PROVEN (failure is in files outside this change)",
+      );
+      expect(text).not.toMatch(
+        /NO-SHIP|caused|fixing|can't tell|outside_change/i,
+      );
     });
 
     it("(c) beside an off-limits edit: NO-SHIP for the edit only, nothing to fix", async () => {
@@ -1335,7 +1409,7 @@ describe("stop-time lines (Muse v2.1)", () => {
     expect(text).toBe(
       [
         "Prism · NO-SHIP (1 check failed) — the agent is fixing it",
-        "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",
+        "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NO-SHIP",
         "Earlier change  changed 1 file — SHIP",
       ].join("\n"),
     );

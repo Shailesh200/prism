@@ -2,7 +2,12 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { shipVerdictLabel, type ChangeReceipt } from "./receipt.js";
+import {
+  NOT_PROVEN_REASONS,
+  REASON_LABEL,
+  shipVerdictLabel,
+  type ChangeReceipt,
+} from "./receipt.js";
 import { listStoredReceipts, writeStoredReceipt } from "./receipt-store.js";
 import {
   receiptFeedback,
@@ -109,10 +114,10 @@ describe("receipt summary line (SMK-8)", () => {
       checksState: "skipped",
     };
     expect(receiptSummaryLine(missing)).toMatch(
-      /— NOT PROVEN \(no_node_modules\)$/,
+      /— NOT PROVEN \(dependencies not installed\)$/,
     );
     expect(receiptHeadline(missing)).toBe(
-      "Prism · NOT PROVEN (no_node_modules)",
+      "Prism · NOT PROVEN (dependencies not installed)",
     );
   });
 
@@ -145,7 +150,9 @@ describe("receipt summary line (SMK-8)", () => {
       const [stored] = listStoredReceipts("/repo", env);
       expect(stored?.reason).toBe("still_running");
       expect(stored?.checksState).toBe("pending");
-      expect(shipVerdictLabel(stored!)).toBe("NOT PROVEN (still_running)");
+      expect(shipVerdictLabel(stored!)).toBe(
+        "NOT PROVEN (checks still running)",
+      );
       expect(JSON.parse(JSON.stringify(stored))).toMatchObject({
         verdict: "not_proven",
         reason: "still_running",
@@ -165,11 +172,11 @@ describe("receipt summary line (SMK-8)", () => {
       earlier: {
         id: "r-old",
         verdict: "failed",
-        summary: "changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",
+        summary: "changed 1 file, 2 dependents, 1 test reaches it — NO-SHIP",
       },
     };
     expect(renderReceipt(pending).split("\n")[2]).toBe(
-      "Earlier change  changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",
+      "Earlier change  changed 1 file, 2 dependents, 1 test reaches it — NO-SHIP",
     );
   });
 });
@@ -219,19 +226,19 @@ describe("terminal line per verdict (Muse v2.1)", () => {
       ],
       [
         notProven("no_node_modules"),
-        "Prism · NOT PROVEN (no_node_modules) — install dependencies to run its tests",
+        "Prism · NOT PROVEN (dependencies not installed) — install dependencies to run its tests",
       ],
       [
         notProven("unknown_runner"),
-        "Prism · NOT PROVEN (unknown_runner) — no known runner could run its tests",
+        "Prism · NOT PROVEN (no known test runner) — no known runner could run its tests",
       ],
       [
         notProven("skipped_offline"),
-        "Prism · NOT PROVEN (skipped_offline) — checks are off for this run",
+        "Prism · NOT PROVEN (checks skipped) — checks are off for this run",
       ],
       [
         notProven("timeout"),
-        "Prism · NOT PROVEN (timeout) — a check ran past its time limit",
+        "Prism · NOT PROVEN (checks timed out) — a check ran past its time limit",
       ],
       [
         notProven("already_failing"),
@@ -242,12 +249,16 @@ describe("terminal line per verdict (Muse v2.1)", () => {
         "Prism · NOT PROVEN (can't tell if this failure is new) — a check failed; it may not be from this change",
       ],
       [
+        notProven("outside_change"),
+        "Prism · NOT PROVEN (failure is in files outside this change) — the failing files aren't part of this change",
+      ],
+      [
         notProven("unsupported_language"),
-        "Prism · NOT PROVEN (unsupported_language) — only TS and JS files are checked",
+        "Prism · NOT PROVEN (unsupported language) — only TS and JS files are checked",
       ],
       [
         notProven("superseded"),
-        "Prism · NOT PROVEN (superseded) — a newer change replaced this one",
+        "Prism · NOT PROVEN (replaced by a newer change) — a newer change replaced this one",
       ],
       [
         { ...notProven("still_running"), checksState: "pending" },
@@ -255,7 +266,7 @@ describe("terminal line per verdict (Muse v2.1)", () => {
       ],
       [
         notProven("still_running"),
-        "Prism · NOT PROVEN (still_running) — no verdict yet; the next receipt shows it",
+        "Prism · NOT PROVEN (checks still running) — no verdict yet; the next receipt shows it",
       ],
       [
         {
@@ -290,35 +301,32 @@ describe("terminal line per verdict (Muse v2.1)", () => {
     const text = renderReceiptTerminal(pending).split("\n");
     expect(text[0]).toBe("Prism · checking… still running");
     expect(text[1]).toBe(
-      "Prism receipt: changed 1 file, 4 dependents, 1 test reach it",
+      "Prism receipt: changed 1 file, 4 dependents, 1 test reaches it",
     );
     expect(text.join("\n")).not.toMatch(/NOT PROVEN|SHIP/);
   });
 });
 
+type Cause = NonNullable<ChangeReceipt["checks"][number]["cause"]>;
+
 describe("who a failure is blamed on: the baseline decides (M-092, Arc)", () => {
-  const failing = (
-    cause: "caused" | "already-failing" | "unknown",
-  ): ChangeReceipt["checks"][number] => ({
+  const failing = (cause: Cause): ChangeReceipt["checks"][number] => ({
     name: "test",
     status: "failed",
     detail: "FAIL src/a.test.ts",
     durationMs: 20,
     cause,
   });
-  const at = (
-    cause: "caused" | "already-failing" | "unknown",
-  ): ChangeReceipt => ({
+  const REASON = {
+    unknown: "baseline_unknown",
+    "already-failing": "already_failing",
+    "outside-change": "outside_change",
+  } as const;
+  const at = (cause: Cause): ChangeReceipt => ({
     ...base,
     ...(cause === "caused"
       ? { verdict: "failed" as const }
-      : {
-          verdict: "not_proven" as const,
-          reason:
-            cause === "unknown"
-              ? ("baseline_unknown" as const)
-              : ("already_failing" as const),
-        }),
+      : { verdict: "not_proven" as const, reason: REASON[cause] }),
     checks: [failing(cause)],
   });
   const everything = (receipt: ChangeReceipt) =>
@@ -382,6 +390,23 @@ describe("who a failure is blamed on: the baseline decides (M-092, Arc)", () => 
     expect(everything(receipt)).not.toMatch(/NO-SHIP|SHIP —|caused|fixing/i);
   });
 
+  it("(d) a failure only in gitignored or unchanged files: NOT PROVEN (failure is in files outside this change)", () => {
+    const receipt = at("outside-change");
+    expect(shipVerdictLabel(receipt)).toBe(
+      "NOT PROVEN (failure is in files outside this change)",
+    );
+    expect(receiptTerminalLine(receipt)).toBe(
+      "Prism · NOT PROVEN (failure is in files outside this change) — the failing files aren't part of this change",
+    );
+    expect(receiptSummaryLine(receipt)).toMatch(
+      /— NOT PROVEN \(failure is in files outside this change\)$/,
+    );
+    expect(receiptFeedback(receipt)).toBeNull();
+    expect(everything(receipt)).not.toMatch(
+      /NO-SHIP|SHIP —|caused|fixing|can't tell|outside_change|outside-change/i,
+    );
+  });
+
   it("(c) beside an off-limits edit: NO-SHIP for the edit only, nothing to fix", () => {
     const receipt: ChangeReceipt = {
       ...at("unknown"),
@@ -415,7 +440,7 @@ describe("stop text without the plugin's daemon path (renderReceiptAtStop)", () 
     expect(renderReceiptAtStop(pending, true)).toBe(
       [
         "Prism · checking… verdict comes with your next receipt",
-        "Prism receipt: changed 1 file, 4 dependents, 1 test reach it",
+        "Prism receipt: changed 1 file, 4 dependents, 1 test reaches it",
         "Earlier change  changed 1 file — SHIP",
       ].join("\n"),
     );
@@ -425,7 +450,7 @@ describe("stop text without the plugin's daemon path (renderReceiptAtStop)", () 
     expect(renderReceiptAtStop(pending, false)).toBe(
       [
         "Prism · NOT PROVEN (daemon not running)",
-        "Prism receipt: changed 1 file, 4 dependents, 1 test reach it — NOT PROVEN (daemon not running)",
+        "Prism receipt: changed 1 file, 4 dependents, 1 test reaches it — NOT PROVEN (daemon not running)",
         "Earlier change  changed 1 file — SHIP",
       ].join("\n"),
     );
@@ -436,5 +461,66 @@ describe("stop text without the plugin's daemon path (renderReceiptAtStop)", () 
     expect(renderReceiptAtStop(untested, false)).toBe(renderReceipt(untested));
     expect(renderReceiptAtStop(base, true)).toBe(renderReceipt(base));
     expect(renderReceiptAtStop(base, false)).toBe(renderReceipt(base));
+  });
+});
+
+describe("every NOT PROVEN reason reads as words (Muse, Arc)", () => {
+  const everySurface = (receipt: ChangeReceipt) =>
+    [
+      shipVerdictLabel(receipt),
+      receiptTerminalLine(receipt),
+      renderReceipt(receipt),
+      renderReceiptTerminal(receipt),
+      renderReceiptMarkdown(receipt),
+      renderReceiptSvg(receipt),
+      renderReceiptAtStop(receipt, false),
+      renderReceiptAtStop(receipt, true),
+      receiptFeedback(receipt) ?? "",
+    ].join("\n");
+
+  it.each(NOT_PROVEN_REASONS)("%s never prints its raw code", (reason) => {
+    const receipt: ChangeReceipt = {
+      ...base,
+      verdict: "not_proven",
+      reason,
+      checks: [],
+    };
+    const label = REASON_LABEL[reason];
+    expect(label).toMatch(/^[a-z][a-z' ]+[a-z]$/i);
+    expect(label).not.toBe(reason);
+    expect(shipVerdictLabel(receipt)).toBe(`NOT PROVEN (${label})`);
+    const text = everySurface(receipt);
+    expect(text).not.toContain(`(${reason})`);
+    if (reason.includes("_")) expect(text).not.toContain(reason);
+    // Muse's tails for the newest lines.
+    const tail = {
+      untested: "add a test that covers it",
+      baseline_unknown: "a check failed; it may not be from this change",
+      outside_change: "the failing files aren't part of this change",
+    }[reason as string];
+    if (tail) {
+      expect(receiptTerminalLine(receipt)).toBe(
+        `Prism · NOT PROVEN (${label}) — ${tail}`,
+      );
+    }
+  });
+
+  it("the timeout and missing-dependency labels", () => {
+    expect(REASON_LABEL.timeout).toBe("checks timed out");
+    expect(REASON_LABEL.no_node_modules).toBe("dependencies not installed");
+  });
+});
+
+describe("summary grammar: 1 test reaches it, N tests reach it", () => {
+  const withTests = (n: number): ChangeReceipt => ({
+    ...base,
+    testFiles: Array.from({ length: n }, (_, i) => `src/t${i}.test.ts`),
+  });
+
+  it("singular for one test, plural otherwise", () => {
+    expect(receiptSummaryLine(withTests(1))).toMatch(/, 1 test reaches it — /);
+    expect(receiptSummaryLine(withTests(2))).toMatch(/, 2 tests reach it — /);
+    expect(receiptSummaryLine(withTests(0))).toMatch(/, 0 tests reach it — /);
+    expect(receiptSummaryLine(withTests(1))).not.toMatch(/1 test reach it/);
   });
 });

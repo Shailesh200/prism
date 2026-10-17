@@ -616,12 +616,23 @@ function missingBin() {
 const STOP_BUDGET_MS = 1000;
 
 const pluralLite = (n, one) => `${n} ${n === 1 ? one : `${one}s`}`;
+/** Mirrors shared: `1 test reaches it`, `N tests reach it`. */
+const reachItLite = (n) =>
+  `${pluralLite(n, "test")} ${n === 1 ? "reaches" : "reach"} it`;
 
-/** Mirrors shared `shipVerdictLabel`: reasons whose label is words. */
+/** Mirrors shared `REASON_LABEL`: words for every reason, never a raw code. */
 const REASON_LABEL = {
   untested: "no tests reach this change",
+  no_node_modules: "dependencies not installed",
+  unknown_runner: "no known test runner",
+  skipped_offline: "checks skipped",
+  still_running: "checks still running",
+  timeout: "checks timed out",
   already_failing: "tests already failing",
   baseline_unknown: "can't tell if this failure is new",
+  outside_change: "failure is in files outside this change",
+  unsupported_language: "unsupported language",
+  superseded: "replaced by a newer change",
 };
 
 /**
@@ -639,9 +650,7 @@ function verdictLite(receipt) {
   // Mirrors shared `blockingChecks`: only a failure this change caused.
   const failed = (receipt?.checks ?? []).filter(
     (c) =>
-      c.status === "failed" &&
-      c.cause !== "already-failing" &&
-      c.cause !== "unknown",
+      c.status === "failed" && (c.cause === undefined || c.cause === "caused"),
   ).length;
   const offLimits = (receipt?.lensFindings ?? [])
     .filter((f) => f.check === "off_limits_touched" && f.status === "fail")
@@ -652,7 +661,7 @@ function verdictLite(receipt) {
     ? "NO-SHIP"
     : receipt?.verdict === "proven"
       ? "SHIP"
-      : `NOT PROVEN (${REASON_LABEL[reason] ?? reason})`;
+      : `NOT PROVEN (${REASON_LABEL[reason] ?? "no verdict yet"})`;
   const failedChecks = pluralLite(failed, "check");
   const offLimitsPaths = pluralLite(offLimits, "off-limits path");
   const why = [
@@ -667,7 +676,7 @@ function verdictLite(receipt) {
   const changedFiles = pluralLite(total + unsupported, "file");
   // SMK-8 reads `${summary} — ${label}` once final; the interim line at stop
   // and the wake drop the label.
-  const summary = `Prism receipt: changed ${changedFiles}, ${pluralLite(touched.dependents ?? 0, "dependent")}, ${pluralLite((receipt?.testFiles ?? []).length, "test")} reach it`;
+  const summary = `Prism receipt: changed ${changedFiles}, ${pluralLite(touched.dependents ?? 0, "dependent")}, ${reachItLite((receipt?.testFiles ?? []).length)}`;
   return {
     nothing,
     failed,
@@ -693,6 +702,7 @@ const TERMINAL_REASON = {
   timeout: "a check ran past its time limit",
   already_failing: "its tests failed before this session",
   baseline_unknown: "a check failed; it may not be from this change",
+  outside_change: "the failing files aren't part of this change",
   unsupported_language: "only TS and JS files are checked",
   superseded: "a newer change replaced this one",
 };
@@ -952,6 +962,7 @@ const SAY_REASON = {
   skipped_offline: "checks are off for this run",
   timeout: "a check ran past its time limit",
   already_failing: "its tests failed before this session",
+  outside_change: "the failure is in files outside this change",
   unsupported_language: "only TS and JS files are checked",
 };
 
@@ -982,10 +993,10 @@ function stopWakeText(receipt) {
     action = "ask the user.";
   } else if (v.reason === "baseline_unknown") {
     // Never "you caused" without proof: the user decides.
-    say = "NOT PROVEN: Prism can't tell if this test failure is new.";
+    say = "NOT PROVEN: Prism can't tell if this failure is new.";
     action = "ask the user.";
   } else {
-    say = `Prism: NOT PROVEN — ${SAY_REASON[v.reason] ?? v.reason}.`;
+    say = `Prism: NOT PROVEN — ${SAY_REASON[v.reason] ?? REASON_LABEL[v.reason] ?? "no verdict yet"}.`;
   }
   return [
     v.headline,

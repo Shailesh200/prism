@@ -11,6 +11,7 @@ import {
   shipVerdict,
   shipVerdictLabel,
   unknownFailures,
+  outsideChangeFailures,
   type ChangeReceipt,
   type NotProvenReason,
   type ReceiptLensLine,
@@ -20,6 +21,11 @@ import {
 import type { Finding } from "./schemas.js";
 import { sessionValueLine } from "./session-value.js";
 import { findingsFromReceiptParts } from "./structured-finding.js";
+
+/** `1 test reaches it`, `N tests reach it`. */
+function reachIt(tests: number): string {
+  return `${plural(tests, "test")} ${tests === 1 ? "reaches" : "reach"} it`;
+}
 
 function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
@@ -51,6 +57,7 @@ const TERMINAL_REASON: Record<NotProvenReason, string> = {
   timeout: "a check ran past its time limit",
   already_failing: "its tests failed before this session",
   baseline_unknown: "a check failed; it may not be from this change",
+  outside_change: "the failing files aren't part of this change",
   unsupported_language: "only TS and JS files are checked",
   superseded: "a newer change replaced this one",
 };
@@ -91,7 +98,7 @@ export function receiptSummaryLine(receipt: ChangeReceipt): string {
 function summaryWithoutLabel(receipt: ChangeReceipt): string {
   const changed = receipt.touched.totalFiles + receipt.unsupported.length;
   const more = receipt.touched.truncated ? "+" : "";
-  return `Prism receipt: changed ${changed}${more} ${changed === 1 ? "file" : "files"}, ${plural(receipt.touched.dependents, "dependent")}, ${plural(receipt.testFiles.length, "test")} reach it`;
+  return `Prism receipt: changed ${changed}${more} ${changed === 1 ? "file" : "files"}, ${plural(receipt.touched.dependents, "dependent")}, ${reachIt(receipt.testFiles.length)}`;
 }
 
 /** Checks still running and no verdict yet (off-limits edits are NO-SHIP already). */
@@ -199,6 +206,11 @@ export function renderReceipt(
       `${pad("Failed")} ${check.name} ✗ ${check.detail} (can't tell if new)`,
     );
   }
+  for (const check of outsideChangeFailures(receipt)) {
+    lines.push(
+      `${pad("Failed")} ${check.name} ✗ ${check.detail} (outside this change)`,
+    );
+  }
   for (const check of preexistingFailures(receipt)) {
     lines.push(`${pad("Already failing")} ${check.name} — ${check.detail}`);
   }
@@ -303,6 +315,11 @@ export function renderReceiptMarkdown(receipt: ChangeReceipt): string {
       `| Failed (can't tell if new) | \`${cell(check.name)}\` — ${cell(check.detail)} |`,
     );
   }
+  for (const check of outsideChangeFailures(receipt)) {
+    lines.push(
+      `| Failed (outside this change) | \`${cell(check.name)}\` — ${cell(check.detail)} |`,
+    );
+  }
   for (const check of preexistingFailures(receipt)) {
     lines.push(
       `| Already failing | \`${cell(check.name)}\` — ${cell(check.detail)} |`,
@@ -357,6 +374,9 @@ export function renderReceiptSvg(receipt: ChangeReceipt): string {
     }
     for (const check of unknownFailures(receipt).slice(0, 3)) {
       rows.push(["Failed", `${check.name} — can't tell if new`]);
+    }
+    for (const check of outsideChangeFailures(receipt).slice(0, 3)) {
+      rows.push(["Failed", `${check.name} — outside this change`]);
     }
     for (const check of preexistingFailures(receipt).slice(0, 2)) {
       rows.push(["Already failing", check.name]);

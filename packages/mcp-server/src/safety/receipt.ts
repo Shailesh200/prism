@@ -9,7 +9,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, normalize, relative } from "node:path";
 import {
   failureIsPreexisting,
   packageRootFor,
@@ -221,13 +221,14 @@ export function receiptVerdict(input: VerdictInput): {
   // NO-SHIP only for a failure the baseline proves new (M-092): a check
   // Prism can't place makes the receipt NOT PROVEN, never a blame.
   const failed = input.checks.filter((c) => c.status === "failed");
-  if (
-    failed.some((c) => c.cause !== "already-failing" && c.cause !== "unknown")
-  ) {
+  if (failed.some((c) => c.cause === undefined || c.cause === "caused")) {
     return { verdict: "failed" };
   }
   if (failed.some((c) => c.cause === "unknown")) {
     return { verdict: "not_proven", reason: "baseline_unknown" };
+  }
+  if (failed.some((c) => c.cause === "outside-change")) {
+    return { verdict: "not_proven", reason: "outside_change" };
   }
   if (input.supportedChanged === 0 && input.unsupported > 0) {
     return { verdict: "not_proven", reason: "unsupported_language" };
@@ -580,6 +581,7 @@ const REASON_TEXT: Partial<Record<NotProvenReason, string>> = {
   timeout: "its tests timed out",
   already_failing: "its tests were already failing",
   baseline_unknown: "a check failed and Prism can't tell if the failure is new",
+  outside_change: "a check failed in files outside this change",
   superseded: "a newer change replaced it before its tests finished",
 };
 
@@ -740,9 +742,10 @@ type Cause = NonNullable<ChangeReceipt["checks"][number]["cause"]>;
  * throwaway copy, and say whether the change caused the failure (M-092).
  * One baseline pass covers every failed package. `caused` only when the
  * check passed there (or its test file is new); the same failure there is
- * `already-failing`; anything else (no baseline: refused, timed out; or a
- * different failure there) is `unknown`, so nothing is blamed on the change
- * without proof.
+ * `already-failing`; a failure only in files this change can't own is
+ * `outside-change` (see {@link failureOutsideChange}); anything else (no
+ * baseline: refused, timed out; or a different failure there) is
+ * `unknown`, so nothing is blamed on the change without proof.
  */
 async function classifyFailures(
   root: string,
@@ -797,8 +800,58 @@ async function classifyFailures(
     ) {
       causes.set(check, "already-failing");
     } else causes.set(check, "unknown");
+    if (
+      causes.get(check) !== "already-failing" &&
+      failureOutsideChange(root, check, sessionPaths)
+    ) {
+      causes.set(check, "outside-change");
+    }
   }
   return causes;
+}
+
+/** Lint-style steps: their errors belong to the file they name. */
+const LINT_STEP = /^(?:lint|lint:check|oxlint)$/;
+
+/**
+ * True when the failure names files and none can be this change's: every
+ * file is gitignored (a build output such as `compat/isError.js`), or, for a
+ * lint step, none is in the change set. A baseline pass then proves nothing
+ * about the change (the copy has no ignored files): `outside-change`.
+ * Type errors and tests in other files can be the change's (a broken
+ * dependent), so only gitignored files excuse those.
+ */
+function failureOutsideChange(
+  root: string,
+  check: PackageCheck,
+  sessionPaths: readonly string[],
+): boolean {
+  const named = check.result.signature?.files ?? [];
+  if (named.length === 0) return false;
+  const files = named.map((file) => {
+    const full = isAbsolute(file) ? file : join(root, check.pkg, file);
+    return normalize(relative(root, full));
+  });
+  const ignored = gitIgnored(root, files);
+  if (files.every((file) => ignored.has(file))) return true;
+  if (!LINT_STEP.test(check.step)) return false;
+  const changed = new Set(sessionPaths.map((path) => normalize(path)));
+  return files.every((file) => !changed.has(file));
+}
+
+/** Which of `files` (repo-relative) git ignores; empty when git can't say. */
+function gitIgnored(root: string, files: readonly string[]): Set<string> {
+  const out = spawnSync(
+    "git",
+    ["--no-optional-locks", "check-ignore", "--no-index", "--stdin"],
+    { cwd: root, input: files.join("\n"), encoding: "utf8" },
+  );
+  return new Set(
+    (out.stdout ?? "")
+      .split("\n")
+      .filter(Boolean)
+      .map((file) => normalize(file)),
+  );
 }
 
 function isTestCheck(name: string): boolean {

@@ -112,7 +112,7 @@ describe("stop hook (plan §5.7, R-C4)", () => {
     // stop-wait, so the verdict comes with the next receipt. No verdict word.
     expect(out.systemMessage).toBe(
       "Prism · checking… verdict comes with your next receipt\n" +
-        "Prism receipt: changed 1 file, 0 dependents, 1 test reach it",
+        "Prism receipt: changed 1 file, 0 dependents, 1 test reaches it",
     );
   });
 
@@ -133,7 +133,7 @@ describe("stop hook (plan §5.7, R-C4)", () => {
     const [first, second] = (out.systemMessage ?? "").split("\n");
     expect(first).toBe("Prism · NOT PROVEN (daemon not running)");
     expect(second).toMatch(
-      /^Prism receipt: changed \d+ files?, .* reach it — NOT PROVEN \(daemon not running\)$/,
+      /^Prism receipt: changed \d+ files?, .* reach(?:es)? it — NOT PROVEN \(daemon not running\)$/,
     );
     // Text only (Arc): the stored history and the event keep still_running.
     const home = env.PRISM_HOME ?? "";
