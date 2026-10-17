@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { CheckCircleIcon, ListIcon, TargetIcon } from "@/components/ui/icons";
@@ -62,11 +61,7 @@ export default function ReviewPage() {
             <h2 className="d3">Pick the angle with a lens.</h2>
             <p className="lede mt-3.5 text-lg">
               Architect for structure, QA for proof, Dev for small clean fixes,
-              or your own.{" "}
-              <Link href="/product/lenses">
-                <u>See lenses</u>
-              </Link>
-              .
+              or your own.
             </p>
           </div>
           <Receipt
