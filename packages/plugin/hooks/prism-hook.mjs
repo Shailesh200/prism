@@ -620,6 +620,32 @@ const pluralLite = (n, one) => `${n} ${n === 1 ? one : `${one}s`}`;
 const reachItLite = (n) =>
   `${pluralLite(n, "test")} ${n === 1 ? "reaches" : "reach"} it`;
 
+/** The folder a generated file sits in: through its `gen/` segment. */
+function generatedFolderLite(path) {
+  const found = /^(.*?(?:^|\/)(?:generated|gen|\.generated)\/)/i.exec(
+    path.replace(/\\/g, "/"),
+  );
+  if (found) return found[1];
+  const slash = path.lastIndexOf("/");
+  return slash > 0 ? path.slice(0, slash + 1) : "";
+}
+
+/** Mirrors shared `generatedNote` (J-07, Muse): a note, never a verdict. */
+function generatedNoteLite(receipt) {
+  const files = (receipt?.lensFindings ?? [])
+    .filter((f) => f.check === "off_limits_touched")
+    .flatMap((f) => f.evidence ?? [])
+    .map(String)
+    .filter((e) => e.endsWith(" (generated)"))
+    .map((e) => e.slice(0, -" (generated)".length));
+  if (files.length === 0) return null;
+  const folders = [...new Set(files.map(generatedFolderLite))];
+  const where = folders[0]
+    ? ` in ${folders[0]}${folders.length > 1 ? ` and ${folders.length - 1} other ${folders.length === 2 ? "folder" : "folders"}` : ""}`
+    : "";
+  return `Note: you edited generated files${where}. They may be overwritten on the next build.`;
+}
+
 /** Mirrors shared `REASON_LABEL`: words for every reason, never a raw code. */
 const REASON_LABEL = {
   untested: "no tests reach this change",
@@ -654,9 +680,11 @@ function verdictLite(receipt) {
     (c) =>
       c.status === "failed" && (c.cause === undefined || c.cause === "caused"),
   ).length;
+  // Generated files never block (J-07): they get generatedNoteLite.
   const offLimits = (receipt?.lensFindings ?? [])
     .filter((f) => f.check === "off_limits_touched" && f.status === "fail")
-    .flatMap((f) => f.evidence ?? []).length;
+    .flatMap((f) => f.evidence ?? [])
+    .filter((e) => !String(e).endsWith(" (generated)")).length;
   const noShip = receipt?.verdict === "failed" || offLimits > 0;
   const reason = receipt?.reason ?? "untested";
   const label = noShip
@@ -741,6 +769,8 @@ function renderReceiptLite(receipt, wakeFollows) {
         : "Prism · checking… verdict comes with your next receipt"
       : `Prism · NO-SHIP (${v.offLimitsPaths}) — checks still running; ${wakeFollows ? "the verdict follows" : "the verdict comes with your next receipt"}`;
   const lines = [first, interim ? v.summary : `${v.summary} — ${v.label}`];
+  const note = generatedNoteLite(receipt);
+  if (note) lines.push(note);
   // The previous change's checks, finished since its own stop (mirrors shared renderReceipt).
   if (receipt.earlier?.summary) {
     lines.push(`Earlier change  ${receipt.earlier.summary}`);

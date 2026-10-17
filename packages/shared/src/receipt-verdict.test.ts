@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { ChangeReceipt } from "./receipt.js";
-import { shipVerdict } from "./receipt.js";
+import { generatedNote, offLimitsTouched, shipVerdict } from "./receipt.js";
 import { cheapestProof, recordedCheckDurations } from "./receipt-proof.js";
 import {
   proofLine,
   receiptFindings,
+  receiptTerminalLine,
   renderReceipt,
   renderReceiptMarkdown,
 } from "./receipt-render.js";
@@ -234,3 +235,96 @@ describe("P11 verdict-first receipt", () => {
     );
   });
 });
+
+describe("J-07: edits to generated files are a note, never NO-SHIP", () => {
+  const NOTE =
+    "Note: you edited generated files in gen/. They may be overwritten on the next build.";
+  const generated = (
+    status: "concern" | "fail",
+    evidence: string[],
+  ): ChangeReceipt["lensFindings"] => [
+    { lens: "security", check: "off_limits_touched", status, evidence },
+  ];
+
+  it("checks pass + gen/ edit: SHIP with the note, no undo or revert", () => {
+    const receipt: ChangeReceipt = {
+      ...base,
+      touched: { ...base.touched, files: ["gen/api.ts"] },
+      lensFindings: generated("concern", ["gen/api.ts (generated)"]),
+    };
+    expect(shipVerdict(receipt)).toBe("SHIP");
+    expect(offLimitsTouched(receipt)).toEqual([]);
+    expect(generatedNote(receipt)).toBe(NOTE);
+    const text = renderReceipt(receipt);
+    expect(text.split("\n")[0]).toBe("Prism · SHIP");
+    expect(text).toContain(NOTE);
+    expect(renderReceiptMarkdown(receipt)).toContain(
+      "| Note | you edited generated files in gen/. They may be overwritten on the next build. |",
+    );
+    expect(receiptFindings(receipt)).toEqual([]);
+    for (const out of [text, renderReceiptMarkdown(receipt), receiptTerminalLine(receipt)]) {
+      expect(out).not.toMatch(/undo|revert/i);
+    }
+  });
+
+  it("the checks alone decide: a failing check is NO-SHIP for the check, not the file", () => {
+    const receipt: ChangeReceipt = {
+      ...base,
+      verdict: "failed",
+      checks: [
+        { name: "test", status: "failed", detail: "FAIL x", durationMs: 1, cause: "caused" },
+      ],
+      lensFindings: generated("concern", ["gen/api.ts (generated)"]),
+    };
+    expect(renderReceipt(receipt).split("\n")[0]).toBe("Prism · NO-SHIP (1 check failed)");
+    expect(receiptTerminalLine(receipt)).not.toMatch(/undo|revert/i);
+  });
+
+  it("an untested gen/ edit stays NOT PROVEN with the note", () => {
+    const receipt: ChangeReceipt = {
+      ...base,
+      verdict: "not_proven",
+      reason: "untested",
+      lensFindings: generated("concern", ["src/gen/types.ts (generated)"]),
+    };
+    expect(shipVerdict(receipt)).toBe("NOT PROVEN");
+    expect(generatedNote(receipt)).toBe(
+      "Note: you edited generated files in src/gen/. They may be overwritten on the next build.",
+    );
+  });
+
+  it("an older receipt that failed off_limits_touched for gen/ alone is not NO-SHIP", () => {
+    const receipt: ChangeReceipt = {
+      ...base,
+      lensFindings: generated("fail", ["gen/api.ts (generated)"]),
+    };
+    expect(shipVerdict(receipt)).toBe("SHIP");
+    expect(generatedNote(receipt)).toBe(NOTE);
+  });
+
+  it("vendor plus gen/: NO-SHIP counts the vendored path only, and keeps the note", () => {
+    const receipt: ChangeReceipt = {
+      ...base,
+      lensFindings: generated("fail", ["vendor/lib.ts (vendor)", "gen/api.ts (generated)"]),
+    };
+    expect(shipVerdict(receipt)).toBe("NO-SHIP");
+    expect(renderReceipt(receipt).split("\n")[0]).toBe("Prism · NO-SHIP (1 off-limits path)");
+    expect(renderReceipt(receipt)).toContain(NOTE);
+    expect(receiptTerminalLine(receipt)).not.toMatch(/undo|revert/i);
+  });
+
+  it("names more than one folder", () => {
+    const receipt: ChangeReceipt = {
+      ...base,
+      lensFindings: generated("concern", [
+        "a/gen/x.ts (generated)",
+        "b/generated/y.ts (generated)",
+        "c/z.gen.ts (generated)",
+      ]),
+    };
+    expect(generatedNote(receipt)).toBe(
+      "Note: you edited generated files in a/gen/ and 2 other folders. They may be overwritten on the next build.",
+    );
+  });
+});
+

@@ -6,6 +6,7 @@
 
 import {
   blockingChecks,
+  generatedNote,
   offLimitsTouched,
   preexistingFailures,
   shipVerdict,
@@ -196,10 +197,12 @@ export function renderReceipt(
   if (nothingChanged(receipt))
     return [receiptHeadline(receipt), ...earlier].join("\n");
   // The summary line already says what was touched (files, dependents).
+  const note = generatedNote(receipt);
   const lines = [
     receiptHeadline(receipt),
     receiptSummaryLine(receipt),
     ...earlier,
+    ...(note ? [note] : []),
   ];
   const proven = provenParts(receipt);
   if (proven.length > 0) lines.push(`${pad("Proven")} ${proven.join(" · ")}`);
@@ -293,6 +296,8 @@ export function renderReceiptAtStop(
         "Prism · NOT PROVEN (daemon not running)",
         `${summary} — NOT PROVEN (daemon not running)`,
       ];
+  const note = generatedNote(receipt);
+  if (note) lines.push(note);
   if (receipt.earlier) lines.push(`Earlier change  ${receipt.earlier.summary}`);
   const value = receipt.value ? sessionValueLine(receipt.value) : null;
   if (value) lines.push(value);
@@ -308,6 +313,8 @@ export function renderReceiptMarkdown(receipt: ChangeReceipt): string {
   const lines = [`### ${receiptHeadline(receipt)}`, ""];
   if (nothingChanged(receipt)) return lines.join("\n").trimEnd();
   lines.push("| | |", "|---|---|", `| Touched | ${touchedLine(receipt)} |`);
+  const note = generatedNote(receipt);
+  if (note) lines.push(`| Note | ${cell(note.replace(/^Note: /, ""))} |`);
   const proven = provenParts(receipt);
   if (proven.length > 0) lines.push(`| Proven | ${cell(proven.join(" · "))} |`);
   for (const check of blockingChecks(receipt)) {

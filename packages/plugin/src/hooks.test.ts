@@ -1185,6 +1185,47 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
     expect(JSON.stringify(stop.out ?? {})).not.toMatch(/nothing changed/);
   });
 
+  it("J-07: a gen/ edit gets the note and the checks' verdict, never NO-SHIP or undo", async () => {
+    for (const status of ["concern", "fail"]) {
+      const final = stopReceipt({
+        verdict: "proven",
+        reason: undefined,
+        checksState: "done",
+        lensFindings: [
+          {
+            lens: "Dev",
+            check: "off_limits_touched",
+            status,
+            evidence: ["gen/api.ts (generated)"],
+          },
+        ],
+      });
+      const { home, cwd } = layout(snapshot);
+      const server = await fakeDaemon(home, {
+        receipt: final,
+        status: { running: false, receipt: final },
+      });
+      try {
+        const input = { cwd, session_id: `sw-gen-${status}`, hook_event_name: "Stop" };
+        const [stop, wait] = await Promise.all([
+          runAsync("stop", home, input),
+          runRaw("stop-wait", home, input),
+        ]);
+        expect(stop.out.systemMessage, status).toBe(
+          "Prism · SHIP — the checks this change reaches passed\n" +
+            "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — SHIP\n" +
+            "Note: you edited generated files in gen/. They may be overwritten on the next build.",
+        );
+        expect(wait.stderr, status).toMatch(/^Prism · SHIP\n/);
+        for (const text of [stop.out.systemMessage, wait.stderr]) {
+          expect(text).not.toMatch(/NO-SHIP|undo|revert/i);
+        }
+      } finally {
+        server.close();
+      }
+    }
+  });
+
   it("keeps every wake line under 100 chars with worst-case counts (v2.1)", async () => {
     const worst = {
       verdict: "failed",

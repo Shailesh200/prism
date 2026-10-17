@@ -235,7 +235,8 @@ describe("lens checks (plan §5.3)", () => {
         dependenciesAdded: ["package.json: left-pad"],
       }),
     );
-    expect(status(out, "off_limits_touched")?.status).toBe("fail");
+    // J-07: a generated file is a concern (a note), never a fail.
+    expect(status(out, "off_limits_touched")?.status).toBe("concern");
     expect(status(out, "new_dependency_added")?.status).toBe("concern");
     expect(status(out, "untested_new_branch")?.status).toBe("concern");
     expect(status(out, "untested_changed_symbol")?.status).toBe("concern");
@@ -258,3 +259,28 @@ describe("lens checks (plan §5.3)", () => {
     expect(row.evidence.at(-1)).toBe("+12 more");
   });
 });
+
+describe("J-07: generated files never fail off_limits_touched", () => {
+  const all = [lens("architect"), lens("dev"), lens("qa")];
+  it("an edit under gen/ is a concern with the path as evidence", () => {
+    const out = evaluateLensChecks(
+      all,
+      receipt(),
+      signals({ changed: ["gen/api.ts", "src/b.gen.ts"] }),
+    );
+    const f = status(out, "off_limits_touched");
+    expect(f?.status).toBe("concern");
+    expect(f?.evidence).toEqual(["gen/api.ts (generated)", "src/b.gen.ts (generated)"]);
+  });
+  it("a vendored path still fails, listed before generated ones", () => {
+    const out = evaluateLensChecks(
+      all,
+      receipt(),
+      signals({ changed: ["gen/api.ts", "vendor/lib.ts"] }),
+    );
+    const f = status(out, "off_limits_touched");
+    expect(f?.status).toBe("fail");
+    expect(f?.evidence).toEqual(["vendor/lib.ts (vendor)", "gen/api.ts (generated)"]);
+  });
+});
+

@@ -84,16 +84,22 @@ function compute(
   const untested = new Set(receipt.notProven.map((row) => row.path));
   switch (check) {
     case "off_limits_touched": {
-      const hit = signals.changed
+      // J-07: only vendored paths block. A generated file (gen/, *.gen.ts)
+      // is a concern the receipt turns into a note, never NO-SHIP and never
+      // "undo". Vendored evidence comes first so a long list keeps it.
+      const rows = signals.changed
         .map((path) => ({ path, why: offLimitReason(path) }))
         .filter((row) => row.why);
-      return hit.length === 0
-        ? { check, status: "pass", evidence: [] }
-        : {
-            check,
-            status: "fail",
-            evidence: hit.map((row) => `${row.path} (${row.why})`),
-          };
+      const hit = [
+        ...rows.filter((row) => row.why === "vendor"),
+        ...rows.filter((row) => row.why !== "vendor"),
+      ];
+      if (hit.length === 0) return { check, status: "pass", evidence: [] };
+      return {
+        check,
+        status: hit.some((row) => row.why === "vendor") ? "fail" : "concern",
+        evidence: hit.map((row) => `${row.path} (${row.why})`),
+      };
     }
     case "new_cross_package_edge": {
       // An edge is new when the session added its import line and no other

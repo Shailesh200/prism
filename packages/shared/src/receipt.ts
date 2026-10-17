@@ -220,16 +220,57 @@ export function preexistingFailures(receipt: ChangeReceipt): ReceiptCheck[] {
 /** The verdict a receipt opens with (plan P11). */
 export type ShipVerdict = "SHIP" | "NO-SHIP" | "NOT PROVEN";
 
-/** Changed paths a lens declared off-limits (a failing `off_limits_touched`). */
+/** Off-limits evidence for a generated file (`path (generated)`). */
+const GENERATED_EVIDENCE = " (generated)";
+
+/**
+ * Changed paths a lens declared off-limits (a failing `off_limits_touched`).
+ * Generated files never count (J-07): they get {@link generatedNote}.
+ */
 export function offLimitsTouched(receipt: ChangeReceipt): string[] {
   return (receipt.lensFindings ?? [])
     .filter((f) => f.check === "off_limits_touched" && f.status === "fail")
-    .flatMap((f) => f.evidence);
+    .flatMap((f) => f.evidence)
+    .filter((e) => !e.endsWith(GENERATED_EVIDENCE));
+}
+
+/** Changed generated files (J-07), from the `off_limits_touched` evidence. */
+export function generatedFilesTouched(receipt: ChangeReceipt): string[] {
+  return (receipt.lensFindings ?? [])
+    .filter((f) => f.check === "off_limits_touched")
+    .flatMap((f) => f.evidence)
+    .filter((e) => e.endsWith(GENERATED_EVIDENCE))
+    .map((e) => e.slice(0, -GENERATED_EVIDENCE.length));
+}
+
+const GENERATED_DIR = /^(.*?(?:^|\/)(?:generated|gen|\.generated)\/)/i;
+
+/** The folder a generated file sits in: through its `gen/` segment. */
+function generatedFolder(path: string): string {
+  const match = GENERATED_DIR.exec(path.replace(/\\/g, "/"));
+  if (match) return match[1]!;
+  const slash = path.lastIndexOf("/");
+  return slash > 0 ? path.slice(0, slash + 1) : "";
+}
+
+/**
+ * The note for edited generated files (J-07, Muse), or null. Not a verdict:
+ * the checks alone decide SHIP, NO-SHIP or NOT PROVEN.
+ */
+export function generatedNote(receipt: ChangeReceipt): string | null {
+  const files = generatedFilesTouched(receipt);
+  if (files.length === 0) return null;
+  const folders = [...new Set(files.map(generatedFolder))];
+  const where = folders[0]
+    ? ` in ${folders[0]}${folders.length > 1 ? ` and ${folders.length - 1} other ${folders.length === 2 ? "folder" : "folders"}` : ""}`
+    : "";
+  return `Note: you edited generated files${where}. They may be overwritten on the next build.`;
 }
 
 /**
  * `NO-SHIP` only for a failure this change caused (an already-failing check,
- * or one Prism can't tell is new, never counts) or an off-limits path touched; `SHIP` when proven; otherwise
+ * or one Prism can't tell is new, never counts) or a vendored off-limits path
+ * touched (generated files get a note, J-07); `SHIP` when proven; otherwise
  * `NOT PROVEN`.
  */
 export function shipVerdict(receipt: ChangeReceipt): ShipVerdict {

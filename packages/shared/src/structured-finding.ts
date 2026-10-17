@@ -101,8 +101,16 @@ export function findingsFromLens(finding: LensFinding): Finding[] {
     finding.status === "fail"
       ? "Fix this before shipping."
       : "Confirm it is intended.";
+  // Edited generated files get the receipt's note, not a finding (J-07).
+  const evidence =
+    finding.check === "off_limits_touched"
+      ? finding.evidence.filter((line) => !line.endsWith(" (generated)"))
+      : finding.evidence;
+  if (finding.check === "off_limits_touched" && evidence.length === 0) {
+    return [];
+  }
   const out: Finding[] = [];
-  for (const line of finding.evidence.slice(0, 5)) {
+  for (const line of evidence.slice(0, 5)) {
     const where = line.split(":")[0]?.trim() || finding.check;
     out.push(
       FindingSchema.parse({
