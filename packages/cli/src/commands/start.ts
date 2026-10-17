@@ -243,6 +243,42 @@ function listLines(plan: StartPlan, home: string): string[] {
   return lines;
 }
 
+/**
+ * The one JSON shape of the planned changes (`data.plan`), the same for
+ * `--json --dry-run`, `--json` without `--yes` (refused, exit 1) and
+ * `--json --yes` (applied).
+ */
+export function startPlanJson(
+  plan: StartPlan,
+  names: readonly string[],
+): {
+  readonly hosts: readonly string[];
+  readonly writes: readonly {
+    readonly agent: string;
+    readonly path: string;
+    readonly kind: "file" | "dir";
+    readonly exists: boolean;
+    readonly role: string;
+  }[];
+  readonly wipe: StartPlan["wipe"];
+  readonly backupDir: string;
+  readonly nothingToDo: boolean;
+} {
+  return {
+    hosts: [...names],
+    writes: plan.writes.map((write, i) => ({
+      agent: write.agent,
+      path: write.path,
+      kind: write.kind,
+      exists: write.exists,
+      role: plan.rows[i]?.role ?? "file",
+    })),
+    wipe: plan.wipe,
+    backupDir: plan.backupDir,
+    nothingToDo: plan.nothingToDo,
+  };
+}
+
 /** `prism start`, with the machine (home, TTY, prompt, install) injectable. */
 export function makeStartCommand(
   deps: StartDeps = defaultStartDeps,
@@ -283,15 +319,7 @@ export function makeStartCommand(
       receiptHosts: RECEIPT_HOSTS,
       enableReceipt,
     });
-    const summary = {
-      writes: plan.writes.map(({ path, kind, exists }) => ({
-        path,
-        kind,
-        exists,
-      })),
-      wipe: plan.wipe,
-      backupDir: plan.backupDir,
-    };
+    const summary = startPlanJson(plan, names);
     const backupShown = `${tilde(plan.backupDir, home)}/`;
 
     // Case 7: nothing would change. No question, no backup, no writes.
@@ -299,7 +327,12 @@ export function makeStartCommand(
       const result = await deps.answer(context);
       if (!result.ok) return result;
       return ok({
-        data: { installed: [], alreadySetUp: true, ...result.value.answer },
+        data: {
+          installed: [],
+          alreadySetUp: true,
+          plan: summary,
+          ...result.value.answer,
+        },
         human: ({ width }) =>
           [
             ...wrap(CONSENT_COPY.alreadySetUp(layout.version, names), width),
@@ -330,7 +363,15 @@ export function makeStartCommand(
       // Case 5: the list still prints, so script logs show what changed.
       say(CONSENT_COPY.yesIntro(names));
       for (const line of listLines(plan, home)) say(line);
-    } else if (!deps.isTty() || machine) {
+    } else if (machine) {
+      // `--json` without `--yes` (Atlas): nothing changes. A refusal:
+      // `{ok:false, error:{code:PRISM_YES_REQUIRED, details:{plan}}}`, exit 1.
+      return err(
+        prismError(PrismErrorCode.YES_REQUIRED, CONSENT_COPY.jsonYesRequired, {
+          plan: summary,
+        }),
+      );
+    } else if (!deps.isTty()) {
       // Case 6: nobody to ask. Nothing changes; stderr, exit 1.
       return ok({
         data: { changed: false, reason: "no_tty", plan: summary },
@@ -397,6 +438,7 @@ export function makeStartCommand(
     return ok({
       data: {
         installed: result.installed,
+        plan: summary,
         backups,
         ...(moved ? { movedTo: result.wipe.backupDir } : {}),
         ...answered.value.answer,

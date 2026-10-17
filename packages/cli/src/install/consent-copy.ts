@@ -150,6 +150,9 @@ export const CONSENT_COPY = {
     "To see what it would write: prism start --dry-run",
     "To set up from a script:    prism start --yes",
   ],
+  /** `--json` without `--yes` (Atlas, 16:38): the error message in the JSON. */
+  jsonYesRequired:
+    "--yes is required with --json: Prism did not change anything. The planned changes are in data.plan.",
   /** Case 7 */
   alreadySetUp: (version: string, names: readonly string[]) =>
     `Prism ${version} is already set up for ${names.join(", ")}. Nothing to change.`,

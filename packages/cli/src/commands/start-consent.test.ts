@@ -17,7 +17,8 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ok } from "@repo-prism/shared";
+import { ok, PrismErrorCode, type PrismError } from "@repo-prism/shared";
+import { exitCodeForError } from "../exit.js";
 import { CONSENT_COPY, fileList, wipeBlock } from "../install/consent-copy.js";
 import { planWrites, installHost } from "../install/hosts.js";
 import type { CommandContext, CommandOutcome } from "../runtime.js";
@@ -74,11 +75,19 @@ type Run = {
   err: string[];
   asked: string[];
   answered: number;
+  /** Set when the command refused (an error result). */
+  error?: PrismError;
 };
 
 async function run(
   b: Box,
-  opts: { tty?: boolean; reply?: string; yes?: boolean; dryRun?: boolean } = {},
+  opts: {
+    tty?: boolean;
+    reply?: string;
+    yes?: boolean;
+    dryRun?: boolean;
+    json?: boolean;
+  } = {},
 ): Promise<Run> {
   const out: string[] = [];
   const err: string[] = [];
@@ -105,7 +114,7 @@ async function run(
   };
   const context = {
     options: { yes: opts.yes === true },
-    output: { json: false, width: 100 },
+    output: { json: opts.json === true, width: 100 },
     workspace: { path: b.repo, source: "cwd" },
     writer: {
       out: (t: string) => out.push(t),
@@ -124,7 +133,15 @@ async function run(
     },
   } as unknown as CommandContext;
   const result = await makeStartCommand(deps)(context);
-  if (!result.ok) throw new Error(result.error.message);
+  if (!result.ok)
+    return {
+      outcome: undefined as never,
+      error: result.error,
+      out,
+      err,
+      asked,
+      answered,
+    };
   return { outcome: result.value, out, err, asked, answered };
 }
 
@@ -323,6 +340,59 @@ describe("prism start consent: Muse's 8 cases", () => {
     mkdirSync(join(b2.home, ".prism", "hub"), { recursive: true });
     const dry = human(await run(b2, { dryRun: true }));
     expect(dry).toContain("Prism 1.x data found in ~/.prism.");
+  });
+});
+
+describe("prism start --json (Atlas, 16:38)", () => {
+  type PlanData = { plan: unknown };
+  const data = (r: Run) => r.outcome.data as PlanData;
+
+  it("without --yes: ok:false PRISM_YES_REQUIRED, exit 1, nothing written, the plan in the payload; --dry-run and --yes carry the same plan", async () => {
+    const seed = (b: Box) =>
+      writeFileSync(join(b.home, ".cursor", "mcp.json"), USER_CURSOR);
+    // Refused, even on a TTY: JSON output never prompts.
+    const b1 = box();
+    seed(b1);
+    const before = snapshot(b1.home);
+    const refused = await run(b1, { json: true, tty: true });
+    expect(refused.error?.code).toBe(PrismErrorCode.YES_REQUIRED);
+    expect(refused.error?.code).toBe("PRISM_YES_REQUIRED");
+    expect(exitCodeForError(refused.error!)).toBe(1);
+    expect(refused.error?.message).toBe(CONSENT_COPY.jsonYesRequired);
+    expect(refused.asked).toEqual([]);
+    expect(refused.answered).toBe(0);
+    expect(refused.out).toEqual([]);
+    expect(snapshot(b1.home)).toEqual(before);
+    const plan = (refused.error!.details as { plan: unknown }).plan as {
+      writes: { path: string; exists: boolean; role: string }[];
+    };
+    const cursor = plan.writes.find((w) =>
+      w.path.endsWith(join(".cursor", "mcp.json")),
+    );
+    expect(cursor).toMatchObject({ exists: true, role: "mcp" });
+
+    // --dry-run: exit 0, the same plan.
+    const b2 = box();
+    seed(b2);
+    const dry = await run(b2, { json: true, dryRun: true });
+    expect(dry.error).toBeUndefined();
+    expect(dry.outcome.findings).toBeFalsy();
+    const norm = (p: unknown, home: string) =>
+      JSON.parse(JSON.stringify(p).split(home).join("<HOME>"));
+    expect(norm(data(dry).plan, b2.home)).toEqual(norm(plan, b1.home));
+
+    // --yes: proceeds as normal, and reports the same plan it applied.
+    const b3 = box();
+    seed(b3);
+    const yes = await run(b3, { json: true, yes: true });
+    expect(yes.outcome.findings).toBeFalsy();
+    expect(yes.out).toEqual([]); // no human lines in JSON mode
+    expect(norm(data(yes).plan, b3.home)).toEqual(norm(plan, b1.home));
+    expect(
+      readFileSync(join(b3.backups, "configs", ".cursor", "mcp.json"), "utf8"),
+    ).toBe(USER_CURSOR);
+    expect(existsSync(join(b3.home, ".claude", "settings.json"))).toBe(true);
+    expect(yes.answered).toBe(1);
   });
 });
 

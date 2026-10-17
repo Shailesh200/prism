@@ -181,6 +181,7 @@ Every error reads `PRISM_X: what happened. What to do.`
 | `PRISM_IO_ERROR` | A file could not be read or written | Check permissions and free disk space |
 | `PRISM_UNSUPPORTED` | Not supported yet (e.g. a language Prism does not analyse) | See [known limitations](/docs/help/known-limitations) |
 | `PRISM_CANCELLED` | The operation was cancelled | Rerun it |
+| `PRISM_YES_REQUIRED` | `prism start --json` would change agent configs, and JSON output cannot ask first (exit 1; the planned changes are in `error.details.plan`) | Rerun with `--yes`, or use `--dry-run` to only list them |
 | `PRISM_UNKNOWN` | An unexpected failure | Open an issue with `prism doctor` output |
 
 ## The editors launch different Prism builds

@@ -16,6 +16,8 @@ export const PrismErrorCode = {
   IO_ERROR: "PRISM_IO_ERROR",
   UNSUPPORTED: "PRISM_UNSUPPORTED",
   CANCELLED: "PRISM_CANCELLED",
+  /** A command that changes the machine needs `--yes` where it cannot ask (`prism start --json`). */
+  YES_REQUIRED: "PRISM_YES_REQUIRED",
 } as const;
 
 export type PrismErrorCode =

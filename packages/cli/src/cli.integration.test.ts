@@ -127,6 +127,12 @@ describe("prism binary (M-028)", () => {
       await expect(
         readFile(join(dir, ".cursor", "mcp.json"), "utf8"),
       ).rejects.toThrow();
+      const json = await runCli(["start", "--json"], env(dir), fixture);
+      expect(json.code).toBe(1);
+      const refusal = JSON.parse(json.stdout);
+      expect(refusal.ok).toBe(false);
+      expect(refusal.error.code).toBe("PRISM_YES_REQUIRED");
+      expect(refusal.error.details.plan.writes.length).toBeGreaterThan(0);
       const dry = await runCli(["start", "--dry-run"], env(dir), fixture);
       expect(dry.code).toBe(0);
       expect(dry.stdout).toMatch(/~\/\.cursor\/mcp\.json/);

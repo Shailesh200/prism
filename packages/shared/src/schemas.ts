@@ -43,6 +43,7 @@ export const PrismErrorSchema = z.object({
     PrismErrorCode.IO_ERROR,
     PrismErrorCode.UNSUPPORTED,
     PrismErrorCode.CANCELLED,
+    PrismErrorCode.YES_REQUIRED,
   ]),
   message: z.string().min(1),
   details: JsonValueSchema.optional(),
