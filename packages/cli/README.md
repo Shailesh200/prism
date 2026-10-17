@@ -27,8 +27,8 @@ machine. Nothing is uploaded.
    (`--dry-run` only lists; `--yes` skips the question in scripts). Existing
    files are backed up to `~/.prism-backups/<time>/configs/` first.
    With none found it still indexes; run `prism install <client>` later.
-3. Ask your agent for a change. Prism's `prepare_change` runs first and a
-   receipt prints when the agent stops. From a terminal:
+3. Try: `prism prepare "<task>"`, or ask your agent for a change in plain words.
+   A receipt prints when the agent stops. From a terminal:
    ```bash
    prism prepare "add rate limiting to the login route"
    prism blast src/index.ts --fail-on high
