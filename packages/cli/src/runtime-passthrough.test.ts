@@ -61,12 +61,14 @@ describe("PrismError passthrough (Arc review)", () => {
     );
   });
 
-  it("a known non-IO code keeps its own code", async () => {
-    const { text } = await thrown({
+  it("a known non-IO code keeps its own code and its exit code (VALIDATION: 2)", async () => {
+    const { text, code } = await thrown({
       code: PrismErrorCode.VALIDATION,
       message: "Pick one.",
     });
     expect(text).toContain('"PRISM_VALIDATION"');
+    expect(code).toBe(2);
+    expect(code).toBe(ExitCode.USAGE);
   });
 
   it("an unknown code becomes PRISM_UNKNOWN, and the raw code is not shown as the code", async () => {

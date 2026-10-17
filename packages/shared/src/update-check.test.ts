@@ -1,9 +1,17 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   checkForUpdate,
+  DEFAULT_REGISTRY,
+  registryForCache,
   latestUrl,
   npmRegistry,
   readCachedLatest,
@@ -153,6 +161,86 @@ describe("update notice (PR 10)", () => {
         "https://registry.npmjs.org/@repo-prism/cli/latest",
         "http://127.0.0.1:4873/@repo-prism/cli/latest",
       ]);
+    });
+  });
+
+  describe("no credentials in update.json (Arc review)", () => {
+    it("registryForCache drops user, password, token query and fragment", () => {
+      expect(registryForCache("https://u:secret@npm.example.com/repo/")).toBe(
+        "https://npm.example.com/repo",
+      );
+      expect(registryForCache("https://tok3n@npm.example.com")).toBe(
+        "https://npm.example.com",
+      );
+      expect(
+        registryForCache("https://npm.example.com/r?token=abc&_authToken=x#t"),
+      ).toBe("https://npm.example.com/r");
+      expect(registryForCache("not a url secret")).toBe(
+        "<unparsable registry>",
+      );
+      expect(registryForCache("https://registry.npmjs.org")).toBe(
+        DEFAULT_REGISTRY,
+      );
+    });
+
+    it("the saved update.json has no username, password or token, and the cache is still reused", async () => {
+      const home = mkdtempSync(join(tmpdir(), "prism-update-home-"));
+      dirs.push(home);
+      const env = {
+        HOME: home,
+        PRISM_HOME: join(home, ".prism"),
+        npm_config_registry:
+          "https://alice:hunter2@npm.example.com/r/?token=abc123",
+      };
+      const asked: string[] = [];
+      const first = await checkForUpdate({
+        currentVersion: "2.0.0",
+        entry,
+        env,
+        fetchImpl: fake(asked),
+      });
+      expect(first).toMatchObject({
+        kind: "available",
+        latest: "2.0.1",
+        cached: false,
+      });
+      // The request itself still goes to the configured registry.
+      expect(asked[0]).toContain("npm.example.com");
+      const saved = readFileSync(join(home, ".prism", "update.json"), "utf8");
+      for (const secret of ["alice", "hunter2", "abc123", "token", "@npm"])
+        expect(saved).not.toContain(secret);
+      expect(JSON.parse(saved).registry).toBe("https://npm.example.com/r");
+      const second = await checkForUpdate({
+        currentVersion: "2.0.0",
+        entry,
+        env,
+        fetchImpl: fake(asked),
+      });
+      expect(second).toMatchObject({ kind: "available", cached: true });
+      expect(asked).toHaveLength(1);
+    });
+
+    it("an error that quotes the registry URL does not pass its credentials on", async () => {
+      const home = mkdtempSync(join(tmpdir(), "prism-update-home-"));
+      dirs.push(home);
+      const raw = "https://alice:hunter2@npm.example.com";
+      const outcome = await checkForUpdate({
+        currentVersion: "2.0.0",
+        entry,
+        env: {
+          HOME: home,
+          PRISM_HOME: join(home, ".prism"),
+          npm_config_registry: raw,
+        },
+        fetchImpl: (async () => {
+          throw new TypeError(
+            `Request cannot be constructed from a URL that includes credentials: ${raw}/@repo-prism/cli/latest`,
+          );
+        }) as typeof fetch,
+      });
+      expect(outcome.kind).toBe("unknown");
+      expect(JSON.stringify(outcome)).not.toContain("hunter2");
+      expect(JSON.stringify(outcome)).not.toContain("alice");
     });
   });
 });

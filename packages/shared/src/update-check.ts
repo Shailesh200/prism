@@ -43,6 +43,26 @@ export function npmRegistry(env: NodeJS.ProcessEnv): string {
   return DEFAULT_REGISTRY;
 }
 
+/**
+ * The registry as it may be saved or shown: no username, password or token
+ * (Arc review). The user-info part is dropped, and so are the query and
+ * fragment, where a token could also ride. Something that is not a URL is
+ * never saved as given: it becomes `"<unparsable registry>"`.
+ */
+export function registryForCache(registry: string): string {
+  let url: URL;
+  try {
+    url = new URL(registry);
+  } catch {
+    return "<unparsable registry>";
+  }
+  url.username = "";
+  url.password = "";
+  url.search = "";
+  url.hash = "";
+  return url.toString().replace(/\/+$/, "");
+}
+
 /** `<registry>/@repo-prism/cli/latest` for the registry npm would use. */
 export function latestUrl(env: NodeJS.ProcessEnv): string {
   return `${npmRegistry(env)}/${PACKAGE}/latest`;
@@ -218,7 +238,8 @@ export async function checkForUpdate(
       ? { kind: "available", latest, cached }
       : { kind: "current", latest, cached };
   try {
-    const registry = npmRegistry(input.env);
+    // Compared and saved without credentials; only the request uses them.
+    const registry = registryForCache(npmRegistry(input.env));
     const cache = await readCache(path);
     // A cached answer from another registry (say, a test registry) is not
     // this registry's answer.
@@ -242,9 +263,12 @@ export async function checkForUpdate(
     await writeFile(path, `${JSON.stringify(record)}\n`, "utf8");
     return verdict(latest, false);
   } catch (cause) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    // A fetch error can quote the URL; never pass its credentials on.
+    const raw = npmRegistry(input.env);
     return {
       kind: "unknown",
-      reason: cause instanceof Error ? cause.message : String(cause),
+      reason: reason.split(raw).join(registryForCache(raw)),
     };
   }
 }

@@ -458,6 +458,20 @@ describe("file mode and no in-place writes (Arc review)", () => {
     expect(readFileSync(claude, "utf8")).toBe('{"numStartups":3}');
   });
 
+  it("a plain install keeps a 0640 config at 0640 (the existing file's mode is kept)", async () => {
+    const cursor = put(
+      ".cursor/mcp.json",
+      '{"mcpServers":{"other":{"command":"x"}}}',
+    );
+    chmodSync(cursor, 0o640);
+    const result = await prism(["install", "cursor"]);
+    expect(result.code).toBe(0);
+    expect(
+      JSON.parse(readFileSync(cursor, "utf8")).mcpServers.prism,
+    ).toBeDefined();
+    expect(modeOf(cursor)).toBe(0o640);
+  });
+
   it("rollback puts a 0600 config back at 0600, through a temp file and a rename, never in place", async () => {
     const claude = put(".claude.json", '{"numStartups":3}');
     chmodSync(claude, 0o600);
