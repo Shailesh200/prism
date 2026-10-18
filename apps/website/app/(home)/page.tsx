@@ -38,16 +38,16 @@ function Hero() {
             className="block h-11 w-auto sm:h-14"
           />
           <h1 className="d1 hero-h mt-[22px] sm:mt-7">
-            Your agent starts <em>in the right files.</em>
+            Software intelligence <em>for your agent.</em>
           </h1>
           <p className="hero-sub mt-4 mb-5 sm:mb-6">
-            Prism prepares Claude Code before it edits.
+            Prepare, lenses, and review. On your machine.
           </p>
           <p className="lede hero-lede mb-7">
-            Ask your coding agent for a change in plain words. Prism hands it
-            the files to open, the tests that cover them and the code it can
-            reuse, so it starts in the right place. Everything runs on your
-            machine.
+            Prism maps your repository and stays next to your coding agent.
+            Prepare picks the files to edit. A lens sets how the agent works.
+            Review reads the change and ends with a Receipt: SHIP, NOT PROVEN,
+            or NO-SHIP.
           </p>
           <Command cmd={INSTALL_COMMAND} />
           <div className="hero-acts mt-5">
@@ -190,9 +190,9 @@ function Hero() {
             }
           />
           <p className="cap">
-            What you type, and what your agent gets before its first edit. After
-            the edit, a <Link href="/product/review">lens review</Link> and a
-            receipt check the work.
+            Prepare, before the first edit. After the edit,{" "}
+            <Link href="/product/review">Review</Link> reads the change and a{" "}
+            <Link href="/product/receipts">Receipt</Link> says whether to ship.
           </p>
         </div>
       </Container>
@@ -236,7 +236,7 @@ const WHAT_IT_DOES = [
   {
     title: "What did the agent miss?",
     href: "/product/review",
-    body: "Review ranks this session’s changes by risk, and a lens adds checks like callers left behind and code no test covers.",
+    body: "Review reads the change and groups findings as Critical, High, Low, and Nit, then gives a Receipt.",
   },
   {
     title: "What breaks if I change this?",
@@ -256,7 +256,7 @@ const WHAT_IT_DOES = [
   {
     title: "How should the agent work?",
     href: "/product/lenses",
-    body: "A lens sets how the agent works and what review checks: Dev, Architect, QA or your own.",
+    body: "Dev follows your house style and the blast radius. QA and Architect check the change for bugs and structure.",
   },
   {
     title: "Can it run my routine?",
@@ -297,12 +297,12 @@ export default function HomePage() {
                   ),
                 },
                 {
-                  title: "Ask as usual",
-                  body: "Type your request in plain words. Prism adds the files, tests and code to reuse. No tool names needed.",
+                  title: "Work with a lens",
+                  body: "Dev keeps the edit small and in your house style. QA and Architect check proof and structure.",
                 },
                 {
-                  title: "Review what it missed",
-                  body: "Ask for a review. A lens flags callers left behind and code no test covers. When the agent stops, the receipt says SHIP, NOT PROVEN or NO-SHIP.",
+                  title: "Review, then a Receipt",
+                  body: "Review reads the change and lists Critical, High, Low, and Nit findings. The Receipt says SHIP, NOT PROVEN, or NO-SHIP.",
                 },
               ]}
             />
@@ -318,7 +318,7 @@ export default function HomePage() {
 
         <FeatureBlock
           title="Review, after the edit"
-          lede="The QA lens flags a changed function no test covers, callers the change left behind and tests that reach it but did not run. When your agent stops, Prism runs those tests. If one fails, the receipt says NO-SHIP."
+          lede="Review reads the change with your guardrails and the QA and Architect lenses. Findings are Critical, High, Low, or Nit. The Receipt says SHIP, NOT PROVEN, or NO-SHIP."
         >
           <ChatTerminalPair
             chat={

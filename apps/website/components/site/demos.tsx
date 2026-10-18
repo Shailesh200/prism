@@ -294,43 +294,31 @@ export function ReviewDemo() {
                 <ToolTag>guard_session</ToolTag>
                 <span>review: true · this session</span>
               </div>
-              <div className="rv-risk">
-                <span className="lab">Risk</span>
-                <span className="meter">
-                  <i style={{ width: "40%" }} />
-                </span>
-                <b>40</b>
-                <span className="d">/100</span>
-                <span className="band mid">mid</span>
-              </div>
               <div className="rv-stats">
                 <span>
-                  <b>1</b> changed
+                  <b>1</b> finding
                 </span>
                 <span>
-                  <b>5</b> affected
-                </span>
-                <span>
-                  <b>2</b> tests reach it
+                  Receipt <b>NO-SHIP</b>
                 </span>
               </div>
               <div className="rv-f">
                 <div className="rv-fh">
-                  <span className="sev">high</span>
-                  <span className="lens">QA lens</span>
-                  <span className="ck">dependents_not_in_diff</span>
+                  <span className="sev">Critical</span>
                 </div>
                 <div className="rv-w">
-                  src/billing/totals.ts changes <b>computeTotals</b>; not
-                  edited: credit-note.ts, invoice.ts, test/totals.test.ts
+                  A caller of the changed function was left unchanged (
+                  <b>src/report.ts</b>).
                 </div>
-                <div className="rv-fix">→ Fix this before shipping.</div>
+                <div className="rv-fix">
+                  Change: update that caller, then review again.
+                </div>
               </div>
             </div>
           </Bubble>
           <Bubble who="agent" name="opencode">
-            One fix before the PR: computeTotals now also returns vat, so I’ll
-            update invoice.ts, credit-note.ts and the totals test.
+            One Critical finding: a caller in src/report.ts was left unchanged.
+            I’ll update it, then review again.
           </Bubble>
         </Window>
       }
@@ -338,57 +326,23 @@ export function ReviewDemo() {
         <Window title="~/northwind">
           <Typed cmd="prism review" />
           <Ln>
-            <span className="w">Change review</span>
+            <span className="w">Review</span>
+          </Ln>
+          <Ln>1 finding · Receipt NO-SHIP</Ln>
+          <Ln />
+          <Ln>
+            <span className="w">Critical</span>
+          </Ln>
+          <Ln>1. A caller was left unchanged (`src/report.ts`)</Ln>
+          <Ln>
+            <span className="d"> Change: </span>update that caller
+          </Ln>
+          <Ln />
+          <Ln>
+            <span className="w">Receipt</span>
           </Ln>
           <Ln>
-            <span className="kv">
-              <span className="d">Base</span>working tree
-            </span>
-          </Ln>
-          <Ln>
-            <span className="kv">
-              <span className="d">Risk</span>
-              <span>
-                40/100 <span className="y">Moderate Impact</span>
-              </span>
-            </span>
-          </Ln>
-          <Ln>
-            <span className="kv">
-              <span className="d">Changed files</span>1
-            </span>
-          </Ln>
-          <Ln>
-            <span className="kv">
-              <span className="d">Affected files</span>5
-            </span>
-          </Ln>
-          <Ln>
-            <span className="tbl">
-              <span className="tr th">
-                <span>CHANGED FILE</span>
-                <span>RISK</span>
-                <span>AFFECTS</span>
-                <span>TESTS</span>
-              </span>
-              <span className="tr">
-                <span>src/billing/totals.ts</span>
-                <span className="y">40</span>
-                <span>5</span>
-                <span>2</span>
-              </span>
-            </span>
-          </Ln>
-          <Ln>
-            <span className="sep" />
-            <span className="d">$ </span>
-            prism review --fail-on mid &gt; /dev/null; echo $?
-          </Ln>
-          <Ln>
-            <span className="r">1</span>{" "}
-            <span className="d">
-              # exits 1 when the risk is at or above the band
-            </span>
+            <span className="r">NO-SHIP</span>
           </Ln>
         </Window>
       }

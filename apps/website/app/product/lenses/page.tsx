@@ -9,7 +9,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "Lenses",
   description:
-    "A lens tells your agent how to work on a task: Dev, QA, Architect or your own. Prism picks one from your words and runs its checks on the change.",
+    "A lens tells your agent how to work. Dev follows your house style and the blast radius. QA and Architect check the change. You can add your own.",
   path: "/product/lenses",
 });
 

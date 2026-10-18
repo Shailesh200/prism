@@ -13,9 +13,8 @@ export function SiteFooter() {
           <div>
             <Logo />
             <p className="blurb">
-              Your agent’s second pair of eyes. Know before you ship. Local
-              software intelligence that catches what the agent missed. Free,
-              MIT, runs on your machine.
+              Software intelligence for coding agents. Prepare, lenses, and
+              review, on your machine. Free, MIT.
             </p>
             <StarButton size="sm" />
           </div>

@@ -6,17 +6,17 @@ export const PRODUCTS: Array<NavLink & { blurb: string }> = [
   {
     href: "/product/prepare",
     label: "Prepare",
-    blurb: "Files, tests and helpers first",
+    blurb: "The files to edit, before the change",
   },
   {
     href: "/product/review",
     label: "Review",
-    blurb: "What the agent missed",
+    blurb: "Findings, then a Receipt",
   },
   {
     href: "/product/lenses",
     label: "Lenses",
-    blurb: "Dev, QA, Architect or your own",
+    blurb: "Dev, QA, and Architect",
   },
   {
     href: "/product/blast-radius",

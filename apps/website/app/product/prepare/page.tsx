@@ -20,7 +20,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "Prepare",
   description:
-    "Before your agent's first edit, Prism adds the files to open, the tests and the command to run them, and code to reuse.",
+    "Before your agent edits, Prepare names the files to open, the tests to run, and the code already in the repo to reuse.",
   path: "/product/prepare",
 });
 
@@ -33,7 +33,7 @@ export default function PreparePage() {
             The right context, <em>before the first edit.</em>
           </>
         }
-        lede="When you ask for a change, Prism adds a short list to your request: the files to open, signatures for the top one, the tests and the command to run them."
+        lede="When you ask for a change, Prepare adds the files the agent should edit, the tests that cover them, and code already in the repo to reuse. The agent starts in those files."
         pair={<PrepareDemo />}
       />
 

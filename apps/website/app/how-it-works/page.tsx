@@ -22,7 +22,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "How it works",
   description:
-    "Prism maps your code on your machine, prepares each request, guards edits and reviews the change with your own checks and a lens.",
+    "Prism is software intelligence for your coding agent: it maps your code, prepares each edit, and reviews the change with a Receipt.",
   path: "/how-it-works",
 });
 
@@ -60,10 +60,10 @@ export default function HowItWorksPage() {
           eyebrow="How it works"
           title={
             <>
-              Map, prepare, guard, <em>review.</em>
+              Prepare, lenses, <em>review.</em>
             </>
           }
-          lede="Prism runs on your machine next to your agent. It hands the agent context before an edit and checks the change after."
+          lede="Prism runs on your machine next to your agent. Prepare picks the files. A lens sets how the agent works. Review ends with a Receipt."
         />
         <Step
           n={1}
@@ -89,7 +89,7 @@ export default function HowItWorksPage() {
         <Step
           n={4}
           title="Review"
-          lede="When the agent stops, Prism runs your typecheck, lint, the tests the change reaches and the lens checks. The receipt gives the verdict and the findings."
+          lede="Review reads the change. Guardrails, the QA lens, and the Architect lens supply the checks. Findings are Critical, High, Low, or Nit. The Receipt says SHIP, NOT PROVEN, or NO-SHIP."
         >
           <VerifyDemo />
         </Step>
