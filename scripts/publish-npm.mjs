@@ -18,9 +18,11 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -214,8 +216,23 @@ export function packTarball(stage, published) {
   }
   const filename = `${published.name.replace(/^@/, "").replace("/", "-")}-${published.version}.tgz`;
   const tarball = join(work, filename);
-  const result = spawnSync("tar", ["-czf", tarball, "-C", work, "package"], {
+  // File entries only. macOS tar otherwise adds `._*` forks and a bare
+  // `package/` directory, which the registry rejects (415 invalid path).
+  const files = [];
+  const walk = (dir, prefix) => {
+    for (const name of readdirSync(dir)) {
+      if (name.startsWith("._")) continue;
+      const abs = join(dir, name);
+      const rel = `${prefix}/${name}`;
+      if (statSync(abs).isDirectory()) walk(abs, rel);
+      else files.push(rel);
+    }
+  };
+  walk(packed, "package");
+  const result = spawnSync("tar", ["-czf", tarball, "-C", work, "-T", "-"], {
     encoding: "utf8",
+    input: `${files.join("\n")}\n`,
+    env: { ...process.env, COPYFILE_DISABLE: "1" },
   });
   if (result.status !== 0) {
     fail(`tar failed: ${result.stderr || result.stdout}`);
