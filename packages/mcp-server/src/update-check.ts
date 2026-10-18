@@ -12,7 +12,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { prismHomeDir } from "@repo-prism/shared/prism-home";
 
-const REGISTRY_URL = "https://registry.npmjs.org/@repo-prism/mcp-server/latest";
+const REGISTRY_URL = "https://registry.npmjs.org/@prismapp/mcp-server/latest";
 const FETCH_MS = 2000;
 export const UPDATE_CHECK_TTL_MS = 24 * 60 * 60 * 1000;
 

@@ -9,7 +9,7 @@
 # Prism
 
 [![Website](https://img.shields.io/badge/website-prismhq.in-00c2c2)](https://www.prismhq.in)
-[![npm @repo-prism/cli](https://img.shields.io/npm/v/@repo-prism/cli.svg?label=@repo-prism/cli)](https://www.npmjs.com/package/@repo-prism/cli)
+[![npm @prismapp/cli](https://img.shields.io/npm/v/@prismapp/cli.svg?label=@prismapp/cli)](https://www.npmjs.com/package/@prismapp/cli)
 [![License: MIT](https://img.shields.io/github/license/Shailesh200/prism)](./LICENSE)
 
 **Your agent's second pair of eyes.** Know before you ship.
@@ -26,7 +26,7 @@ no account, and your code never leaves it.
 ## Get started
 
 ```bash
-npm install -g @repo-prism/cli && prism install all
+npm install -g @prismapp/cli && prism install all
 ```
 
 Run the second command inside your repository. `prism install all` connects
@@ -34,13 +34,13 @@ every agent it finds. Quit the agent and open it again. The first use builds
 the index under `~/.prism/`. One agent only: pass its name to `prism install`.
 The install records what it wrote in `~/.prism/install.json`, and
 `prism uninstall` removes exactly that. A new version is
-`npm install -g @repo-prism/cli` then `prism upgrade`. Memories, receipts, and
+`npm install -g @prismapp/cli` then `prism upgrade`. Memories, receipts, and
 habits stay.
 
 Wiring another MCP host by hand? Use this server entry:
 
 ```json
-{ "mcpServers": { "prism": { "command": "npx", "args": ["-y", "@repo-prism/mcp-server@2"] } } }
+{ "mcpServers": { "prism": { "command": "npx", "args": ["-y", "@prismapp/mcp-server@2"] } } }
 ```
 
 Then ask your agent in plain language, for example "what breaks if I change

@@ -15,9 +15,7 @@ describe("pulse", () => {
   it("tags install copy by command", () => {
     expect(installCopyTarget("claude mcp add prism -- prism-mcp")).toBe("mcp");
     expect(
-      installCopyTarget(
-        "npm install -g @repo-prism/cli && prism install claude",
-      ),
+      installCopyTarget("npm install -g @prismapp/cli && prism install claude"),
     ).toBe("cli");
     expect(installCopyTarget("npm install @repo-prism/core")).toBe("core");
     expect(installCopyTarget("bun run verify:milestone")).toBe("source");

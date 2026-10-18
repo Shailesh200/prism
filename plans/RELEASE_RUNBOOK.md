@@ -13,11 +13,11 @@ Rewritten on 17 Oct 2026. The 1.x runbook was about tagging a VSIX for the VS Ma
 
 | Artifact | Where | Trigger |
 |---|---|---|
-| 13 npm packages at `2.0.0`: `@repo-prism/shared`, `analyzer`, `graph-engine`, `impact`, `navigation`, `indexer`, `intelligence`, `core`, `checks`, `daemon`, `mcp-server`, `plugin`, `cli` (order in `scripts/publish-npm.mjs`) | npm | push to `main` → `.github/workflows/publish-npm.yml` (also `prism-npm-v*` and `workflow_dispatch`). A version already on npm is skipped. |
+| 2 npm packages at `2.0.0`: `@prismapp/mcp-server` and `@prismapp/cli`. The other libraries (`shared`, `analyzer`, `graph-engine`, `impact`, `navigation`, `indexer`, `intelligence`, `core`, `checks`, `daemon`, `plugin`) are private and packed inside those two tarballs (`scripts/publish-npm.mjs`) | npm | push to `main` → `.github/workflows/publish-npm.yml` (also `prism-npm-v*` and `workflow_dispatch`). A version already on npm is skipped. |
 | GitHub Action `Shailesh200/prism/action@v2` | this repo, `action/` | a `v2` tag on the release commit |
 | Website | `prismhq.in` (Vercel, `apps/website/vercel.json`) | Vercel on push to `main`, only when `apps/website` changed. The changelog page reads `CHANGELOG.md` from GitHub `main`, so a new version shows up without a site rebuild. |
 
-`test-support` and `ui` are private and are not published.
+`test-support` and `ui` stay private, and so do the libraries packed into the CLI and the server.
 
 ## Before you release
 

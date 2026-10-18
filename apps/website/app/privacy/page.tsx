@@ -77,9 +77,9 @@ export default function PrivacyPage() {
             </Card>
             <Card level={2} icon={<ShieldIcon />} title="One network call">
               At most once a day, a published install asks registry.npmjs.org
-              for a newer <code>@repo-prism/mcp-server</code>. The request
-              carries no repository data, and Prism never downloads or installs
-              the update itself. A checkout of this repo does not check. Set{" "}
+              for a newer <code>@prismapp/mcp-server</code>. The request carries
+              no repository data, and Prism never downloads or installs the
+              update itself. A checkout of this repo does not check. Set{" "}
               <code>PRISM_SKIP_SELF_UPDATE=1</code> to turn it off. A server
               added by hand with <code>npx</code> is downloaded from npm by npx.
             </Card>

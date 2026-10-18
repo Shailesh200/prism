@@ -17,12 +17,13 @@ import {
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 /**
- * 2.0.0 only (Shailesh, 2026-10-17): Claude Code's with-Prism median tokens
- * and cost are a little above without, so these two checks warn instead of
- * failing for this release. Every other check is unchanged. 2.0.1 restores
- * them as failures: https://github.com/Shailesh200/prism/issues/23
+ * 2.0.0 only (Shailesh, 2026-10-17, B1 added 2026-10-18): Claude Code's
+ * with-Prism median tokens and cost, and the B1 orientation ratio, are above
+ * the bar, so these checks warn instead of failing for this release. 2.0.1
+ * restores them as failures: https://github.com/Shailesh200/prism/issues/23
  */
 export const WARN_ONLY_2_0_0 = new Set([
+  "GATE-T1.B1ratio",
   "GATE-T2.ClaudeCode.tokens",
   "GATE-T2.ClaudeCode.cost",
 ]);

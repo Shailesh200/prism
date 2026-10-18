@@ -5,7 +5,7 @@ import { Command } from "./command";
 import { Container } from "./container";
 
 export const INSTALL_COMMAND =
-  "npm install -g @repo-prism/cli && prism install all";
+  "npm install -g @prismapp/cli && prism install all";
 
 export function CtaBand({
   title = "Try it in your repo.",

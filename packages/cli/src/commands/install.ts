@@ -9,8 +9,8 @@
  * runs `npx` or fetches packages:
  * - a built checkout: `--local <checkout>`, or the checkout this CLI runs
  *   from (development);
- * - the `@repo-prism/mcp-server` and `@repo-prism/plugin` packages installed
- *   with this CLI (`npm i -g @repo-prism/cli`).
+ * - the `@repo-prism/mcp-server` and `@repo-prism/plugin` packages bundled
+ *   inside this CLI (`npm i -g @prismapp/cli`).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
@@ -125,7 +125,7 @@ export function packageLayout(from = cliPackageRoot()): SourceLayout | string {
   const server = find("mcp-server");
   const plugin = find("plugin");
   const reinstall =
-    "Reinstall with `npm i -g @repo-prism/cli`, or pass `--local <checkout>`.";
+    "Reinstall with `npm i -g @prismapp/cli`, or pass `--local <checkout>`.";
   if (!server || !plugin)
     return `The Prism server packages are not installed next to this CLI (missing ${[
       !server && "@repo-prism/mcp-server",

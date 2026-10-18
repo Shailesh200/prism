@@ -70,7 +70,8 @@ export function installCopyTarget(command: string): string | undefined {
   if (/prism-mcp|mcp-server/i.test(text) || /mcpServers/i.test(text))
     return "mcp";
   if (/mcp_servers/i.test(text) || /claude mcp add/i.test(text)) return "mcp";
-  if (/@repo-prism\/cli|\bprism (?:doctor|install)\b/i.test(text)) return "cli";
+  if (/@(?:prismapp|repo-prism)\/cli|\bprism (?:doctor|install)\b/i.test(text))
+    return "cli";
   if (/@repo-prism\/core/.test(text)) return "core";
   if (/git clone.*prism/i.test(text) || /bun run verify:milestone/.test(text)) {
     return "source";

@@ -23,7 +23,8 @@ const server = JSON.parse(read("mcp-server", "package.json")) as {
 
 describe("mcp-install", () => {
   it("launches the published server package, whose only bin is prism-mcp", () => {
-    expect(server.name).toBe(PRISM_MCP_PACKAGE);
+    expect(PRISM_MCP_PACKAGE).toBe("@prismapp/mcp-server");
+    expect(server.name).toBe("@repo-prism/mcp-server");
     expect(server.private).not.toBe(true);
     expect(server.version.startsWith("2.")).toBe(true);
     expect(Object.keys(server.bin)).toEqual(["prism-mcp"]);
@@ -38,17 +39,17 @@ describe("mcp-install", () => {
     ).mcpServers.prism;
     expect(entry).toEqual({
       command: "npx",
-      args: ["-y", "@repo-prism/mcp-server@2"],
+      args: ["-y", "@prismapp/mcp-server@2"],
     });
     expect(PRISM_CODEX_TOML).toBe(
-      '[mcp_servers.prism]\ncommand = "npx"\nargs = ["-y", "@repo-prism/mcp-server@2"]\n',
+      '[mcp_servers.prism]\ncommand = "npx"\nargs = ["-y", "@prismapp/mcp-server@2"]\n',
     );
     const oc = (
       JSON.parse(PRISM_OPENCODE_JSON_STRING) as { mcp: { prism: unknown } }
     ).mcp.prism;
     expect(oc).toEqual({
       type: "local",
-      command: ["npx", "-y", "@repo-prism/mcp-server@2"],
+      command: ["npx", "-y", "@prismapp/mcp-server@2"],
       enabled: true,
     });
   });

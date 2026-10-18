@@ -42,7 +42,7 @@ export default function InstallPage() {
           }
           actions={
             <div className="grid w-full gap-3">
-              <Command cmd="npm install -g @repo-prism/cli" />
+              <Command cmd="npm install -g @prismapp/cli" />
               <Command cmd="prism install all" />
               <p className="cap">
                 One agent only: <code>prism install</code> and its name. Add{" "}
@@ -122,7 +122,7 @@ export default function InstallPage() {
               connected agent.
             </Card>
             <Card icon={<LayersIcon />} title="Update">
-              <code>npm install -g @repo-prism/cli</code> then{" "}
+              <code>npm install -g @prismapp/cli</code> then{" "}
               <code>prism upgrade</code>. The first downloads the new version.
               The second points your agents at it. Memories, receipts, and
               habits stay in <code>~/.prism</code>.

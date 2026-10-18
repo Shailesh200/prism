@@ -17,7 +17,7 @@ server, and no Prism cloud.
 
 Once a day at most, `prism-mcp` asks the npm registry
 (`registry.npmjs.org`) for the latest published version of
-`@repo-prism/mcp-server`. The request carries no repository data. The answer is
+`@prismapp/mcp-server`. The request carries no repository data. The answer is
 cached in `~/.prism/update.json`. If a newer version exists, Prism prints
 "update available: run `prism upgrade`"; it never downloads, installs or
 relaunches anything by itself. Local checkouts never check. Set

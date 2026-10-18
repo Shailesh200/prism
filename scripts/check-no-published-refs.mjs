@@ -21,7 +21,7 @@ import {
 
 const root = join(fileURLToPath(import.meta.url), "..", "..");
 export const PUBLISHED_REF =
-  /\b(?:npx|bunx|pnpm\s+dlx|yarn\s+dlx)\b[^\n]{0,60}@repo-prism\/|@repo-prism\/[a-z-]+@(?:latest|next|[\^~]?\d)/;
+  /\b(?:npx|bunx|pnpm\s+dlx|yarn\s+dlx)\b[^\n]{0,60}@(?:repo-prism|prismapp)\/|@(?:repo-prism|prismapp)\/[a-z-]+@(?:latest|next|[\^~]?\d)/;
 
 const TRACKED = [
   "packages/plugin/hooks",
@@ -46,7 +46,7 @@ const BUILT = ["packages/plugin/dist/pack"];
 
 /**
  * Sanctioned references: the one hand-wiring snippet users are taught for
- * the released 2.x server (`npx -y @repo-prism/mcp-server@2`), allowed only
+ * the released 2.x server (`npx -y @prismapp/mcp-server@2`), allowed only
  * in the files that document and test it. A line passes when it is clean
  * once those exact references are taken out, so anything else on the line
  * (another package, `@latest`, a different version) still fails.
@@ -55,7 +55,7 @@ const SANCTIONED_FILES = new Set([
   "docs/start/install.mdx",
   "apps/website/lib/mcp-install.test.ts",
 ]);
-const SANCTIONED_REF = /@repo-prism\/mcp-server@2(?![\w.-])/g;
+const SANCTIONED_REF = /@prismapp\/mcp-server@2(?![\w.-])/g;
 
 export function sanctioned(hit) {
   const [file, , ...rest] = hit.split(":");

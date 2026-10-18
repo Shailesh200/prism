@@ -15,7 +15,9 @@ for (const dir of readdirSync(join(root, "packages"))) {
   const path = join(root, "packages", dir, "package.json");
   if (!existsSync(path)) continue;
   const pkg = JSON.parse(readFileSync(path, "utf8"));
-  if (pkg.private) continue;
+  // test-support is a fixture helper at 0.0.0. The libraries are private on
+  // npm and still lock versions with the two published packages.
+  if (pkg.name === "@repo-prism/test-support") continue;
   versions.set(pkg.name, pkg.version);
   for (const field of [
     "dependencies",

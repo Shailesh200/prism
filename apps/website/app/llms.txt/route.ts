@@ -61,7 +61,7 @@ Every docs page in full: ${site}/llms-full.txt
 
 - [Home](${site}/): what Prism does
 - [${HOW_IT_WORKS.label}](${site}${HOW_IT_WORKS.href}): map, prepare, guard, review
-- [Install](${site}/install): npm install -g @repo-prism/cli, then prism install all
+- [Install](${site}/install): npm install -g @prismapp/cli, then prism install all
 ${installs}
 ${products}
 - [Benchmarks](${site}/benchmarks): what we measured, including where Prism did not help

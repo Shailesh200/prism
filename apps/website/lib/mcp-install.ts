@@ -1,13 +1,13 @@
 /**
  * The MCP entry to add by hand, per agent. It launches the published
- * `@repo-prism/mcp-server` package (its one bin is `prism-mcp`) through npx,
+ * `@prismapp/mcp-server` package (its one bin is `prism-mcp`) through npx,
  * pinned to major 2. No env is needed: the server finds its own bin on the
  * PATH npx sets up. Checked with `initialize` + `tools/list` against a packed
  * install; see lib/mcp-install.test.ts for the package facts it relies on.
  */
 
 export const PRISM_MCP_SERVER_NAME = "prism";
-export const PRISM_MCP_PACKAGE = "@repo-prism/mcp-server";
+export const PRISM_MCP_PACKAGE = "@prismapp/mcp-server";
 
 export const PRISM_MCP_TRANSPORT = {
   command: "npx",

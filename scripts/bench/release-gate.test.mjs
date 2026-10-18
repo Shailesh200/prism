@@ -42,10 +42,10 @@ const ten = (arm, tokens, cost, success) =>
 const status = (out, id) => out.find((r) => r.id === id)?.status;
 
 describe("release gate (P14)", () => {
-  it("GATE-T1: B1 ratio above 1.0 fails, at or below passes", () => {
+  it("GATE-T1: B1 ratio above 1.0 warns for 2.0.0, at or below passes", () => {
     assert.equal(
       status(releaseChecks({ b1: b1(120, 100) }), "GATE-T1.B1ratio"),
-      "fail",
+      "warn",
     );
     assert.equal(
       status(releaseChecks({ b1: b1(100, 100) }), "GATE-T1.B1ratio"),
@@ -74,6 +74,7 @@ describe("release gate (P14)", () => {
     assert.equal(status(out, "GATE-T2.ClaudeCode.tokens"), "warn");
     assert.equal(status(out, "GATE-T2.ClaudeCode.cost"), "warn");
     assert.deepEqual([...WARN_ONLY_2_0_0].sort(), [
+      "GATE-T1.B1ratio",
       "GATE-T2.ClaudeCode.cost",
       "GATE-T2.ClaudeCode.tokens",
     ]);

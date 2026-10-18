@@ -132,7 +132,7 @@ export default async function AgentInstallPage({ params }: Props) {
           lede={agent.lede}
           actions={
             <div className="grid w-full gap-4">
-              <Command cmd="npm install -g @repo-prism/cli" />
+              <Command cmd="npm install -g @prismapp/cli" />
               <Command cmd={`prism install ${agent.client}`} />
               {agent.notes && (
                 <Window title="~/northwind">
