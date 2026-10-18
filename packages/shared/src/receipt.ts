@@ -69,6 +69,8 @@ export const NOT_PROVEN_REASONS = [
   "superseded",
   /** No session-start record, so the change set was never established. */
   "no_session",
+  /** An operational file does the opposite of what the change is for. */
+  "wrong_result",
 ] as const;
 export const NotProvenReasonSchema = z.enum(NOT_PROVEN_REASONS);
 export type NotProvenReason = z.infer<typeof NotProvenReasonSchema>;
@@ -198,7 +200,11 @@ export function offLimitsTouched(receipt: ChangeReceipt): string[] {
  * `NOT PROVEN`.
  */
 export function shipVerdict(receipt: ChangeReceipt): ShipVerdict {
-  if (receipt.verdict === "failed" || offLimitsTouched(receipt).length > 0) {
+  if (
+    receipt.verdict === "failed" ||
+    receipt.reason === "wrong_result" ||
+    offLimitsTouched(receipt).length > 0
+  ) {
     return "NO-SHIP";
   }
   return receipt.verdict === "proven" ? "SHIP" : "NOT PROVEN";

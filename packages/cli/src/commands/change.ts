@@ -288,7 +288,12 @@ export const reviewCommand: CommandHandler = async (context) => {
           [
             ["Base", review.base ?? "working tree"],
             riskLine(review.overallRisk, color),
-            ["Changed files", String(review.items.length)],
+            [
+              "Changed files",
+              review.truncated
+                ? `${review.items.length} of ${review.truncated.total}`
+                : String(review.items.length),
+            ],
             ["Affected files", String(review.totalAffectedFiles)],
           ],
           color,
@@ -314,6 +319,45 @@ export const reviewCommand: CommandHandler = async (context) => {
 
       const note = truncationNote(items, "changed files");
       if (note) lines.push(paint(note, "dim", color));
+      if (review.truncated) {
+        lines.push(
+          paint(
+            `Analysed ${review.truncated.analysed} of ${review.truncated.total} changed files, including workflows and vercel.json.`,
+            "dim",
+            color,
+          ),
+        );
+      }
+      if (review.judgments && review.judgments.length > 0) {
+        lines.push("", renderHeading("Judgment", color));
+        review.judgments.forEach((finding, index) => {
+          lines.push(
+            `${index + 1}. ${finding.what}`,
+            `   Where: ${finding.where}`,
+            `   Fix: ${finding.fix}`,
+          );
+        });
+      }
+      if (review.reading) {
+        lines.push("", renderHeading("Read the code", color));
+        lines.push(`Order: ${review.reading.order.join(", ")}`);
+        if (review.reading.proven.length > 0) {
+          lines.push("Already wrong:");
+          for (const found of review.reading.proven) {
+            lines.push(`  ${found.where}: ${found.what}`);
+            lines.push(`  Fix: ${found.fix}`);
+          }
+        }
+        if (review.reading.targets.length > 0) {
+          lines.push("Open these, then only the callers listed:");
+          for (const target of review.reading.targets) {
+            lines.push(
+              `  ${target.path}  risk ${Math.round(target.risk)}  callers ${target.callers.length}  tests ${target.tests.length}`,
+            );
+          }
+        }
+        lines.push(paint(review.reading.notChecked, "dim", color));
+      }
       if (lens) lines.push("", ...renderLens(lens, color, width));
       return lines.join("\n");
     },

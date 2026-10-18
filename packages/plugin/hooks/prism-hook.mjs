@@ -613,7 +613,10 @@ function renderReceiptLite(receipt) {
   const offLimits = (receipt.lensFindings ?? [])
     .filter((f) => f.check === "off_limits_touched" && f.status === "fail")
     .flatMap((f) => f.evidence ?? []).length;
-  const noShip = receipt.verdict === "failed" || offLimits > 0;
+  const noShip =
+    receipt.verdict === "failed" ||
+    offLimits > 0 ||
+    receipt.reason === "wrong_result";
   const label = noShip
     ? "NO-SHIP"
     : receipt.verdict === "proven"
@@ -622,6 +625,7 @@ function renderReceiptLite(receipt) {
   const why = [
     ...(failed > 0 ? [`${plural(failed, "check")} failed`] : []),
     ...(offLimits > 0 ? [plural(offLimits, "off-limits path")] : []),
+    ...(receipt.reason === "wrong_result" ? ["wrong result"] : []),
   ];
   const headline = noShip
     ? `Prism · NO-SHIP (${why.join(", ")})`

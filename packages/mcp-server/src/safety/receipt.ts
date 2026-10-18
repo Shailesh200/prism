@@ -23,8 +23,11 @@ import {
 import type { PrismWorkspace } from "@repo-prism/core";
 import {
   findingsFromReceiptParts,
+  isOperationalPath,
   isSupportedSourcePath,
   isTestPath,
+  judgeOperational,
+  mergeFindings,
   ok,
   sourceLanguageOf,
   type ChangeReceipt,
@@ -442,7 +445,7 @@ export async function buildStructuralReceipt(
   const proof = selectProof(candidates, receipt, root, options.env);
   if (proof) receipt.proof = proof;
   return ok({
-    receipt,
+    receipt: withOperationalJudgment(receipt, root, sessionPaths),
     plan:
       checksState === "pending"
         ? {
@@ -557,13 +560,64 @@ export async function completeReceipt(
     plan.root,
     options.env,
   );
+  return withOperationalJudgment(
+    {
+      ...settled,
+      findings: findingsFromReceiptParts({
+        flags: settled.flags,
+        lensFindings: settled.lensFindings,
+      }),
+      ...(proof ? { proof } : {}),
+    },
+    plan.root,
+    plan.sessionPaths,
+  );
+}
+
+/**
+ * A high judgment is a wrong result, so the receipt is not SHIP even when
+ * every test passed. Tests do not read a workflow or a Vercel command.
+ */
+function withOperationalJudgment(
+  receipt: ChangeReceipt,
+  root: string,
+  paths: readonly string[],
+): ChangeReceipt {
+  const judgments = [];
+  for (const path of paths) {
+    if (!isOperationalPath(path)) continue;
+    const abs = join(root, path);
+    if (!existsSync(abs)) continue;
+    let text = "";
+    try {
+      text = readFileSync(abs, "utf8");
+    } catch {
+      continue;
+    }
+    judgments.push(...judgeOperational(path, text));
+  }
+  if (judgments.length === 0) return receipt;
+  const findings = mergeFindings([...(receipt.findings ?? []), ...judgments]);
+  const blocking = judgments.some((item) => item.riskIfSkipped === "high");
+  if (
+    !blocking ||
+    receipt.verdict === "failed" ||
+    receipt.reason === "superseded"
+  ) {
+    return { ...receipt, findings };
+  }
+  const { proof: _proof, ...rest } = receipt;
   return {
-    ...settled,
-    findings: findingsFromReceiptParts({
-      flags: settled.flags,
-      lensFindings: settled.lensFindings,
-    }),
-    ...(proof ? { proof } : {}),
+    ...rest,
+    findings,
+    verdict: "not_proven",
+    reason: "wrong_result",
+    notProven: [
+      ...receipt.notProven,
+      ...judgments
+        .filter((item) => item.riskIfSkipped === "high")
+        .map((item) => ({ path: item.where, reason: item.what })),
+    ],
   };
 }
 
@@ -620,6 +674,7 @@ const REASON_TEXT: Partial<Record<NotProvenReason, string>> = {
   already_failing: "its tests were already failing",
   superseded: "a newer change replaced it before its tests finished",
   no_session: "no session start was recorded, so this change was not proven",
+  wrong_result: "a command in this change does the opposite of what it is for",
 };
 
 function notProvenRows(

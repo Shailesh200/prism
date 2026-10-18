@@ -107,10 +107,10 @@ export function registerPrompts(server: McpServer): void {
                 flow,
                 // A review that only reads the patch is the failure mode here:
                 // it sees what changed and misses what depends on it.
-                "Do not review by reading the raw diff alone — guard_session and blast_radius say what depends on the change, so lead with what they report.",
-                "Judge the change against this repo's real conventions. Call blast_radius on anything the roll-up flags as risky.",
-                "Summarise risk, what could break, and which tests to run.",
-                "Separate what Prism reported from your own reading of the code, and do not invent dependents — use the tool results.",
+                "Call guard_session with review true, then blast_radius on anything it flags. Lead with the measured risk, then write the code review from review.reading.",
+                "Open reading.targets. Use only the callers and tests listed there. Treat reading.proven as already wrong.",
+                "Order: correct, safe, load, tested, speed, lean. Each finding needs a concrete case: this input leads to this wrong result.",
+                "Report what the change does, numbered findings (what this is, problem, fix, if we skip it), then Ship or which numbers to fix first.",
               ].join(" "),
             },
           },

@@ -33,6 +33,7 @@ export function receiptHeadline(receipt: ChangeReceipt): string {
     const why = [
       ...(failed > 0 ? [`${plural(failed, "check")} failed`] : []),
       ...(offLimits > 0 ? [`${plural(offLimits, "off-limits path")}`] : []),
+      ...(receipt.reason === "wrong_result" ? ["wrong result"] : []),
     ];
     return `Prism · NO-SHIP (${why.join(", ")})`;
   }

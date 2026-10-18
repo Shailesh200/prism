@@ -93,7 +93,10 @@ import {
   err,
   ok,
   prismError,
-  REVIEW_ANALYSED_CAP,
+  buildCodeReading,
+  judgeOperational,
+  isOperationalPath,
+  selectReviewPaths,
   REVIEW_LARGE_DIFF,
   riskToBand,
   unsafeRepoId,
@@ -1754,24 +1757,37 @@ export function createWorkspace(options: {
         if (refusal) unsupported.push({ path, message: refusal.message });
         return refusal === null;
       });
-      // RC-3: a huge diff (codemod) analyses the 100 paths with the most
-      // importers, the cheapest proxy for risk, and says so.
-      let analysed = paths;
+      // RC-3: a huge diff analyses the 100 source files with the most
+      // importers, plus operational files (workflows, vercel.json) that
+      // nothing imports. Those decide what runs, so dropping them hides
+      // a command that does the opposite of what the change is for.
+      const importers = new Map<string, number>();
       if (paths.length > REVIEW_LARGE_DIFF) {
-        const importers = new Map<string, number>();
         for (const edge of buildDependencyGraph(gate.value).graph.edges) {
           const to = edge.to.replace(/^file:/, "");
           importers.set(to, (importers.get(to) ?? 0) + 1);
         }
-        analysed = [...paths]
-          .sort(
-            (a, b) =>
-              (importers.get(b) ?? 0) - (importers.get(a) ?? 0) ||
-              a.localeCompare(b),
-          )
-          .slice(0, REVIEW_ANALYSED_CAP);
+      }
+      const selected = selectReviewPaths(
+        paths,
+        (path) => importers.get(path) ?? 0,
+      );
+      const analysed = selected.analysed;
+      const judgments = [];
+      for (const path of paths.filter(isOperationalPath).slice(0, 40)) {
+        const abs = joinPath(rootPath, path);
+        if (!existsSync(abs)) continue;
+        let text = "";
+        try {
+          text = readFileSync(abs, "utf8");
+        } catch {
+          continue;
+        }
+        judgments.push(...judgeOperational(path, text));
       }
       const items: ChangeReviewItem[] = [];
+      const callersOf = new Map<string, string[]>();
+      const testsOf = new Map<string, string[]>();
       for (const path of analysed) {
         const origin = { kind: "file" as const, id: path, path };
         const blast = computeBlastRadius(origin, context);
@@ -1780,6 +1796,14 @@ export function createWorkspace(options: {
         if (!testImpact.ok) return testImpact;
         const hints = computeBreakingChangeHints(origin, context);
         if (!hints.ok) return hints;
+        callersOf.set(
+          path,
+          blast.value.affectedFiles.slice(0, 5).map((file) => file.path),
+        );
+        testsOf.set(
+          path,
+          testImpact.value.tests.slice(0, 5).map((test) => test.path),
+        );
         items.push({
           path: blast.value.origin.path ?? path,
           risk: blast.value.risk,
@@ -1816,9 +1840,25 @@ export function createWorkspace(options: {
         totalTestsAffected,
         totalBreakingChanges,
         ...(unsupported.length > 0 ? { unsupported } : {}),
-        ...(analysed.length < paths.length
-          ? { truncated: { total: paths.length, analysed: analysed.length } }
-          : {}),
+        ...(selected.truncated ? { truncated: selected.truncated } : {}),
+        ...(judgments.length > 0 ? { judgments } : {}),
+        reading: buildCodeReading({
+          targets: items.map((item) => ({
+            path: item.path,
+            risk: item.risk,
+            callers: callersOf.get(item.path) ?? [],
+            tests:
+              testsOf.get(item.path) ?? item.testsLikelyAffected.slice(0, 5),
+          })),
+          proven: judgments
+            .filter((item) => item.riskIfSkipped === "high")
+            .map((item) => ({
+              what: item.what,
+              where: item.where,
+              fix: item.fix,
+            })),
+          ...(selected.truncated ? { truncated: selected.truncated } : {}),
+        }),
         ...(input.paths.length === 0 ? { message: "nothing changed" } : {}),
       } satisfies ChangeReviewReport);
     },
