@@ -31,7 +31,7 @@ export default function SecurityPage() {
               Report a <em>problem.</em>
             </>
           }
-          lede="Found a vulnerability? Report it privately with a GitHub security advisory. For bugs and ideas, open an issue on GitHub."
+          lede="Found a vulnerability? Report it privately with a GitHub security advisory, or email hello@shaileshjha.in. For bugs and ideas, open an issue on GitHub."
         />
         <section className="sec">
           <Container className="grid2">
@@ -39,7 +39,8 @@ export default function SecurityPage() {
               <h2 className="t">Report a vulnerability</h2>
               <p>
                 Private GitHub security advisory, as SECURITY.md asks. Please
-                don’t open a public issue for it.
+                don’t open a public issue for it. You can also email{" "}
+                <a href="mailto:hello@shaileshjha.in">hello@shaileshjha.in</a>.
               </p>
               <div className="mt-4">
                 <Button href={ADVISORY}>Open advisory</Button>

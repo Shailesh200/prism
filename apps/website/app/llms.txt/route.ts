@@ -69,6 +69,7 @@ ${products}
 - [Open source](${site}/open-source): MIT licence and contributing
 - [Privacy](${site}/privacy): no account, no telemetry; data stays in ~/.prism/
 - [Security](${site}/security): how to report a vulnerability
+- Contact: hello@shaileshjha.in
 
 ## Documentation
 

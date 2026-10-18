@@ -36,7 +36,8 @@ export default function OpenSourcePage() {
             <div>
               <h2 className="d3 mb-5">Contribute</h2>
               <p className="lede text-[18px]">
-                Open an issue or a pull request on GitHub.{" "}
+                Open an issue or a pull request on GitHub, or email{" "}
+                <a href="mailto:hello@shaileshjha.in">hello@shaileshjha.in</a>.{" "}
                 <code>CONTRIBUTING.md</code> explains the setup. Report security
                 issues privately (see{" "}
                 <Link href="/security">

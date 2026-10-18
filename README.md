@@ -19,7 +19,7 @@ your coding agent the right files before it edits, then flags the code it
 skipped and the code no test covers. Free, MIT, and it runs on your machine:
 no account, and your code never leaves it.
 
-**Website:** [prismhq.in](https://www.prismhq.in) · **Docs:** [prismhq.in/docs](https://www.prismhq.in/docs)
+**Website:** [prismhq.in](https://www.prismhq.in) · **Docs:** [prismhq.in/docs](https://www.prismhq.in/docs) · **Contact:** [hello@shaileshjha.in](mailto:hello@shaileshjha.in)
 
 ---
 
