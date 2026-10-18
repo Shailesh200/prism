@@ -94,8 +94,8 @@ export function registerPrompts(server: McpServer): void {
     async (args) => {
       const base = typeof args.base === "string" ? args.base.trim() : "";
       const flow = base
-        ? `Call guard_session for the change against "${base}", then blast_radius on anything it flags.`
-        : "Call guard_session so Prism ranks the working-tree change, then blast_radius on anything it flags.";
+        ? `Call guard_session with review true for the change against "${base}".`
+        : "Call guard_session with review true for the working-tree change.";
       return {
         messages: [
           {
@@ -107,10 +107,10 @@ export function registerPrompts(server: McpServer): void {
                 flow,
                 // A review that only reads the patch is the failure mode here:
                 // it sees what changed and misses what depends on it.
-                "Call guard_session with review true, then blast_radius on anything it flags. Lead with the measured risk, then write the code review from review.reading.",
-                "Open reading.targets. Use only the callers and tests listed there. Treat reading.proven as already wrong.",
+                "First write the code review from review.reading. Open reading.targets. Use only the callers and tests listed there. Treat reading.proven as already wrong.",
                 "Order: correct, safe, load, tested, speed, lean. Each finding needs a concrete case: this input leads to this wrong result.",
                 "Report what the change does, numbered findings (what this is, problem, fix, if we skip it), then Ship or which numbers to fix first.",
+                "Then report the measured reach: risk, affected files, and tests. Call blast_radius on anything the reading or that reach flags.",
               ].join(" "),
             },
           },

@@ -1789,9 +1789,15 @@ export function createWorkspace(options: {
       const callersOf = new Map<string, string[]>();
       const testsOf = new Map<string, string[]>();
       for (const path of analysed) {
+        // A deleted or unindexed file must not abort the review. The code
+        // reading and the reach report still run for the files that resolve.
+        if (!existsSync(joinPath(rootPath, path))) continue;
         const origin = { kind: "file" as const, id: path, path };
         const blast = computeBlastRadius(origin, context);
-        if (!blast.ok) return blast;
+        if (!blast.ok) {
+          if (blast.error.code === PrismErrorCode.NOT_FOUND) continue;
+          return blast;
+        }
         const testImpact = computeTestImpact(origin, context);
         if (!testImpact.ok) return testImpact;
         const hints = computeBreakingChangeHints(origin, context);

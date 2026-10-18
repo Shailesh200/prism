@@ -1,9 +1,12 @@
 /**
- * The reading half of a review. Blast radius says what can break. This says
- * which files to open and how to judge them: correct, safe, load, tested,
- * speed, then lean. A finding without a concrete case is not a finding.
- * Prism does not call a model. The host writes the prose from this pack.
+ * The first pass of a review: read the code, then report reach.
+ * Order is correct, safe, load, tested, speed, then lean. A finding without
+ * a concrete case is not a finding. Command files stay out of this list;
+ * their judgments travel in `proven`. Prism does not call a model. The host
+ * writes the prose from this pack, then reports risk, affected files, and tests.
  */
+
+import { isOperationalPath } from "./operational-judge.js";
 
 export const CODE_READING_ORDER = [
   "correct",
@@ -24,6 +27,7 @@ export const CODE_READING_RULES = [
   "Lean: dead code, a copy of a helper that already exists, a dependency for a few lines. Prefer a fix that deletes code.",
   "Every finding needs a concrete case: this input leads to this wrong result. No case, no finding.",
   "Write what the change does, then numbered findings (what this is, problem, fix, if we skip it), then Ship or which numbers to fix first.",
+  "After that report, give the measured reach: risk, affected files, and tests. That reach is not a finding by itself.",
 ] as const;
 
 /** How many of the riskiest files the reading pack names. */
@@ -53,7 +57,10 @@ export function buildCodeReading(input: {
   }[];
   readonly truncated?: { readonly total: number; readonly analysed: number };
 }): CodeReading {
-  const targets = [...input.targets]
+  const source = input.targets.filter(
+    (target) => !isOperationalPath(target.path),
+  );
+  const targets = [...source]
     .sort((a, b) => b.risk - a.risk || a.path.localeCompare(b.path))
     .slice(0, CODE_READING_TARGETS);
   const skipped = input.truncated
@@ -61,8 +68,8 @@ export function buildCodeReading(input: {
     : 0;
   const notChecked =
     skipped > 0
-      ? `${skipped} changed files were not opened. The pack is the highest-import source files plus workflows and vercel.json.`
-      : "Every changed file was in the measured set. Callers beyond the five listed on a file were not named.";
+      ? `${skipped} changed files were not opened. This list is the highest-risk source files. Command files are judged apart from it.`
+      : "Callers beyond the five listed on a file were not named.";
   return {
     order: [...CODE_READING_ORDER],
     rules: [...CODE_READING_RULES],
