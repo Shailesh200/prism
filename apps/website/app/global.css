@@ -1854,9 +1854,24 @@ figure pre,
     padding-top: 20px;
     border-top: 1px solid var(--rule2);
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
+    align-items: baseline;
+    gap: 12px 24px;
     color: var(--ink3);
     font-size: 13.5px;
+  }
+
+  .foot .base .mine {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    column-gap: 18px;
+  }
+
+  .foot .base .mine a {
+    display: inline;
+    padding: 0;
   }
 
   .cfg-f {
@@ -3078,7 +3093,8 @@ body:has(.pnav) [id] {
       min-height: 40px;
     }
 
-    .foot .base a {
+    .foot .base a,
+    .foot .base .mine a {
       display: inline-flex;
       align-items: center;
       min-height: 40px;

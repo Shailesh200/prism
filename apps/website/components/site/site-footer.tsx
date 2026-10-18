@@ -31,8 +31,11 @@ export function SiteFooter() {
         </div>
         <div className="base">
           <span>MIT licence · prismhq.in</span>
-          <a href="mailto:hello@shaileshjha.in">hello@shaileshjha.in</a>
-          <a href={GITHUB}>github.com/Shailesh200/prism</a>
+          <span className="mine">
+            <a href="https://shaileshjha.in">shaileshjha.in</a>
+            <a href="mailto:hello@shaileshjha.in">hello@shaileshjha.in</a>
+            <a href={GITHUB}>github.com/Shailesh200/prism</a>
+          </span>
         </div>
       </Container>
     </footer>
