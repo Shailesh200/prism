@@ -24,15 +24,17 @@ export const CODE_READING_RULES = [
   "Speed: a big slowdown is Low or High. A small repeated cost is a Nit.",
   "Smaller code: dead code, a copy of a helper that already exists, a dependency for a few lines. Prefer a change that deletes code.",
   "Every finding needs a concrete case: this input leads to this wrong result. No case, no finding.",
-  "Write what the change does in two or three sentences. Group findings as Critical, High, Low, and Nit. Number them straight through. Leave empty groups out.",
-  "Each finding has a title, a path, This code, Breaks when, Change, and Left as is.",
+  "Write what the change does in two or three sentences, then the finding count. Do not put a Receipt on that line.",
+  "Group findings as Critical, High, Low, and Nit. Bold each group title. Number findings straight through. Leave empty groups out.",
+  "Bold each finding title, then the path. Under it, an unordered list: This code, Breaks when, Change, and Left as is.",
   "Critical: a wrong result, a security hole, lost data, or a change that does the opposite of what it is for.",
   "High: an edge that can happen, new risky logic with no test that fails when it breaks, or behavior that will not hold at the real load.",
   "Low: a duplicate, a slower path, or a bounded case that does not change the outcome for the way this code is used.",
   "Nit: a line that can go, a name, or a comment.",
   "Notes already on this pack are proven. Keep them. Do not soften a Critical.",
-  "End with a Receipt. NO-SHIP if any finding is Critical. NOT PROVEN if any finding is High. Otherwise SHIP. One line why. When it is not SHIP, name the cheapest check or fix.",
-  "Do not print risk scores. Then one line for what was not opened.",
+  "After the findings, one explanation line and no Receipt label. Then one line for what was not opened.",
+  "End with one Receipt only: the verdict, then the cheapest check or fix when it is not SHIP. NO-SHIP if any finding is Critical. NOT PROVEN if any finding is High. Otherwise SHIP.",
+  "Do not print risk scores.",
 ] as const;
 
 export const REVIEW_SEVERITIES = ["critical", "high", "low", "nit"] as const;

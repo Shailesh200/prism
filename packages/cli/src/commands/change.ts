@@ -17,6 +17,7 @@ import {
 } from "@repo-prism/shared";
 import { reviewLensFindings } from "@repo-prism/mcp-server/review";
 import { paint, renderFields, renderHeading } from "../output.js";
+import { renderReviewReading } from "./review-text.js";
 import type { CommandHandler, CommandContext } from "../runtime.js";
 import { bandStyle, plural, renderTable, wrap } from "../table.js";
 import { allWorkspaceRelative, resolveTarget } from "../target.js";
@@ -281,60 +282,19 @@ export const reviewCommand: CommandHandler = async (context) => {
     findings,
     human({ color, width }) {
       const reading = review.reading;
-      const lines: string[] = [renderHeading("Review", color)];
       if (!reading) {
-        lines.push("No reading for this change.");
+        const lines = [
+          renderHeading("Review", color),
+          "No reading for this change.",
+        ];
         if (lens) lines.push("", ...renderLens(lens, color, width));
         return lines.join("\n");
       }
-      const labels = {
-        critical: "Critical",
-        high: "High",
-        low: "Low",
-        nit: "Nit",
-      } as const;
-      lines.push(
-        `${reading.notes.length} ${reading.notes.length === 1 ? "finding" : "findings"} · Receipt ${reading.receipt.verdict}`,
-      );
-      let number = 0;
-      for (const severity of ["critical", "high", "low", "nit"] as const) {
-        const notes = reading.notes.filter(
-          (note) => note.severity === severity,
-        );
-        if (notes.length === 0) continue;
-        lines.push("", labels[severity]);
-        for (const note of notes) {
-          number += 1;
-          lines.push(
-            `${number}. ${note.title} (\`${note.where}\`)`,
-            `   This code: ${note.thisCode}`,
-            `   Breaks when: ${note.breaksWhen}`,
-            `   Change: ${note.change}`,
-            `   Left as is: ${note.leftAsIs}`,
-          );
-        }
-      }
-      const open = reading.targets.slice(0, limit.value);
-      if (open.length > 0) {
-        lines.push("", "Still to read");
-        for (const target of open) lines.push(`  ${target.path}`);
-      }
-      const tone =
-        reading.receipt.verdict === "NO-SHIP"
-          ? "red"
-          : reading.receipt.verdict === "SHIP"
-            ? "green"
-            : "yellow";
-      lines.push(
-        "",
-        "Receipt",
-        paint(reading.receipt.verdict, tone, color),
-        reading.receipt.why,
-      );
-      if (reading.receipt.next) lines.push(reading.receipt.next);
-      lines.push("", paint(reading.notChecked, "dim", color));
-      if (lens) lines.push("", ...renderLens(lens, color, width));
-      return lines.join("\n");
+      return renderReviewReading(reading, {
+        color,
+        limit: limit.value,
+        ...(lens ? { beforeReceipt: renderLens(lens, color, width) } : {}),
+      }).join("\n");
     },
   });
 };

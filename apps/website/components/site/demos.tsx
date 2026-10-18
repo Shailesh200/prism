@@ -298,21 +298,25 @@ export function ReviewDemo() {
                 <span>
                   <b>1</b> finding
                 </span>
-                <span>
-                  Receipt <b>NO-SHIP</b>
-                </span>
               </div>
               <div className="rv-f">
                 <div className="rv-fh">
                   <span className="sev">Critical</span>
                 </div>
                 <div className="rv-w">
-                  A caller of the changed function was left unchanged (
-                  <b>src/report.ts</b>).
+                  <b>1.</b> A caller was left unchanged (<b>src/report.ts</b>)
                 </div>
                 <div className="rv-fix">
                   Change: update that caller, then review again.
                 </div>
+              </div>
+              <div className="rv-why">
+                A caller of the changed function was left unchanged.
+              </div>
+              <div className="rv-stats rv-end">
+                <span>
+                  Receipt <b>NO-SHIP</b>
+                </span>
               </div>
             </div>
           </Bubble>
@@ -328,15 +332,24 @@ export function ReviewDemo() {
           <Ln>
             <span className="w">Review</span>
           </Ln>
-          <Ln>1 finding · Receipt NO-SHIP</Ln>
+          <Ln>1 finding</Ln>
           <Ln />
           <Ln>
             <span className="w">Critical</span>
           </Ln>
-          <Ln>1. A caller was left unchanged (`src/report.ts`)</Ln>
           <Ln>
-            <span className="d"> Change: </span>update that caller
+            1. <span className="w">A caller was left unchanged</span>{" "}
+            (`src/report.ts`)
           </Ln>
+          <Ln>
+            <span className="d"> - This code: </span>one caller still uses the
+            old result
+          </Ln>
+          <Ln>
+            <span className="d"> - Change: </span>update that caller
+          </Ln>
+          <Ln />
+          <Ln>A caller of the changed function was left unchanged.</Ln>
           <Ln />
           <Ln>
             <span className="w">Receipt</span>

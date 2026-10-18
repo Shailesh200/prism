@@ -2172,6 +2172,16 @@ figure pre,
     font-family: var(--mono);
   }
 
+  .rv-why {
+    margin-top: 8px;
+    color: var(--cfg);
+  }
+
+  .rv-stats.rv-end {
+    margin-top: 8px;
+    margin-bottom: 0;
+  }
+
   .rv-f {
     border: 1px solid #f2907f55;
     border-left: 3px solid var(--cbad);
