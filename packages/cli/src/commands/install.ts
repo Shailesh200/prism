@@ -17,7 +17,13 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { err, ok, PrismErrorCode, prismError } from "@repo-prism/shared";
+import {
+  err,
+  ok,
+  PrismErrorCode,
+  prismError,
+  type PrismError,
+} from "@repo-prism/shared";
 import {
   readInstallRecord,
   writeInstallRecord,
@@ -32,15 +38,21 @@ import {
 } from "@repo-prism/shared/user-config";
 import { stopDaemon } from "@repo-prism/daemon";
 import {
+  annotateInstallFile,
   INSTALL_HOSTS,
   installHost,
   removeInstallFile,
+  rollBack,
   setJsonKey,
+  withJournal,
   type InstallFile,
   type InstallHost,
   type InstallScope,
 } from "../install/hosts.js";
+import { backupDir, tilde } from "../install/backups.js";
 import { wipe1x } from "../install/wipe.js";
+import { UPDATE_COMMAND, updateLine } from "@repo-prism/shared/update-check";
+import { checkCliUpdate, type UpdateDeps } from "../update-line.js";
 import type { CommandContext, CommandHandler } from "../runtime.js";
 import { wrap } from "../table.js";
 
@@ -210,6 +222,96 @@ export function buildLabel(source: string): string {
     : sha;
 }
 
+/**
+ * What an errno means, in words, and what to do about it (Muse, PR 10).
+ * Any other code is shown as-is with "Fix what's blocking the file, then
+ * run the command again."
+ */
+export function failureReason(code: string): {
+  readonly reason: string;
+  readonly fix: string;
+} {
+  switch (code) {
+    case "EBUSY":
+      return {
+        reason: "the file is in use",
+        fix: "Close the app using it, then run the command again.",
+      };
+    case "EACCES":
+    case "EPERM":
+      return {
+        reason: "permission denied",
+        fix: "Check the file's permissions, then run the command again.",
+      };
+    case "ENOSPC":
+      return {
+        reason: "the disk is full",
+        fix: "Free some space, then run the command again.",
+      };
+    case "EROFS":
+      return {
+        reason: "the file is read-only",
+        fix: "Make it writable, then run the command again.",
+      };
+    default:
+      return {
+        reason: code,
+        fix: "Fix what's blocking the file, then run the command again.",
+      };
+  }
+}
+
+/** Same words as PR 1's `CONSENT_COPY.backupsAre` (Muse-approved). */
+export const backupsAre = (dir: string) => `Backups are in ${dir}.`;
+
+/** The backup line for a run that copied something, else nothing. */
+export function backupLines(root: string | undefined): string[] {
+  return root ? [backupsAre(`${tilde(root, homedir())}/`)] : [];
+}
+
+/** The message for a failed install, after the rollback (J-15). */
+export function installFailureMessage(
+  where: string | undefined,
+  code: string,
+  kept: readonly string[],
+): string {
+  const { reason, fix } = failureReason(code);
+  const what = `${where ? `Prism couldn't write ${where}` : "Prism couldn't finish the install"} (${reason}).`;
+  return kept.length === 0
+    ? `${what} All agent configs are back as they were. ${fix}`
+    : [
+        `${what} These couldn't be put back:`,
+        ...kept,
+        "Run prism uninstall to remove Prism's changes from them, then run the command again.",
+      ].join("\n");
+}
+
+/** The friendly error for a failed install, after the rollback (J-15). */
+function installFailure(
+  cause: unknown,
+  undo: ReturnType<typeof rollBack>,
+  backupRoot: string | undefined,
+): PrismError {
+  const error = cause as NodeJS.ErrnoException & { dest?: string };
+  // The temp file is an implementation detail: name the user's config.
+  const where = (error?.dest ?? error?.path)?.replace(/\.prism-\d+\.tmp$/, "");
+  const code =
+    error?.code ?? (error instanceof Error ? error.message : String(cause));
+  return prismError(
+    PrismErrorCode.IO_ERROR,
+    installFailureMessage(
+      where,
+      code,
+      undo.kept.map((k) => k.path),
+    ),
+    {
+      restored: undo.restored,
+      kept: undo.kept,
+      ...(backupRoot ? { backupDir: backupRoot } : {}),
+    },
+  );
+}
+
 export async function runInstall(run: InstallRun) {
   const wipe = await wipe1x({
     env: run.env,
@@ -233,10 +335,65 @@ export async function runInstall(run: InstallRun) {
     bin: run.layout.bin,
     pack: run.layout.pack,
   };
-  for (const host of installed) {
-    const result = installHost({ ...target, host });
-    files.push(...result.files);
-    notes.push(...result.notes);
+  const key = (file: InstallFile) =>
+    `${file.kind}:${file.path}:${"key" in file ? file.key.join(".") : ""}`;
+  const earlier = new Map(kept.map((file) => [key(file), file]));
+  // Every config write is journaled with its old bytes. A failure part-way
+  // puts each written config back, removes the temp file, and still records
+  // anything that could not be put back, so `prism uninstall` finds it (J-15).
+  // Each existing config is copied to `~/.prism-backups/<UTC stamp>/` before
+  // Prism first writes it, the folder `prism start` uses (Arc review).
+  const run1 = withJournal(
+    () => {
+      for (const host of installed) {
+        const result = installHost({ ...target, host });
+        files.push(...result.files);
+        notes.push(...result.notes);
+      }
+    },
+    { backup: { base: backupDir(run.env, new Date()), home: target.home } },
+  );
+  const backupRoot =
+    run1.backupRoot ??
+    (previous.kind === "ok" ? previous.record.backupDir : undefined);
+  if (run1.error !== undefined) {
+    const undo = rollBack(run1.journal);
+    const left = new Set(undo.kept.map((k) => k.path));
+    const stranded = files
+      .filter((file) => left.has(file.path))
+      .map((file) =>
+        annotateInstallFile(file, run1.journal, earlier.get(key(file))),
+      );
+    if (stranded.length > 0) {
+      const merged = new Map<string, InstallFile>();
+      for (const file of [...stillOnDisk(kept), ...stranded])
+        merged.set(key(file), file);
+      const now = new Date().toISOString();
+      writeInstallRecord(
+        {
+          version: run.layout.version,
+          bin: run.layout.bin,
+          installedAt:
+            previous.kind === "ok" ? previous.record.installedAt : now,
+          updatedAt: now,
+          hosts: [
+            ...new Set([
+              ...(previous.kind === "ok" ? previous.record.hosts : []),
+              ...installed,
+            ]),
+          ].sort(),
+          scope: run.scope,
+          root: run.root,
+          ...(run.layout.source ? { source: run.layout.source } : {}),
+          ...(backupRoot ? { backupDir: backupRoot } : {}),
+          files: [...merged.values()].map((file) =>
+            file.kind === "json-key" ? { ...file, key: [...file.key] } : file,
+          ),
+        },
+        run.env,
+      );
+    }
+    throw installFailure(run1.error, undo, run1.backupRoot);
   }
   if (
     installed.some((host) => RECEIPT_HOSTS.includes(host)) &&
@@ -245,11 +402,13 @@ export async function runInstall(run: InstallRun) {
     notes.push(
       "Enabled the `receipt` MCP tool (extraTools) for the Cursor/Codex/opencode rule path.",
     );
-  const key = (file: InstallFile) =>
-    `${file.kind}:${file.path}:${"key" in file ? file.key.join(".") : ""}`;
   const merged = new Map<string, InstallFile>();
-  for (const file of [...stillOnDisk(kept), ...files])
-    merged.set(key(file), file);
+  for (const file of stillOnDisk(kept)) merged.set(key(file), file);
+  for (const file of files)
+    merged.set(
+      key(file),
+      annotateInstallFile(file, run1.journal, earlier.get(key(file))),
+    );
   const hosts = new Set([
     ...(previous.kind === "ok" ? previous.record.hosts : []),
     ...installed,
@@ -265,6 +424,7 @@ export async function runInstall(run: InstallRun) {
     scope: run.scope,
     root: run.root,
     ...(run.layout.source ? { source: run.layout.source } : {}),
+    ...(backupRoot ? { backupDir: backupRoot } : {}),
     files: [...merged.values()].map((file) =>
       file.kind === "json-key" ? { ...file, key: [...file.key] } : file,
     ),
@@ -279,6 +439,8 @@ export async function runInstall(run: InstallRun) {
     notes,
     installed,
     build,
+    /** This run's backup folder, when it copied anything (Arc review). */
+    backupRoot: run1.backupRoot,
   } as const;
 }
 
@@ -320,6 +482,7 @@ export const installCommand: CommandHandler = async (
     data: {
       record,
       written: files,
+      ...(result.backupRoot ? { backupDir: result.backupRoot } : {}),
       wipe: wipe.kind === "wiped" ? wipe : { kind: wipe.kind },
       notes,
     },
@@ -332,6 +495,7 @@ export const installCommand: CommandHandler = async (
         ),
         ...skipped.map((host) => `${HOST_NAMES[host]} not found; skipped.`),
         ...notes.flatMap((note) => wrap(note, width)),
+        ...backupLines(result.backupRoot),
       ].join("\n"),
   });
 };
@@ -382,8 +546,20 @@ export const uninstallCommand: CommandHandler = async (context) => {
   });
 };
 
-export const upgradeCommand: CommandHandler = async () => {
-  const env = process.env;
+/**
+ * `prism upgrade` downloads nothing: it re-links the agents to the Prism
+ * installed next to this CLI. So it first says when a newer Prism is on npm
+ * and names the command that gets it, and says "up to date" when the
+ * installed build is already the one the agents use (PR 10).
+ */
+export function upgradeWith(deps: UpdateDeps = {}): CommandHandler {
+  return async () => upgrade(deps);
+}
+
+export const upgradeCommand: CommandHandler = upgradeWith();
+
+async function upgrade(deps: UpdateDeps) {
+  const env = deps.env ?? process.env;
   const previous = readInstallRecord(env);
   if (previous.kind !== "ok")
     return err(
@@ -402,6 +578,36 @@ export const upgradeCommand: CommandHandler = async () => {
     INSTALL_HOSTS.includes(host as InstallHost),
   );
   const before = record.version;
+  // An npm install checks npm first; a checkout (`skipped`) re-links its
+  // fresh build as before.
+  const update = await checkCliUpdate({ ...deps, env });
+  if (update.kind !== "skipped") {
+    if (update.kind === "available")
+      return ok({
+        data: {
+          from: before,
+          installed: layout.version,
+          latest: update.latest,
+          command: UPDATE_COMMAND,
+          updated: false,
+        },
+        human: () => updateLine(update.latest),
+      });
+    if (before === layout.version)
+      return ok({
+        data: {
+          from: before,
+          to: before,
+          hosts,
+          updated: false,
+          ...(update.kind === "unknown" ? { checkFailed: update.reason } : {}),
+        },
+        human: () =>
+          update.kind === "unknown"
+            ? `Prism ${before} is installed. Couldn't reach npm to check for updates. To update, run: ${UPDATE_COMMAND}`
+            : `Prism is up to date (${before}).`,
+      });
+  }
   // The daemon restarts on next use with the new build (lockstep versions, §3.2).
   await stopDaemon({ env });
   const result = await runInstall({
@@ -424,8 +630,12 @@ export const upgradeCommand: CommandHandler = async () => {
       to: result.record.version,
       hosts,
       source: layout.source,
+      ...(result.backupRoot ? { backupDir: result.backupRoot } : {}),
     },
     human: () =>
-      `Prism ${before} → ${result.record.version} (${layout.source ? `local build from ${layout.source}` : `npm package ${dirname(dirname(layout.bin))}`}); re-linked ${hosts.join(", ")}. The daemon restarts on next use.`,
+      [
+        `Prism ${before} → ${result.record.version} (${layout.source ? `local build from ${layout.source}` : `npm package ${dirname(dirname(layout.bin))}`}); re-linked ${hosts.join(", ")}. The daemon restarts on next use.`,
+        ...backupLines(result.backupRoot),
+      ].join("\n"),
   });
-};
+}

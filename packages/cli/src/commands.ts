@@ -35,6 +35,7 @@ import {
 import { overviewCommand } from "./commands/overview.js";
 import { startCommand } from "./commands/start.js";
 import { doctorCommand } from "./commands/doctor.js";
+import { withUpdateLine } from "./update-line.js";
 import { statsCommand } from "./commands/stats.js";
 import { indexCommand } from "./commands/index-command.js";
 import {
@@ -62,7 +63,7 @@ export const COMMANDS: readonly CommandSpec[] = [
     group: "Set up",
     summary:
       "Install Prism for every coding agent found here, index this repo and show its map",
-    handler: startCommand,
+    handler: withUpdateLine(startCommand),
     examples: ["prism start"],
   },
   {
@@ -124,7 +125,7 @@ export const COMMANDS: readonly CommandSpec[] = [
     name: "doctor",
     group: "Diagnostics",
     summary: "Check the environment, workspace and index",
-    handler: doctorCommand,
+    handler: withUpdateLine(doctorCommand),
     arguments: [
       {
         syntax: "[topic]",

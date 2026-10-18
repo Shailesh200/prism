@@ -57,10 +57,26 @@ const SANCTIONED_FILES = new Set([
 ]);
 const SANCTIONED_REF = /@repo-prism\/mcp-server@2(?![\w.-])/g;
 
+/**
+ * The update notice (PR 10, Muse): the one command users run to update,
+ * `npm i -g @repo-prism/cli@latest`. It is text shown to the user, never
+ * run by Prism, and allowed only in the stop hook that prints it (source and
+ * built pack) and its test.
+ */
+const UPDATE_NOTICE_FILES = new Set([
+  "packages/plugin/hooks/prism-hook.mjs",
+  "packages/plugin/dist/pack/hooks/prism-hook.mjs",
+  "packages/plugin/src/update-notice.test.ts",
+]);
+const UPDATE_NOTICE_REF = /npm i -g @repo-prism\/cli@latest(?![\w.-])/g;
+
 export function sanctioned(hit) {
   const [file, , ...rest] = hit.split(":");
+  const line = rest.join(":");
+  if (UPDATE_NOTICE_FILES.has(file))
+    return !PUBLISHED_REF.test(line.replace(UPDATE_NOTICE_REF, ""));
   if (!SANCTIONED_FILES.has(file)) return false;
-  return !PUBLISHED_REF.test(rest.join(":").replace(SANCTIONED_REF, ""));
+  return !PUBLISHED_REF.test(line.replace(SANCTIONED_REF, ""));
 }
 
 /** The TRACKED pathspecs, for the scan without git. */
@@ -120,8 +136,8 @@ function walk(dir) {
       readFileSync(path, "utf8")
         .split("\n")
         .forEach((line, i) => {
-          if (PUBLISHED_REF.test(line))
-            hits.push(`${relative(root, path)}:${i + 1}:${line.trim()}`);
+          const hit = `${relative(root, path)}:${i + 1}:${line.trim()}`;
+          if (PUBLISHED_REF.test(line) && !sanctioned(hit)) hits.push(hit);
         });
     }
   }

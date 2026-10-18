@@ -37,28 +37,47 @@ export const InstallRecordSchema = z
     root: z.string().min(1).optional(),
     /** `--local` checkout the binaries come from (local builds only). */
     source: z.string().min(1).optional(),
+    /** Last run's backup folder (`~/.prism-backups/<UTC stamp>`), when it made one. */
+    backupDir: z.string().min(1).optional(),
     /** Everything install wrote, so uninstall removes exactly that. */
     files: z
       .array(
         z.union([
+          // `created`: Prism made the file, so uninstall may delete it when
+          // nothing else is left. `existingDepth` / `hadHooks`: what of the
+          // key path was the user's before install (kept on uninstall).
           z
             .object({
               kind: z.literal("json-key"),
               path: z.string(),
               key: z.array(z.string()),
+              created: z.boolean().optional(),
+              existingDepth: z.number().int().nonnegative().optional(),
             })
             .strict(),
           z
-            .object({ kind: z.literal("claude-hooks"), path: z.string() })
+            .object({
+              kind: z.literal("claude-hooks"),
+              path: z.string(),
+              created: z.boolean().optional(),
+              hadHooks: z.boolean().optional(),
+            })
             .strict(),
           z
             .object({
               kind: z.literal("block"),
               path: z.string(),
               marker: z.enum(["md", "toml"]),
+              created: z.boolean().optional(),
             })
             .strict(),
-          z.object({ kind: z.literal("file"), path: z.string() }).strict(),
+          z
+            .object({
+              kind: z.literal("file"),
+              path: z.string(),
+              created: z.boolean().optional(),
+            })
+            .strict(),
         ]),
       )
       .optional(),

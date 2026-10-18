@@ -1,0 +1,311 @@
+/**
+ * Update notice (plan §2.3; PR 10). A check, cached for 24 h in
+ * `~/.prism/update.json`. It never re-launches anything and never installs
+ * anything: it only says a newer Prism is out and names the one command
+ * that gets it, `npm i -g @repo-prism/cli@latest` (`prism upgrade` downloads
+ * nothing). The MCP server runs it in the background; `prism start`,
+ * `prism doctor` and `prism upgrade` run it too; the stop hook only reads
+ * the cache (`readCachedLatest`), never the network.
+ *
+ * A local checkout (the development build) is never checked: it is not an
+ * installed release, so "newer on npm" means nothing for it.
+ */
+
+import { readFileSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { prismHomeDir } from "./prism-home.js";
+
+/** npm's default registry, used when npm's own config names none. */
+export const DEFAULT_REGISTRY = "https://registry.npmjs.org";
+/** `@repo-prism/cli`: the package `UPDATE_COMMAND` installs (Arc review). */
+const PACKAGE = "@repo-prism/cli";
+/** The default registry's answer for `@repo-prism/cli@latest`. */
+export const REGISTRY_URL = `${DEFAULT_REGISTRY}/${PACKAGE}/latest`;
+
+/**
+ * The registry npm itself would use, from npm's standard env config:
+ * `npm_config_registry`, read case-insensitively the way npm does (so
+ * `NPM_CONFIG_REGISTRY` works too; the lower-case spelling wins when both
+ * are set). No Prism-specific variable. Falls back to registry.npmjs.org.
+ */
+export function npmRegistry(env: NodeJS.ProcessEnv): string {
+  const keys = Object.keys(env).filter(
+    (key) => key.toLowerCase() === "npm_config_registry",
+  );
+  keys.sort((a, b) =>
+    a === "npm_config_registry" ? -1 : b === "npm_config_registry" ? 1 : 0,
+  );
+  for (const key of keys) {
+    const value = env[key]?.trim();
+    if (value) return value.replace(/\/+$/, "");
+  }
+  return DEFAULT_REGISTRY;
+}
+
+/**
+ * The registry as it may be saved or shown: no username, password or token
+ * (Arc review). The user-info part is dropped, and so are the query and
+ * fragment, where a token could also ride. Something that is not a URL is
+ * never saved as given: it becomes `"<unparsable registry>"`.
+ */
+export function registryForCache(registry: string): string {
+  let url: URL;
+  try {
+    url = new URL(registry);
+  } catch {
+    return "<unparsable registry>";
+  }
+  url.username = "";
+  url.password = "";
+  url.search = "";
+  url.hash = "";
+  return url.toString().replace(/\/+$/, "");
+}
+
+/** `<registry>/@repo-prism/cli/latest` for the registry npm would use. */
+export function latestUrl(env: NodeJS.ProcessEnv): string {
+  return `${npmRegistry(env)}/${PACKAGE}/latest`;
+}
+const FETCH_MS = 2000;
+export const UPDATE_CHECK_TTL_MS = 24 * 60 * 60 * 1000;
+
+type Semver = {
+  readonly major: number;
+  readonly minor: number;
+  readonly patch: number;
+  readonly prerelease: readonly string[];
+};
+
+const SEMVER =
+  /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/;
+
+export function parseSemver(raw: string): Semver | undefined {
+  const match = SEMVER.exec(raw.trim());
+  if (!match) return undefined;
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    prerelease: match[4] ? match[4].split(".") : [],
+  };
+}
+
+function compareIdentifiers(a: string, b: string): number {
+  const an = /^\d+$/.test(a);
+  const bn = /^\d+$/.test(b);
+  if (an && bn) return Number(a) - Number(b);
+  if (an) return -1;
+  if (bn) return 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** Semver 2.0.0 precedence: negative when a < b, 0 when equal, positive when a > b. */
+export function compareSemver(a: Semver, b: Semver): number {
+  for (const key of ["major", "minor", "patch"] as const) {
+    if (a[key] !== b[key]) return a[key] - b[key];
+  }
+  if (a.prerelease.length === 0 || b.prerelease.length === 0) {
+    return b.prerelease.length - a.prerelease.length;
+  }
+  const n = Math.max(a.prerelease.length, b.prerelease.length);
+  for (let i = 0; i < n; i++) {
+    const left = a.prerelease[i];
+    const right = b.prerelease[i];
+    if (left === undefined) return -1;
+    if (right === undefined) return 1;
+    const cmp = compareIdentifiers(left, right);
+    if (cmp !== 0) return cmp;
+  }
+  return 0;
+}
+
+export function isNewerVersion(latest: string, current: string): boolean {
+  const a = parseSemver(latest);
+  const b = parseSemver(current);
+  if (!a || !b) return false;
+  return compareSemver(a, b) > 0;
+}
+
+/** A checkout (development build), as opposed to an installed package. */
+export function isLocalCheckout(entry: string | undefined): boolean {
+  if (!entry) return false;
+  const normalized = entry.replaceAll("\\", "/");
+  if (normalized.includes("/node_modules/")) return false;
+  return (
+    normalized.includes("/packages/mcp-server/") ||
+    normalized.endsWith("/src/bin.ts")
+  );
+}
+
+export type UpdateCache = {
+  readonly checkedAt: string;
+  readonly latest: string;
+  /** The registry asked, when it was not the default one. */
+  readonly registry?: string;
+};
+
+export function updateCachePath(env: NodeJS.ProcessEnv = process.env): string {
+  return join(prismHomeDir(env), "update.json");
+}
+
+export type UpdateCheckOutcome =
+  | { readonly kind: "skipped"; readonly reason: "local-checkout" | "disabled" }
+  | {
+      readonly kind: "current";
+      readonly latest: string;
+      readonly cached: boolean;
+    }
+  | {
+      readonly kind: "available";
+      readonly latest: string;
+      readonly cached: boolean;
+    }
+  | { readonly kind: "unknown"; readonly reason: string };
+
+export type UpdateCheckInput = {
+  readonly currentVersion: string;
+  readonly env: NodeJS.ProcessEnv;
+  readonly entry?: string;
+  readonly now?: () => number;
+  readonly fetchImpl?: typeof fetch;
+};
+
+async function readCache(path: string): Promise<UpdateCache | undefined> {
+  let raw: string;
+  try {
+    raw = await readFile(path, "utf8");
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw cause;
+  }
+  const parsed = JSON.parse(raw) as Partial<UpdateCache>;
+  if (
+    typeof parsed.checkedAt !== "string" ||
+    typeof parsed.latest !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    checkedAt: parsed.checkedAt,
+    latest: parsed.latest,
+    ...(typeof parsed.registry === "string"
+      ? { registry: parsed.registry }
+      : {}),
+  };
+}
+
+async function fetchLatest(
+  fetchImpl: typeof fetch,
+  url: string,
+): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_MS);
+  try {
+    const response = await fetchImpl(url, {
+      signal: controller.signal,
+      headers: { accept: "application/json" },
+    });
+    if (!response.ok) throw new Error(`registry answered ${response.status}`);
+    const body = (await response.json()) as { version?: unknown };
+    if (typeof body.version !== "string") {
+      throw new Error("registry answer has no version");
+    }
+    return body.version;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Decide whether a newer release exists. Uses the cached answer when it is
+ * younger than 24 h. Errors are returned as `unknown` with the reason, never
+ * thrown, so the caller can log them.
+ */
+export async function checkForUpdate(
+  input: UpdateCheckInput,
+): Promise<UpdateCheckOutcome> {
+  if (input.env.PRISM_SKIP_SELF_UPDATE === "1") {
+    return { kind: "skipped", reason: "disabled" };
+  }
+  if (isLocalCheckout(input.entry)) {
+    return { kind: "skipped", reason: "local-checkout" };
+  }
+  const now = input.now ?? Date.now;
+  const path = updateCachePath(input.env);
+  const verdict = (latest: string, cached: boolean): UpdateCheckOutcome =>
+    isNewerVersion(latest, input.currentVersion)
+      ? { kind: "available", latest, cached }
+      : { kind: "current", latest, cached };
+  try {
+    // Compared and saved without credentials; only the request uses them.
+    const registry = registryForCache(npmRegistry(input.env));
+    const cache = await readCache(path);
+    // A cached answer from another registry (say, a test registry) is not
+    // this registry's answer.
+    if (
+      cache &&
+      (cache.registry ?? DEFAULT_REGISTRY) === registry &&
+      now() - Date.parse(cache.checkedAt) < UPDATE_CHECK_TTL_MS
+    ) {
+      return verdict(cache.latest, true);
+    }
+    const latest = await fetchLatest(
+      input.fetchImpl ?? fetch,
+      latestUrl(input.env),
+    );
+    await mkdir(dirname(path), { recursive: true });
+    const record: UpdateCache = {
+      checkedAt: new Date(now()).toISOString(),
+      latest,
+      ...(registry === DEFAULT_REGISTRY ? {} : { registry }),
+    };
+    await writeFile(path, `${JSON.stringify(record)}\n`, "utf8");
+    return verdict(latest, false);
+  } catch (cause) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    // A fetch error can quote the URL; never pass its credentials on.
+    const raw = npmRegistry(input.env);
+    return {
+      kind: "unknown",
+      reason: reason.split(raw).join(registryForCache(raw)),
+    };
+  }
+}
+
+/** The one command that updates Prism (Muse, PR 10). */
+export const UPDATE_COMMAND = "npm i -g @repo-prism/cli@latest";
+
+/** `Prism 2.0.1 is out. To update, run: npm i -g @repo-prism/cli@latest` */
+export function updateLine(latest: string): string {
+  return `Prism ${latest} is out. To update, run: ${UPDATE_COMMAND}`;
+}
+
+/** The MCP server's stderr line, or undefined when nothing newer is out. */
+export function updateNotice(outcome: UpdateCheckOutcome): string | undefined {
+  return outcome.kind === "available"
+    ? `prism-mcp: ${updateLine(outcome.latest)}\n`
+    : undefined;
+}
+
+/**
+ * The newer version the last check saw, from the cache only (any age: a
+ * newer release stays newer). Never the network, never throws.
+ */
+export function readCachedLatest(
+  currentVersion: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  if (env.PRISM_SKIP_SELF_UPDATE === "1") return undefined;
+  try {
+    const parsed = JSON.parse(
+      readFileSync(updateCachePath(env), "utf8"),
+    ) as Partial<UpdateCache>;
+    return typeof parsed.latest === "string" &&
+      isNewerVersion(parsed.latest, currentVersion)
+      ? parsed.latest
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}

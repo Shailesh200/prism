@@ -70,7 +70,9 @@ describe("checkForUpdate", () => {
       latest: "2.1.0",
       cached: false,
     });
-    expect(updateNotice(first)).toContain("run `prism upgrade`");
+    expect(updateNotice(first)).toBe(
+      "prism-mcp: Prism 2.1.0 is out. To update, run: npm i -g @repo-prism/cli@latest\n",
+    );
     now += UPDATE_CHECK_TTL_MS - 1;
     expect(await checkForUpdate(input)).toMatchObject({ cached: true });
     expect(calls.n).toBe(1);
