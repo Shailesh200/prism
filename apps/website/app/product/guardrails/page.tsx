@@ -41,7 +41,10 @@ const AGENTS: Array<[agent: string, how: string]> = [
     "With hooks",
     "Session start, before and after an edit, and stop, where the agent supports them",
   ],
-  ["With a rule", "The MCP server plus a rule that asks the agent to call Prism"],
+  [
+    "With a rule",
+    "The MCP server plus a rule that asks the agent to call Prism",
+  ],
 ];
 
 export default function GuardrailsPage() {

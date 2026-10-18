@@ -390,13 +390,13 @@ export default function ReceiptsPage() {
         title="Check the branch, too."
         lede={
           <>
-            Where hooks are available, the receipt prints when the agent
-            stops. Otherwise the rule asks the agent to call{" "}
-            <code>receipt</code> before it says it is done;{" "}
-            <code>prism install</code> turns that tool on. Before a push,{" "}
-            <code>prism review --fail-on high</code> exits 1 on a risky branch,
-            and <code>prism receipts show 1 --as markdown</code> gives text for
-            the pull request.
+            Where hooks are available, the receipt prints when the agent stops.
+            Otherwise the rule asks the agent to call <code>receipt</code>{" "}
+            before it says it is done; <code>prism install</code> turns that
+            tool on. Before a push, <code>prism review --fail-on high</code>{" "}
+            exits 1 on a risky branch, and{" "}
+            <code>prism receipts show 1 --as markdown</code> gives text for the
+            pull request.
           </>
         }
       >
