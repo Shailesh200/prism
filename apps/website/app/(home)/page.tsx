@@ -39,20 +39,21 @@ function Hero() {
             Software intelligence <em>for your agent.</em>
           </h1>
           <p className="hero-sub mt-4 mb-5 sm:mb-6">
-            Prepare, lenses, and review. On your machine.
+            It names the files to open, then checks the change.
           </p>
           <p className="lede hero-lede mb-7">
-            Prism maps your repository and stays next to your coding agent.
-            Prepare picks the files to edit. A lens sets how the agent works.
-            Review reads the change and ends with a Receipt: SHIP, NOT PROVEN,
-            or NO-SHIP.
+            Ask for a change in plain words. Prism tells your agent which files
+            to open, which tests to run, and whether the change is ready to
+            ship. It runs on your machine.
           </p>
           <Command cmd={INSTALL_COMMAND} />
           <div className="hero-acts mt-5">
             <Button href="/install">Install guide</Button>
             <StarButton />
           </div>
-          <p className="hero-agents">Works with your coding agent.</p>
+          <p className="hero-agents">
+            Works with the coding agent you already use.
+          </p>
           <div className="tags mt-6">
             <Pill tone="brand">Free · MIT</Pill>
             <Pill tone="brand">Runs on your machine</Pill>
@@ -65,68 +66,16 @@ function Hero() {
               <Window title="Your agent" kind="chat">
                 <Bubble who="you">Add VAT to invoice totals</Bubble>
                 <Bubble who="prism">
-                  <ToolTag>prepare_change</ToolTag>
-                  <span className="kv">
-                    <span className="d">prism</span>
-                    {
-                      " Prism · Dev lens + 1 file (invoice.ts) + plan cue (high blast: src/billing/invoice.ts)"
-                    }
-                  </span>
-                  <span className="d">…</span>
+                  Open these files first.
                   <br />
-                  <span className="d">pack.files</span>
-                  <span className="f">
-                    <span className="k d">1</span>
-                    {"src/billing/invoice.ts "}
-                    <span className="g">high</span>{" "}
-                    <span className="d">lead</span>
-                  </span>
-                  <span className="f2">
-                    <span className="d">why</span>
-                    {" matches invoice, total; seed file"}
-                  </span>
-                  <span className="f2">
-                    {"function invoiceTotal(lines: Line[]): Cents "}
-                    <span className="d">:5</span>
-                  </span>
-                  <span className="f">
-                    <span className="k d">2</span>
-                    {"src/billing/totals.ts "}
-                    <span className="y">medium</span>
-                  </span>
-                  <span className="f2">
-                    <span className="d">why</span>
-                    {" matches total; import distance 1"}
-                  </span>
-                  <span className="f">
-                    <span className="k d">3</span>
-                    {"src/checkout/summary.ts "}
-                    <span className="y">medium</span>
-                  </span>
-                  <span className="f">
-                    <span className="k d">4</span>
-                    {"src/lib/money.ts "}
-                    <span className="y">medium</span>
-                  </span>
-                  <span className="kv">
-                    <span className="d">pack.tests</span>
-                    {" test/invoice.test.ts, test/totals.test.ts"}
-                  </span>
-                  <span className="kv">
-                    <span className="d">pack.run</span>
-                    {" npx vitest run test/invoice.test.ts test/totals.test.ts"}
-                  </span>
-                  <span className="d">reuse</span>
-                  {" invoiceTotal "}
-                  <span className="d">function · 1</span>
-                  <span className="kv" style={{ paddingLeft: "6ch" }}>
-                    Line <span className="d">type · 0.3</span>
-                  </span>
-                  <span className="d">…</span>
+                  1. src/billing/invoice.ts — the total is calculated here
+                  <br />
+                  2. src/billing/totals.ts
+                  <br />
+                  Tests: test/invoice.test.ts, test/totals.test.ts
                 </Bubble>
                 <Bubble who="agent" name="Agent">
-                  Starting in invoice.ts and totals.ts, then running their
-                  tests.
+                  I’ll start in those files, then run the tests.
                 </Bubble>
               </Window>
             }
