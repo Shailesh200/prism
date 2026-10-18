@@ -106,8 +106,8 @@ export default function ReviewPage() {
         title="Before you push"
         lede={
           <>
-            <code>prism review</code> prints the findings and the Receipt. Fix
-            a Critical finding before you ship.
+            <code>prism review</code> prints the findings and the Receipt. Fix a
+            Critical finding before you ship.
           </>
         }
       >
