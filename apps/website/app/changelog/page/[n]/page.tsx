@@ -1,11 +1,16 @@
 import { notFound } from "next/navigation";
-import { changelogEntries, pageCount } from "@/lib/changelog-pages";
+import {
+  CHANGELOG_REVALIDATE_SECONDS,
+  changelogEntries,
+  pageCount,
+} from "@/lib/changelog-pages";
 import { pageMetadata } from "@/lib/seo";
 import { ChangelogView } from "../../changelog-view";
 
 type Props = { params: Promise<{ n: string }> };
 
-export const dynamicParams = false;
+export const revalidate = CHANGELOG_REVALIDATE_SECONDS;
+export const dynamicParams = true;
 
 /** Page 1 is /changelog; this route serves pages 2 and up. */
 export async function generateStaticParams() {

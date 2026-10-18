@@ -1,11 +1,14 @@
 name: publish-npm
 
-# Publishing is an explicit act: it fires when a `prism-npm-v*` tag is pushed.
-# Cut a release with: bump versions -> commit -> tag prism-npm-vX.Y.Z -> push tag.
+# A merge to main publishes npm. The website deploy is Vercel's, on the same
+# push, and it builds only when apps/website changed (apps/website/vercel.json).
+# The two start together; neither waits for the other.
+# A prism-npm-v* tag or a manual run publishes the same way.
 # Auth: npm trusted publishing (OIDC) first, then optional NPM_TOKEN.
 
 on:
   push:
+    branches: [main]
     tags:
       - "prism-npm-v*"
   workflow_dispatch:
@@ -20,8 +23,6 @@ permissions:
 
 jobs:
   publish:
-    # Disabled until Release 2.0.0 (plan §3.0: local build only).
-    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

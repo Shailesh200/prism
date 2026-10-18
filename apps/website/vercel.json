@@ -2,5 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "cd ../.. && bun install",
-  "buildCommand": "cd ../.. && bun run --filter @repo-prism/shared build && bun run --filter @repo-prism/website build"
+  "buildCommand": "cd ../.. && bun run --filter @repo-prism/shared build && bun run --filter @repo-prism/website build",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- apps/website"
 }

@@ -1,18 +1,17 @@
 import { feedReleases } from "@/lib/changelog";
-import { changelogEntries, versionHref } from "@/lib/changelog-pages";
+import {
+  CHANGELOG_REVALIDATE_SECONDS,
+  changelogEntries,
+  readChangelogMarkdown,
+  versionHref,
+} from "@/lib/changelog-pages";
 import { siteOrigin } from "@/lib/seo";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 
-// Read at build time, so the deployed bundle never needs the file.
-export const dynamic = "force-static";
+export const revalidate = CHANGELOG_REVALIDATE_SECONDS;
 
 export async function GET() {
   const site = siteOrigin();
-  const changelog = await readFile(
-    path.join(process.cwd(), "../../CHANGELOG.md"),
-    "utf8",
-  );
+  const changelog = await readChangelogMarkdown();
   const releases = feedReleases(changelog);
   const versions = (await changelogEntries()).map((r) => r.version);
   const items = releases

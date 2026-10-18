@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { Callout } from "@/components/ui/callout";
 import { Container } from "@/components/ui/container";
@@ -6,7 +5,7 @@ import { PageHero } from "@/components/ui/page-hero";
 import { Pill } from "@/components/ui/pill";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteNav } from "@/components/site/site-nav";
-import { SITE_CURRENT_RELEASE, type ChangelogRelease } from "@/lib/changelog";
+import type { ChangelogRelease } from "@/lib/changelog";
 import { legacyTag } from "@/lib/changelog-legacy";
 import {
   changelogEntries,
@@ -17,145 +16,6 @@ import {
 } from "@/lib/changelog-pages";
 import { GITHUB } from "@/lib/github";
 import { HashToPage } from "./hash-to-page";
-
-/**
- * 2.0 items confirmed in source; CHANGELOG.md's 2.0.0 section says the same
- * in full, and /changelog/2-0-0 is the release post.
- */
-const V2: Array<{ label: string; body: ReactNode }> = [
-  {
-    label: "Start",
-    body: (
-      <>
-        <code>prism start</code> installs Prism for the agents it finds, indexes
-        the repo, prints the top of the map and shows what to try.
-      </>
-    ),
-  },
-  {
-    label: "Receipts",
-    body: (
-      <>
-        The verdict comes first: SHIP, NOT PROVEN (with the cheapest command
-        that would prove it) or NO-SHIP. Checks run your typecheck, lint and the
-        tests the change reaches.
-      </>
-    ),
-  },
-  {
-    label: "Prepare",
-    body: (
-      <>
-        The automatic file list holds at most 3 files Prism is sure of, with
-        nearby tests and one run command. Files that changed in the same commits
-        are ranked into that list.
-      </>
-    ),
-  },
-  {
-    label: "Review",
-    body: (
-      <>
-        Review is <code>guard_session</code> with <code>review: true</code>.
-        Findings say what, where, how to fix it, and the risk if you skip it.
-      </>
-    ),
-  },
-  {
-    label: "Lenses",
-    body: (
-      <>
-        Lenses are shared by every repository, with nine data-backed checks and
-        custom trigger phrases.
-      </>
-    ),
-  },
-  {
-    label: "Habits",
-    body: (
-      <>
-        New <code>habits</code> tool and <code>prism habit</code> command for
-        saved routines. Prism stores the steps; your agent runs them.
-      </>
-    ),
-  },
-  {
-    label: "Strength",
-    body: (
-      <>
-        <code>prism strength full|lite|off</code> sets how much the hooks do.
-      </>
-    ),
-  },
-  {
-    label: "Map",
-    body: (
-      <>
-        <code>graph</code> gains <code>map</code> and <code>symbol</code> modes.{" "}
-        <code>prism graph map</code> prints a compact repo map.
-      </>
-    ),
-  },
-  {
-    label: "Engine",
-    body: (
-      <>
-        Blast radius works per symbol. Type-only imports no longer count as
-        cycles.
-      </>
-    ),
-  },
-  {
-    label: "Budgets",
-    body: <>Every tool takes maxTokens (200–12,000).</>,
-  },
-  {
-    label: "Tests",
-    body: (
-      <>
-        <code>test_impact</code> returns a ready command for each package.
-      </>
-    ),
-  },
-  {
-    label: "Install",
-    body: (
-      <>
-        Install records what it writes; uninstall removes exactly that.
-        Installing over 1.x removes 1.x data. Valid custom lenses and config
-        keys are kept. After an upgrade, the next Claude Code session updates
-        Prism&apos;s own hooks, keeps your other hooks and writes a backup.
-      </>
-    ),
-  },
-  {
-    label: "CLI",
-    body: (
-      <>
-        New <code>prism stats</code> and <code>prism doctor --fix</code>.
-      </>
-    ),
-  },
-  {
-    label: "Skills",
-    body: (
-      <>
-        One <code>prism</code> skill replaces five earlier ones:
-        prism-review-pr, prism-safe-change, prism-onboard, prism-lens and
-        prism-habits.
-      </>
-    ),
-  },
-  {
-    label: "Removed",
-    body: (
-      <>
-        The 1.x VS Code and Cursor extensions, app-shell, playground, Dispatch,
-        and the 1.x tool names.
-      </>
-    ),
-  },
-];
 
 function Rich({ text }: { text: string }) {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
@@ -319,15 +179,19 @@ function Pager({ page, pages }: { page: number; pages: number }) {
   );
 }
 
+function isLegacy(version: string): boolean {
+  return version.startsWith("1.");
+}
+
 /** One page of the changelog: up to PER_PAGE versions, newest first. */
 export async function ChangelogView({ page }: { page: number }) {
   const entries = await changelogEntries();
   const pages = pageCount(entries.length);
   const shown = entries.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-  const showCurrent = shown[0]?.version === SITE_CURRENT_RELEASE.version;
-  const history = shown.filter(
-    (release) => release.version !== SITE_CURRENT_RELEASE.version,
-  );
+  const current = page === 1 ? shown[0] : undefined;
+  const older = shown.filter((release) => release !== current);
+  const recent = older.filter((release) => !isLegacy(release.version));
+  const legacy = older.filter((release) => isLegacy(release.version));
   const versions = entries.map((release) => release.version);
   // A #version link that lands on the wrong page moves to the right one.
   const elsewhere = Object.fromEntries(
@@ -357,49 +221,63 @@ export async function ChangelogView({ page }: { page: number }) {
               : "Changes to the CLI, the MCP server and the hooks."
           }
         />
-        {showCurrent ? (
+        {current ? (
           <section className="sec pb-10">
             <Container>
               <article
-                id="2.0.0"
+                id={current.version}
                 className="cl-rel grid grid-cols-[minmax(0,1fr)] gap-6 border-t border-rule py-11 md:grid-cols-[260px_minmax(0,1fr)] md:gap-10"
               >
                 <div className="cl-meta">
-                  <h2 className="d3">Prism 2.0.0</h2>
-                  <p className="muted mt-2 mb-3">
-                    Prepare, lens review and receipts
-                  </p>
+                  <h2 className="d3">Prism {current.version}</h2>
+                  {current.title ? (
+                    <p className="muted mt-2 mb-3">{current.title}</p>
+                  ) : null}
                   <Pill tone="ok">current</Pill>
-                  <p className="mt-3">
-                    <Link href="/changelog/2-0-0">
-                      Read the 2.0 release notes
-                    </Link>
-                  </p>
+                  {current.version === "2.0.0" ? (
+                    <p className="mt-3">
+                      <Link href="/changelog/2-0-0">
+                        Read the 2.0 release notes
+                      </Link>
+                    </p>
+                  ) : null}
                 </div>
-                <div>
-                  {V2.map((item) => (
-                    <div
-                      key={item.label}
-                      className="grid grid-cols-[minmax(0,1fr)] gap-2 border-b border-rule py-3 sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-4"
-                    >
-                      <span className="font-mono text-[13.5px] text-ink3">
-                        {item.label}
-                      </span>
-                      <span className="text-ink2">{item.body}</span>
-                    </div>
-                  ))}
-                </div>
+                <ReleaseBody release={current} />
               </article>
             </Container>
           </section>
         ) : null}
-        {history.length > 0 ? (
+        {recent.length > 0 ? (
+          <section className="sec border-t border-rule">
+            <Container>
+              {recent.map((release) => (
+                <article
+                  key={release.version}
+                  id={release.version}
+                  className="cl-rel grid grid-cols-[minmax(0,1fr)] gap-6 border-t border-rule py-9 md:grid-cols-[260px_minmax(0,1fr)] md:gap-10"
+                >
+                  <div className="cl-meta">
+                    <h2 className="d3 text-[28px]">{release.version}</h2>
+                    {release.title ? (
+                      <p className="muted mt-2 mb-3 text-[15px]">
+                        {release.title}
+                      </p>
+                    ) : null}
+                  </div>
+                  <ReleaseBody release={release} />
+                </article>
+              ))}
+              {legacy.length === 0 ? <Pager page={page} pages={pages} /> : null}
+            </Container>
+          </section>
+        ) : null}
+        {legacy.length > 0 ? (
           <section className="sec border-t border-rule bg-paper2">
             <Container>
               <div className="pt-2 pb-4">
                 <div className="eyebrow">Legacy</div>
                 <h2 className="d2 mt-3 mb-3">1.x releases</h2>
-                {showCurrent ? (
+                {current ? (
                   <Callout>
                     Prism 2.0 is a clean break. It removed the 1.x VS Code and
                     Cursor extensions, app-shell, playground, Dispatch, and the
@@ -408,7 +286,7 @@ export async function ChangelogView({ page }: { page: number }) {
                   </Callout>
                 ) : null}
               </div>
-              {history.map((release) => (
+              {legacy.map((release) => (
                 <article
                   key={release.version}
                   id={release.version}
@@ -429,11 +307,11 @@ export async function ChangelogView({ page }: { page: number }) {
               <Pager page={page} pages={pages} />
             </Container>
           </section>
-        ) : (
+        ) : recent.length === 0 ? (
           <Container>
             <Pager page={page} pages={pages} />
           </Container>
-        )}
+        ) : null}
       </main>
       <SiteFooter />
     </>
