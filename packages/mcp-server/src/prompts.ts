@@ -107,10 +107,12 @@ export function registerPrompts(server: McpServer): void {
                 flow,
                 // A review that only reads the patch is the failure mode here:
                 // it sees what changed and misses what depends on it.
-                "First write the code review from review.reading. Open reading.targets. Use only the callers and tests listed there. Treat reading.proven as already wrong.",
-                "Order: correct, safe, load, tested, speed, lean. Each finding needs a concrete case: this input leads to this wrong result.",
-                "Report what the change does, numbered findings (what this is, problem, fix, if we skip it), then Ship or which numbers to fix first.",
-                "Then report the measured reach: risk, affected files, and tests. Call blast_radius on anything the reading or that reach flags.",
+                "Call guard_session with review true. Write the review from review.reading. Do not print risk scores.",
+                "Start with what the change does. Then Critical, High, Low, and Nit. Each finding has a title, a path, This code, Breaks when, Change, and Left as is.",
+                "Keep reading.notes. Do not soften a Critical. Read reading.targets and only their listed callers and tests. Order: correct, safe, load, tested, speed, then smaller code.",
+                "A finding needs a concrete case. No case, no finding. A caller that is not listed was not measured.",
+                "End with a Receipt: NO-SHIP if any finding is Critical, NOT PROVEN if any finding is High, otherwise SHIP. One line why. When it is not SHIP, name the cheapest check or fix.",
+                "Call blast_radius only when a finding needs a caller that was not listed.",
               ].join(" "),
             },
           },

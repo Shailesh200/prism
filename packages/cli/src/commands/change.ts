@@ -18,7 +18,7 @@ import {
 import { reviewLensFindings } from "@repo-prism/mcp-server/review";
 import { paint, renderFields, renderHeading } from "../output.js";
 import type { CommandHandler, CommandContext } from "../runtime.js";
-import { bandStyle, plural, renderTable, scoreCell, wrap } from "../table.js";
+import { bandStyle, plural, renderTable, wrap } from "../table.js";
 import { allWorkspaceRelative, resolveTarget } from "../target.js";
 import { parseFormat, reviewToSarif } from "../sarif.js";
 import {
@@ -280,76 +280,59 @@ export const reviewCommand: CommandHandler = async (context) => {
       : review,
     findings,
     human({ color, width }) {
-      const items = bound(review.items, limit.value);
-      const lines: string[] = [];
-      if (review.reading) {
-        lines.push(renderHeading("Read the code", color));
-        lines.push(`Order: ${review.reading.order.join(", ")}`);
-        if (review.reading.proven.length > 0) {
-          lines.push("Already wrong:");
-          for (const found of review.reading.proven) {
-            lines.push(`  ${found.where}: ${found.what}`);
-            lines.push(`  Fix: ${found.fix}`);
-          }
-        }
-        if (review.reading.targets.length > 0) {
-          lines.push("Open these, then only the callers listed:");
-          for (const target of review.reading.targets) {
-            lines.push(
-              `  ${target.path}  risk ${Math.round(target.risk)}  callers ${target.callers.length}  tests ${target.tests.length}`,
-            );
-          }
-        }
-        lines.push(paint(review.reading.notChecked, "dim", color));
-        lines.push("");
+      const reading = review.reading;
+      const lines: string[] = [renderHeading("Review", color)];
+      if (!reading) {
+        lines.push("No reading for this change.");
+        if (lens) lines.push("", ...renderLens(lens, color, width));
+        return lines.join("\n");
       }
+      const labels = {
+        critical: "Critical",
+        high: "High",
+        low: "Low",
+        nit: "Nit",
+      } as const;
       lines.push(
-        renderHeading("Change review", color),
-        "",
-        renderFields(
-          [
-            ["Base", review.base ?? "working tree"],
-            riskLine(review.overallRisk, color),
-            [
-              "Changed files",
-              review.truncated
-                ? `${review.items.length} of ${review.truncated.total}`
-                : String(review.items.length),
-            ],
-            ["Affected files", String(review.totalAffectedFiles)],
-          ],
-          color,
-        ),
-        "",
-        renderTable({
-          columns: [
-            { header: "CHANGED FILE", flex: true },
-            { header: "RISK", align: "right" },
-            { header: "AFFECTS", align: "right" },
-            { header: "TESTS", align: "right" },
-          ],
-          rows: items.items.map((item) => [
-            { text: item.path },
-            scoreCell(item.risk),
-            { text: String(item.affectedFilesCount) },
-            { text: String(item.testsLikelyAffected.length) },
-          ]),
-          color,
-          width,
-        }),
+        `${reading.notes.length} ${reading.notes.length === 1 ? "finding" : "findings"} · Receipt ${reading.receipt.verdict}`,
       );
-
-      const note = truncationNote(items, "changed files");
-      if (note) lines.push(paint(note, "dim", color));
-      if (review.truncated) {
-        lines.push(
-          paint(
-            `Analysed ${review.truncated.analysed} of ${review.truncated.total} changed files, including command files that nothing imports.`,
-            "dim",
-            color,
-          ),
+      let number = 0;
+      for (const severity of ["critical", "high", "low", "nit"] as const) {
+        const notes = reading.notes.filter(
+          (note) => note.severity === severity,
         );
+        if (notes.length === 0) continue;
+        lines.push("", labels[severity]);
+        for (const note of notes) {
+          number += 1;
+          lines.push(
+            `${number}. ${note.title} (\`${note.where}\`)`,
+            `   This code: ${note.thisCode}`,
+            `   Breaks when: ${note.breaksWhen}`,
+            `   Change: ${note.change}`,
+            `   Left as is: ${note.leftAsIs}`,
+          );
+        }
       }
+      const open = reading.targets.slice(0, limit.value);
+      if (open.length > 0) {
+        lines.push("", "Still to read");
+        for (const target of open) lines.push(`  ${target.path}`);
+      }
+      const tone =
+        reading.receipt.verdict === "NO-SHIP"
+          ? "red"
+          : reading.receipt.verdict === "SHIP"
+            ? "green"
+            : "yellow";
+      lines.push(
+        "",
+        "Receipt",
+        paint(reading.receipt.verdict, tone, color),
+        reading.receipt.why,
+      );
+      if (reading.receipt.next) lines.push(reading.receipt.next);
+      lines.push("", paint(reading.notChecked, "dim", color));
       if (lens) lines.push("", ...renderLens(lens, color, width));
       return lines.join("\n");
     },

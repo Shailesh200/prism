@@ -611,6 +611,22 @@ export const ChangeReviewReportSchema = z.object({
           fix: z.string().min(1),
         }),
       ),
+      notes: z.array(
+        z.object({
+          severity: z.enum(["critical", "high", "low", "nit"]),
+          title: z.string().min(1),
+          where: z.string().min(1),
+          thisCode: z.string().min(1),
+          breaksWhen: z.string().min(1),
+          change: z.string().min(1),
+          leftAsIs: z.string().min(1),
+        }),
+      ),
+      receipt: z.object({
+        verdict: z.enum(["SHIP", "NOT PROVEN", "NO-SHIP"]),
+        why: z.string().min(1),
+        next: z.string(),
+      }),
       notChecked: z.string().min(1),
     })
     .optional(),

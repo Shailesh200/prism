@@ -352,9 +352,15 @@ export {
   CODE_READING_ORDER,
   CODE_READING_RULES,
   CODE_READING_TARGETS,
+  REVIEW_SEVERITIES,
   buildCodeReading,
+  noteFromProven,
+  reviewReceipt,
   type CodeReading,
   type CodeReadingTarget,
+  type ReviewNote,
+  type ReviewReceipt,
+  type ReviewSeverity,
 } from "./code-reading.js";
 export {
   GuardCheckKindSchema,
