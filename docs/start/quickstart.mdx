@@ -10,22 +10,19 @@ Your agent starts in the right files and every change gets a verdict.
 ## 1. Install and connect your agent
 
 ```bash
-npm i -g @repo-prism/cli
+npm install -g @repo-prism/cli
 cd your-repo
-prism start
+prism install all
 ```
 
-`prism start` finds the coding agents on this machine, shows the files it will change, and asks before it writes anything.
+The first command puts Prism on this machine. `prism install all` connects
+every agent it finds. Quit the agent and open it again. The first use in this
+repository builds the index under `~/.prism/`.
 
-- On yes, it backs up each file to `~/.prism-backups/<time>/`, installs Prism, and indexes the repo.
-- `--dry-run` only shows the list. `--yes` skips the question.
-- Running it again changes nothing.
-
-Coming from 1.x? Your old data moves to the same backup folder.
-
-To connect one agent only, pass its name to `prism install`. Add `--project`
-to write the config into this repository instead of your home. To add the MCP
-server by hand, see [Install](/docs/start/install).
+One agent only: `prism install cursor` (or `claude`, `codex`, `opencode`). Add
+`--project` to write that agent’s files into this repository. `prism start`
+does the connect step and also prints a map of the repo. To add the MCP server
+by hand, see [Install](/docs/start/install).
 
 <Callout tone="info" title="Tip">
   `prism doctor` shows which directory Prism treats as the workspace, your

@@ -950,7 +950,6 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       "already_failing",
       "unsupported_language",
       "no_session",
-      "wrong_result",
     ]) {
       const { home, cwd } = layout(snapshot);
       const server = await fakeDaemon(home, {
@@ -977,6 +976,32 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       } finally {
         server.close();
       }
+    }
+  });
+
+  it("a wrong result wakes as NO-SHIP", async () => {
+    const { home, cwd } = layout(snapshot);
+    const server = await fakeDaemon(home, {
+      receipt: stopReceipt({}),
+      status: {
+        running: false,
+        receipt: stopReceipt({ reason: "wrong_result", checksState: "done" }),
+      },
+    });
+    try {
+      const input = {
+        cwd,
+        session_id: "sw-wrong-result",
+        hook_event_name: "Stop",
+      };
+      const [, wait] = await Promise.all([
+        runAsync("stop", home, input),
+        runRaw("stop-wait", home, input),
+      ]);
+      expect(wait.code).toBe(2);
+      expect(wait.stderr).toMatch(/^Prism · NO-SHIP \(wrong result\)\n/);
+    } finally {
+      server.close();
     }
   });
 });

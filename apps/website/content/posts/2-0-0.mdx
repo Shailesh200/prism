@@ -9,10 +9,10 @@ Prism 2.0 does two jobs for the coding agent you already use. Before it edits, P
 ## Start in one command
 
 ```bash
-npm i -g @repo-prism/cli && prism start
+npm install -g @repo-prism/cli && prism install all
 ```
 
-`prism start` installs Prism for the agents it finds, indexes the repo, prints the top of the map and shows what to try. Install records what it writes; uninstall removes exactly that. After an upgrade, the next session brings Prism's hooks up to date and keeps a backup; your own hooks stay. See [Install](/docs/start/install#upgrade).
+`prism install all` connects every agent it finds. Quit the agent and open it again. Install records what it writes; uninstall removes exactly that. A new version is `npm install -g @repo-prism/cli` then `prism upgrade`. Memories, receipts, and habits stay. See [Install](/docs/start/install#upgrade).
 
 ## Before the edit
 

@@ -244,8 +244,9 @@ export default function HomePage() {
                   title: "Install",
                   body: (
                     <>
-                      One command. <code>prism start</code> connects the agents
-                      on your machine and maps your code.
+                      Install the CLI, then run <code>prism install all</code>.
+                      It connects every agent on this machine. Open the agent
+                      again.
                     </>
                   ),
                 },

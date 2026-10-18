@@ -4,11 +4,12 @@ import { StarButton } from "./star-button";
 import { Command } from "./command";
 import { Container } from "./container";
 
-export const INSTALL_COMMAND = "npm install -g @repo-prism/cli && prism start";
+export const INSTALL_COMMAND =
+  "npm install -g @repo-prism/cli && prism install all";
 
 export function CtaBand({
   title = "Try it in your repo.",
-  lede = "One command installs Prism, connects your agents and maps the code.",
+  lede = "Install Prism, then connect every agent on this machine. Open the agent again.",
   cmd = INSTALL_COMMAND,
   actions,
 }: {

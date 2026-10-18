@@ -4,7 +4,6 @@ import { Card } from "@/components/ui/card";
 import { ConfigBlock } from "@/components/ui/config-block";
 import { Command } from "@/components/ui/command";
 import { Container } from "@/components/ui/container";
-import { INSTALL_COMMAND } from "@/components/ui/cta-band";
 import { CheckCircleIcon, LayersIcon, ShieldIcon } from "@/components/ui/icons";
 import { PageHero } from "@/components/ui/page-hero";
 import { StartDemo } from "@/components/site/demos";
@@ -17,7 +16,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "Install",
   description:
-    "One command installs Prism, connects the coding agent on your machine, and maps your code.",
+    "Install the CLI, then prism install all connects every agent on this machine. Open the agent again.",
   path: "/install",
 });
 
@@ -30,22 +29,25 @@ export default function InstallPage() {
           eyebrow="Install"
           title={
             <>
-              One <em>command.</em>
+              Install, <em>then connect.</em>
             </>
           }
           lede={
             <>
-              Open a terminal in your repo and run it. <code>prism start</code>{" "}
-              looks for the agents set up on this machine, connects each one it
-              finds, and maps your code.
+              The first command puts Prism on this machine. The second connects
+              every agent it finds. Quit the agent and open it again. The first
+              time you use Prism in a repository, it builds the index on this
+              machine.
             </>
           }
           actions={
-            <div className="w-full">
-              <Command cmd={INSTALL_COMMAND} />
+            <div className="grid w-full gap-3">
+              <Command cmd="npm install -g @repo-prism/cli" />
+              <Command cmd="prism install all" />
               <p className="cap">
-                Want to choose? Run <code>prism install</code> with the agent’s
-                name instead.
+                One agent only: <code>prism install</code> and its name. Add{" "}
+                <code>--project</code> to write that agent’s files into this
+                repo.
               </p>
             </div>
           }
@@ -120,8 +122,10 @@ export default function InstallPage() {
               connected agent.
             </Card>
             <Card icon={<LayersIcon />} title="Update">
-              <code>prism upgrade</code> re-links your agents to the current
-              build and restarts the daemon.
+              <code>npm install -g @repo-prism/cli</code> then{" "}
+              <code>prism upgrade</code>. The first downloads the new version.
+              The second points your agents at it. Memories, receipts, and
+              habits stay in <code>~/.prism</code>.
             </Card>
             <Card icon={<ShieldIcon />} title="Remove">
               <code>prism uninstall</code> removes exactly what install wrote.

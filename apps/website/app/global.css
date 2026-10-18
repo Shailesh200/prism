@@ -567,6 +567,30 @@ figure pre,
     color: var(--ink2);
   }
 
+  .card .cmds {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .card .cmds li {
+    min-width: 0;
+    color: var(--ink2);
+    font-size: 15px;
+    line-height: 1.45;
+    overflow-wrap: break-word;
+  }
+
+  .card .cmds code {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--ink);
+    font-size: 13.5px;
+  }
+
   .card.fx::before {
     content: "";
     position: absolute;

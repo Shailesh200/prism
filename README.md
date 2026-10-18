@@ -26,15 +26,16 @@ no account, and your code never leaves it.
 ## Get started
 
 ```bash
-npm install -g @repo-prism/cli && prism start
+npm install -g @repo-prism/cli && prism install all
 ```
 
-Run it inside your repository. `prism start` finds the agents on your machine
-(Claude Code, Cursor, Codex, opencode), installs Prism for each, indexes the
-repository and prints its map. To pick agents yourself, run
-`prism install claude` (or `cursor`, `codex`, `opencode`, `all`).
-`prism install` records what it wrote in `~/.prism/install.json`, and
-`prism uninstall` removes exactly that. `prism upgrade` updates Prism.
+Run the second command inside your repository. `prism install all` connects
+every agent it finds. Quit the agent and open it again. The first use builds
+the index under `~/.prism/`. One agent only: pass its name to `prism install`.
+The install records what it wrote in `~/.prism/install.json`, and
+`prism uninstall` removes exactly that. A new version is
+`npm install -g @repo-prism/cli` then `prism upgrade`. Memories, receipts, and
+habits stay.
 
 Wiring another MCP host by hand? Use this server entry:
 
