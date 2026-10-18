@@ -129,8 +129,9 @@ export default function PrivacyPage() {
               visits with its own Umami analytics (pulse.shaileshjha.in). It
               keeps a random device id in a <code>pulse_did</code> cookie for up
               to 400 days, and records the page, referrer, screen size,
-              language, time zone, connection type and clicks on install links.
-              It never sees your code.
+              language, time zone, connection type, and which install,
+              navigation, docs, and GitHub controls were used. It never sees
+              your code.
             </p>
           </Container>
         </section>
