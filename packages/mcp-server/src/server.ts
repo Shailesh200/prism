@@ -26,7 +26,10 @@ import {
   type WorkspaceSession,
 } from "./session.js";
 import { registerTools } from "./tool-registry.js";
-import { loadUserConfigSync } from "@repo-prism/shared/user-config";
+import {
+  extraToolsFromEnv,
+  loadUserConfigSync,
+} from "@repo-prism/shared/user-config";
 import { selectTools } from "./tools.js";
 import {
   createWorkspaceBinding,
@@ -166,9 +169,10 @@ export function createPrismMcpServer(
       `prism: ${userConfig.error.code}: ${userConfig.error.message}; using the default tools\n`,
     );
   }
-  const selection = selectTools(
-    userConfig.ok ? (userConfig.value.extraTools ?? []) : [],
-  );
+  const fromFile = userConfig.ok ? (userConfig.value.extraTools ?? []) : [];
+  const selection = selectTools([
+    ...new Set([...fromFile, ...extraToolsFromEnv(env)]),
+  ]);
   if (selection.unknownExtraTools.length > 0) {
     process.stderr.write(
       `prism: unknown extraTools ignored: ${selection.unknownExtraTools.join(", ")}\n`,

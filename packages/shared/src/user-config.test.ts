@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  extraToolsFromEnv,
   loadUserConfigSync,
   resolveStrength,
   setStrength,
@@ -14,6 +15,18 @@ function fresh() {
   const root = mkdtempSync(join(tmpdir(), "prism-strength-repo-"));
   return { env: { PRISM_HOME: home } as NodeJS.ProcessEnv, home, root };
 }
+
+describe("extraToolsFromEnv", () => {
+  it("reads a comma-separated list and ignores blanks", () => {
+    expect(
+      extraToolsFromEnv({ PRISM_EXTRA_TOOLS: " receipt, ,receipt " }),
+    ).toEqual(["receipt"]);
+  });
+
+  it("is empty when the variable is missing", () => {
+    expect(extraToolsFromEnv({})).toEqual([]);
+  });
+});
 
 describe("strength (plan P5)", () => {
   it("defaults to full", () => {

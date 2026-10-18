@@ -10,7 +10,7 @@ import { StartDemo } from "@/components/site/demos";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteNav } from "@/components/site/site-nav";
 import { AGENTS } from "@/lib/agents";
-import { PRISM_MCP_JSON_STRING, PRISM_RECEIPT_CONFIG } from "@/lib/mcp-install";
+import { PRISM_MCP_JSON_STRING } from "@/lib/mcp-install";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -88,14 +88,13 @@ export default function InstallPage() {
             <div>
               <h2 className="d3 mb-3.5">Any other MCP agent</h2>
               <p className="lede text-lg">
-                Prism is a standard MCP server. Add this entry to your agent’s
-                MCP config; it starts the published server with <code>npx</code>
-                .
+                Prism is a standard MCP server. Add this one entry to your
+                agent’s MCP config. It starts the latest published server with{" "}
+                <code>npx</code>, and turns on the receipt tool.
               </p>
               <p className="mt-4 text-ink2">
-                There are no hooks here, so nothing runs on its own. Turn on the{" "}
-                <code>receipt</code> tool and ask the agent to call{" "}
-                <code>prepare_change</code> before it edits and{" "}
+                There are no hooks here, so nothing runs on its own. Ask the
+                agent to call <code>prepare_change</code> before it edits and{" "}
                 <code>receipt</code> before it says it is done.
               </p>
             </div>
@@ -104,12 +103,6 @@ export default function InstallPage() {
                 lang="json"
                 path="mcp.json"
                 text={PRISM_MCP_JSON_STRING}
-              />
-              <ConfigBlock
-                lang="json"
-                path="~/.prism/config.json"
-                text={PRISM_RECEIPT_CONFIG}
-                footer="Add to the file if it already has settings."
               />
             </div>
           </Container>

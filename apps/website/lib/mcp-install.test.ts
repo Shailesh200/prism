@@ -8,7 +8,6 @@ import {
   PRISM_MCP_PACKAGE,
   PRISM_MCP_TRANSPORT,
   PRISM_OPENCODE_JSON_STRING,
-  PRISM_RECEIPT_CONFIG,
 } from "./mcp-install";
 
 const packages = join(process.cwd(), "..", "..", "packages");
@@ -31,7 +30,7 @@ describe("mcp-install", () => {
     expect(server.files).toContain("dist");
   });
 
-  it("is npx with the package pinned to major 2, and nothing else", () => {
+  it("is one npx entry for the latest package, with the receipt tool on", () => {
     const entry = (
       JSON.parse(PRISM_MCP_JSON_STRING) as {
         mcpServers: { prism: Record<string, unknown> };
@@ -39,28 +38,27 @@ describe("mcp-install", () => {
     ).mcpServers.prism;
     expect(entry).toEqual({
       command: "npx",
-      args: ["-y", "@prismapp/mcp-server@2"],
+      args: ["-y", "@prismapp/mcp-server"],
+      env: { PRISM_EXTRA_TOOLS: "receipt" },
     });
     expect(PRISM_CODEX_TOML).toBe(
-      '[mcp_servers.prism]\ncommand = "npx"\nargs = ["-y", "@prismapp/mcp-server@2"]\n',
+      '[mcp_servers.prism]\ncommand = "npx"\nargs = ["-y", "@prismapp/mcp-server"]\n\n[mcp_servers.prism.env]\nPRISM_EXTRA_TOOLS = "receipt"\n',
     );
     const oc = (
       JSON.parse(PRISM_OPENCODE_JSON_STRING) as { mcp: { prism: unknown } }
     ).mcp.prism;
     expect(oc).toEqual({
       type: "local",
-      command: ["npx", "-y", "@prismapp/mcp-server@2"],
+      command: ["npx", "-y", "@prismapp/mcp-server"],
+      environment: { PRISM_EXTRA_TOOLS: "receipt" },
       enabled: true,
     });
-  });
-
-  it("carries no machine paths or env", () => {
     for (const s of [
       PRISM_MCP_JSON_STRING,
       PRISM_CODEX_TOML,
       PRISM_OPENCODE_JSON_STRING,
     ]) {
-      expect(s).not.toMatch(/\/path\/to|PRISM_MCP_BIN|NODE_USE_SYSTEM_CA|env/);
+      expect(s).not.toMatch(/@\d|\/path\/to|PRISM_MCP_BIN|NODE_USE_SYSTEM_CA/);
     }
   });
 
@@ -78,8 +76,6 @@ describe("mcp-install", () => {
     expect(read("cli", "src", "commands", "install.ts")).toContain(
       '["extraTools"], [...tools, "receipt"]',
     );
-    expect(JSON.parse(PRISM_RECEIPT_CONFIG)).toEqual({
-      extraTools: ["receipt"],
-    });
+    expect(PRISM_MCP_TRANSPORT.env).toEqual({ PRISM_EXTRA_TOOLS: "receipt" });
   });
 });

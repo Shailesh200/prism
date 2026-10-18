@@ -205,6 +205,43 @@ export function PrepareDemo() {
   );
 }
 
+/** During the edit: point at a file in this repo to copy. */
+export function MatchCodeDemo() {
+  return (
+    <ChatTerminalPair
+      chat={
+        <Window title="Your agent" kind="chat">
+          <Bubble who="you">
+            Add VAT the way this repo already does money
+          </Bubble>
+          <Bubble who="prism">
+            <span className="w">Copy this, do not invent a new shape:</span>
+            <br />
+            src/billing/invoice.ts · invoiceTotal
+            <br />
+            <span className="d">Not a fixture. Not a test.</span>
+          </Bubble>
+          <Bubble who="agent" name="Agent">
+            I will follow invoiceTotal in invoice.ts for the new total.
+          </Bubble>
+        </Window>
+      }
+      terminal={
+        <Window title="~/northwind">
+          <Typed cmd={`prism prepare "${PROMPT}"`} />
+          <Ln>
+            <span className="d">Reuse</span>
+          </Ln>
+          <Ln>{"  invoiceTotal  src/billing/invoice.ts"}</Ln>
+          <Ln>
+            <span className="d">Copy the shape of that function.</span>
+          </Ln>
+        </Window>
+      }
+    />
+  );
+}
+
 /** Step 3: the edit hook denies a generated file; strength in the terminal. */
 export function GuardDemo() {
   return (

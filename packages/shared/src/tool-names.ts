@@ -25,7 +25,7 @@ export const DEFAULT_TOOL_NAMES = [
   "graph",
 ] as const;
 
-/** Opt-in tools, enabled by name in `~/.prism/config.json` `extraTools[]`. */
+/** Opt-in tools, enabled by name in `~/.prism/config.json` `extraTools[]` or `PRISM_EXTRA_TOOLS`. */
 export const OPT_IN_TOOL_NAMES = [
   "dependency_graph",
   "knowledge_graph",

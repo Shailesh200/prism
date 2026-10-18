@@ -40,7 +40,7 @@ habits stay.
 Wiring another MCP host by hand? Use this server entry:
 
 ```json
-{ "mcpServers": { "prism": { "command": "npx", "args": ["-y", "@prismapp/mcp-server@2"] } } }
+{ "mcpServers": { "prism": { "command": "npx", "args": ["-y", "@prismapp/mcp-server"], "env": { "PRISM_EXTRA_TOOLS": "receipt" } } } }
 ```
 
 Then ask your agent in plain language, for example "what breaks if I change
@@ -49,7 +49,9 @@ Then ask your agent in plain language, for example "what breaks if I change
 ## What it does
 
 - **Prepare, before the agent edits.** The files and tests that matter for
-  the task, the helpers to reuse instead of rewriting, and your house style.
+  the task, and the helpers to reuse instead of rewriting.
+- **Match the code, during the edit.** Prism points at a file from your repo
+  to copy, so the new code looks like the rest.
 - **Lens review, after.** Dev, Architect and QA lenses flag the callers the
   change left behind and the code no test covers. Add your own with `prism lens`.
 - **The receipt, when the agent stops.** Prism runs the checks the change

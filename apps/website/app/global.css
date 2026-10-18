@@ -1185,8 +1185,13 @@ figure pre,
 
     .xrow:has(.pair) > .xrow-copy {
       position: sticky;
-      top: calc(var(--nav-h) + var(--pnav-h) + 32px);
+      top: calc(var(--nav-h) + 32px);
       padding-top: 56px;
+    }
+
+    /* Product pages also have the strip under the top bar. */
+    body:has(.pnav) .xrow:has(.pair) > .xrow-copy {
+      top: calc(var(--nav-h) + var(--pnav-h) + 32px);
     }
   }
 

@@ -43,13 +43,13 @@ Then test the real thing people install, not the source. In a clean `HOME`, inst
 
 - **The release gate fails 1 check:** Claude Code cost on small tasks (change report, round 3, item 4). Round 4 re-tests it.
 - **Fixed 17 Oct:** the publish workflow's build list was missing `checks`, `daemon` and `cli`. It now builds all 13 publish packages in dependency order. `check-mcp-start` no longer looks for the deleted `dispatch-hub`. A fresh build plus a publish dry run passed, run in a throwaway copy with the release gate skipped.
-- **`publish-npm.yml` runs on every push to `main`.** The release gate still stops the publish when it fails. The website deploy starts from the same push and does not wait on this job.
+- **`publish-npm.yml` runs on a push to `main` only when package code changed.** A README, the docs, or the website alone does not publish. The website deploy starts from the same push and builds only when `apps/website` or `docs` changed, not when only packages or a README changed. Neither waits for the other.
 - **Not runnable locally:** the CI OS install matrix and ACT-1 (the Action on a real fork PR). Both need a push. See OPEN_QUESTIONS Q-031.
 
 ## Releasing
 
 1. Owner approves. Commit, then merge to `main`.
-2. That merge starts npm publish and the website deploy together. The site builds only when `apps/website` changed. npm publish skips a version that is already on npm.
+2. That merge starts npm publish when package code changed, and the website deploy when `apps/website` or `docs` changed. npm publish skips a version that is already on npm.
 3. `git tag v2` on the same commit, then `git push origin v2`. This is for the Action, separate from npm.
 4. Do this only with the owner's go-ahead (Focus Reset Q-4: do not push `main` without it).
 

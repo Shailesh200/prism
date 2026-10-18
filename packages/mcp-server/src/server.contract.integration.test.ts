@@ -39,13 +39,20 @@ let client: Client;
 async function connect(
   workspaceRoot: string,
   prismHome: string = fullHome,
+  extraEnv: NodeJS.ProcessEnv = {},
 ): Promise<{
   client: Client;
   instance: PrismMcpServer;
 }> {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    PRISM_HOME: prismHome,
+    ...extraEnv,
+  };
+  if (!("PRISM_EXTRA_TOOLS" in extraEnv)) delete env.PRISM_EXTRA_TOOLS;
   const built = createPrismMcpServer({
     workspaceRoot,
-    env: { ...process.env, PRISM_HOME: prismHome },
+    env,
   });
   const connected = new Client({ name: "contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] =
@@ -501,6 +508,19 @@ describe("MCP default tool surface (§0.3, COV-19)", () => {
     const { tools } = await isolated.listTools();
     expect(tools).toHaveLength(10);
     expect(tools.map((t) => t.name)).toContain("dependency_graph");
+    built.session.close();
+    await isolated.close();
+  });
+
+  it("adds a tool named in PRISM_EXTRA_TOOLS without a second config file", async () => {
+    const { client: isolated, instance: built } = await connect(
+      fixture,
+      prismHomeWith([]),
+      { PRISM_EXTRA_TOOLS: "receipt" },
+    );
+    const { tools } = await isolated.listTools();
+    expect(tools).toHaveLength(10);
+    expect(tools.map((t) => t.name)).toContain("receipt");
     built.session.close();
     await isolated.close();
   });

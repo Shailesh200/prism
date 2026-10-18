@@ -11,6 +11,7 @@ import {
 import { PageHero } from "@/components/ui/page-hero";
 import {
   GuardDemo,
+  MatchCodeDemo,
   PrepareDemo,
   StartDemo,
   VerifyDemo,
@@ -39,8 +40,8 @@ function Step({
 }) {
   return (
     <section className="sec">
-      <Container className="grid2 grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)]">
-        <div>
+      <Container className="xrow grid2 grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)]">
+        <div className="xrow-copy">
           <div className="eyebrow">Step {n}</div>
           <h2 className="d2 mt-3 mb-4">{title}</h2>
           <p className="lede">{lede}</p>
@@ -63,7 +64,7 @@ export default function HowItWorksPage() {
               Prepare, lenses, <em>review.</em>
             </>
           }
-          lede="Prism runs on your machine next to your agent. Prepare picks the files. A lens sets how the agent works. Review ends with a Receipt."
+          lede="Prism runs on your machine next to your agent. Prepare picks the files. While the agent writes, Prism points at code to copy. Review ends with a Receipt."
         />
         <Step
           n={1}
@@ -81,13 +82,20 @@ export default function HowItWorksPage() {
         </Step>
         <Step
           n={3}
+          title="Match the code"
+          lede="While the agent writes, Prism points at a file from your repo to copy. The new code follows that file, never a fixture or a test."
+        >
+          <MatchCodeDemo />
+        </Step>
+        <Step
+          n={4}
           title="Guard"
           lede="While the agent edits, Prism stops edits to generated files and flags widely used ones. Where the agent supports hooks, they run in the session. Otherwise a rule asks the agent to call Prism before and after a change."
         >
           <GuardDemo />
         </Step>
         <Step
-          n={4}
+          n={5}
           title="Review"
           lede="Review reads the change. Guardrails, the QA lens, and the Architect lens supply the checks. Findings are Critical, High, Low, or Nit. The Receipt says SHIP, NOT PROVEN, or NO-SHIP."
         >

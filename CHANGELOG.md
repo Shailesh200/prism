@@ -11,6 +11,10 @@ a supported configuration.
 
 ## Unreleased
 
+## 2.0.2 — One install entry
+
+- A hand-written MCP entry starts `@prismapp/mcp-server` with no version, so npx takes the latest release. `PRISM_EXTRA_TOOLS=receipt` on that same entry turns on the receipt tool.
+
 ## 2.0.1 — Install names
 
 - READMEs on GitHub and npm name the packages `@prismapp/cli` and `@prismapp/mcp-server`. Install with `npm install -g @prismapp/cli`.

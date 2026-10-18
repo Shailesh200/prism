@@ -11,7 +11,7 @@ import { Pill } from "@/components/ui/pill";
 import { Failed, Ln, Proven, Typed, cells } from "@/components/ui/term";
 import { Bubble, ToolTag, Window } from "@/components/ui/window";
 import { SiteFooter } from "@/components/site/site-footer";
-import { PrepareDemo } from "@/components/site/demos";
+import { MatchCodeDemo, PrepareDemo } from "@/components/site/demos";
 import { SiteNav } from "@/components/site/site-nav";
 import { SITE_DESCRIPTION, pageMetadata } from "@/lib/seo";
 
@@ -164,8 +164,8 @@ function FeatureBlock({
 }) {
   return (
     <section className="sec">
-      <Container className="grid2 grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)]">
-        <div>
+      <Container className="xrow grid2 grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)]">
+        <div className="xrow-copy">
           <h2 className="d2 mb-4">{title}</h2>
           <p className="lede">{lede}</p>
         </div>
@@ -184,7 +184,7 @@ const WHAT_IT_DOES = [
   {
     title: "How does this repo do it?",
     href: "/product/prepare",
-    body: "House style points at a file from your own code to copy, never a fixture or a test.",
+    body: "Match the code points at a file from your own code to copy, never a fixture or a test.",
   },
   {
     title: "What did the agent miss?",
@@ -209,7 +209,7 @@ const WHAT_IT_DOES = [
   {
     title: "How should the agent work?",
     href: "/product/lenses",
-    body: "Dev follows your house style and the blast radius. QA and Architect check the change for bugs and structure.",
+    body: "Dev follows the code already in the repo and the blast radius. QA and Architect check the change for bugs and structure.",
   },
   {
     title: "Can it run my routine?",
@@ -251,8 +251,8 @@ export default function HomePage() {
                   ),
                 },
                 {
-                  title: "Dev",
-                  body: "House style and blast radius, so the edit stays with the callers.",
+                  title: "Match the code",
+                  body: "While the agent writes, Prism points at a file from your repo to copy. The new code follows that file.",
                 },
                 {
                   title: "Review",
@@ -268,6 +268,13 @@ export default function HomePage() {
           lede="Names the files to open, the tests to run, and code already in the repo to reuse."
         >
           <PrepareDemo />
+        </FeatureBlock>
+
+        <FeatureBlock
+          title="Match the code, during the edit"
+          lede="Points at a file already in your repo to copy, so the new code looks like the rest. Never a fixture or a test."
+        >
+          <MatchCodeDemo />
         </FeatureBlock>
 
         <FeatureBlock

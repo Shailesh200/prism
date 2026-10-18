@@ -42,8 +42,10 @@ Quit the agent and open it again. The first time you use Prism in a
 repository, the index is built under `~/.prism/`. The server it starts is the
 installed binary, never a download on each launch.
 
-Wiring a host by hand? Use `npx -y @prismapp/mcp-server@2` as the server
-command; each agent’s [install page](/install) has the snippet.
+Wiring a host by hand? Use `npx -y @prismapp/mcp-server` as the server
+command, with no version so it stays on the latest release. Set
+`PRISM_EXTRA_TOOLS` to `receipt` on that same entry. Each agent’s
+[install page](/install) has the snippet.
 
 ## 3. Confirm it works
 
