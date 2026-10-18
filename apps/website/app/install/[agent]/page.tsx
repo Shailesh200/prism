@@ -186,7 +186,7 @@ export default async function AgentInstallPage({ params }: Props) {
         </section>
 
         <section className="sec">
-          <Container className="grid2 items-start">
+          <Container className="grid2 table-lead items-start">
             <div>
               <h2 className="d3 mb-5">What install writes</h2>
               <div className="card tcard">

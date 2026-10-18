@@ -14,6 +14,7 @@ import {
   PER_PAGE,
   versionHref,
 } from "@/lib/changelog-pages";
+import { formatPublished, publishedTimes } from "@/lib/release-times";
 import { GITHUB } from "@/lib/github";
 import { HashToPage } from "./hash-to-page";
 
@@ -183,9 +184,23 @@ function isLegacy(version: string): boolean {
   return version.startsWith("1.");
 }
 
+function PublishedAt({ at }: { at: string | undefined }) {
+  if (!at) return null;
+  const label = formatPublished(at);
+  if (!label) return null;
+  return (
+    <time className="muted mt-2 mb-3 block text-[14px]" dateTime={at}>
+      {label}
+    </time>
+  );
+}
+
 /** One page of the changelog: up to PER_PAGE versions, newest first. */
 export async function ChangelogView({ page }: { page: number }) {
-  const entries = await changelogEntries();
+  const [entries, times] = await Promise.all([
+    changelogEntries(),
+    publishedTimes(),
+  ]);
   const pages = pageCount(entries.length);
   const shown = entries.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const current = page === 1 ? shown[0] : undefined;
@@ -233,6 +248,7 @@ export async function ChangelogView({ page }: { page: number }) {
                   {current.title ? (
                     <p className="muted mt-2 mb-3">{current.title}</p>
                   ) : null}
+                  <PublishedAt at={times[current.version]} />
                   <Pill tone="ok">current</Pill>
                   {current.version === "2.0.0" ? (
                     <p className="mt-3">
@@ -263,6 +279,7 @@ export async function ChangelogView({ page }: { page: number }) {
                         {release.title}
                       </p>
                     ) : null}
+                    <PublishedAt at={times[release.version]} />
                   </div>
                   <ReleaseBody release={release} />
                 </article>
@@ -299,6 +316,7 @@ export async function ChangelogView({ page }: { page: number }) {
                         {release.title}
                       </p>
                     ) : null}
+                    <PublishedAt at={times[release.version]} />
                     <Pill>Legacy 1.x</Pill>
                   </div>
                   <ReleaseBody release={release} legacy />

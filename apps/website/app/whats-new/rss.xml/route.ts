@@ -4,6 +4,7 @@ import {
   readChangelogMarkdown,
   versionHref,
 } from "@/lib/changelog-pages";
+import { publishedTimes } from "@/lib/release-times";
 import { siteOrigin } from "@/lib/seo";
 
 /** Literal: Next reads this at build time. Same interval as CHANGELOG_REVALIDATE_SECONDS. */
@@ -14,15 +15,20 @@ export async function GET() {
   const changelog = await readChangelogMarkdown();
   const releases = feedReleases(changelog);
   const versions = (await changelogEntries()).map((r) => r.version);
+  const times = await publishedTimes();
   const items = releases
-    .map(
-      (r) => `  <item>
+    .map((r) => {
+      const published = times[r.version];
+      const pubDate = published
+        ? `\n    <pubDate>${new Date(published).toUTCString()}</pubDate>`
+        : "";
+      return `  <item>
     <title>Prism ${r.version}</title>
     <link>${site}${versionHref(r.version, versions)}</link>
-    <guid>${site}${versionHref(r.version, versions)}</guid>
+    <guid>${site}${versionHref(r.version, versions)}</guid>${pubDate}
     <description><![CDATA[${r.bullets.join(" · ")}]]></description>
-  </item>`,
-    )
+  </item>`;
+    })
     .join("\n");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

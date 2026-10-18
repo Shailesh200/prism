@@ -62,9 +62,25 @@ export const MARKETING_ROUTES: Array<{
   { path: "/security", changeFrequency: "yearly", priority: 0.3 },
 ];
 
+const CANONICAL_ORIGIN = "https://www.prismhq.in";
+
 export function siteOrigin(): string {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.prismhq.in";
-  return raw.replace(/\/+$/, "");
+  const raw = (process.env.NEXT_PUBLIC_SITE_URL ?? CANONICAL_ORIGIN).replace(
+    /\/+$/,
+    "",
+  );
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return CANONICAL_ORIGIN;
+  }
+  // The live site is https://www.prismhq.in. An env of http://prismhq.in would
+  // otherwise put that host in the canonical tag, the sitemap, and llms.txt.
+  if (url.hostname === "prismhq.in" || url.hostname === "www.prismhq.in") {
+    return CANONICAL_ORIGIN;
+  }
+  return url.origin;
 }
 
 export function siteHost(): string {

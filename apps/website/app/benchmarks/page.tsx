@@ -174,8 +174,9 @@ function Win({ m, title, who, also }: (typeof WINS)[number]) {
       <p className="text-[15px]">{who}</p>
       <Bars m={m} />
       {also && (
-        <p className="mt-3 text-[15px]">
-          Also {also.label.toLowerCase()}: <ChangePill m={also} />
+        <p className="also">
+          <span>Also {also.label.toLowerCase()}:</span>
+          <ChangePill m={also} />
         </p>
       )}
     </div>
@@ -324,7 +325,7 @@ export default function BenchmarksPage() {
                 </ul>
               </Callout>
             </div>
-            <div className="grid2 items-start gap-6">
+            <div className="bpack">
               {GROUPS.map((g) => (
                 <div key={g.tool + g.run} className="card tcard bgroup">
                   <div className="bg-h">

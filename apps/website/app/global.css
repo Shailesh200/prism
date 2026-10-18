@@ -350,6 +350,14 @@ figure pre,
     align-items: center;
   }
 
+  /* A table beside a short list: give the table the wider column. */
+  @media (min-width: 861px) {
+    .grid2.table-lead {
+      grid-template-columns: minmax(0, 1.55fr) minmax(0, 0.7fr);
+      gap: 36px;
+    }
+  }
+
   .grid3 {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1204,6 +1212,35 @@ figure pre,
     color: var(--ok);
   }
 
+  .card.win .also {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    font-size: 14px;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  /* Result cards pack upward so a short card does not leave a hole. */
+  .bpack {
+    columns: 2;
+    column-gap: 24px;
+  }
+
+  .bpack > * {
+    display: inline-block;
+    width: 100%;
+    margin: 0 0 24px;
+    break-inside: avoid;
+  }
+
+  @media (max-width: 860px) {
+    .bpack {
+      columns: 1;
+    }
+  }
+
   .bars {
     display: grid;
     gap: 8px;
@@ -1301,6 +1338,26 @@ figure pre,
   /* A card that only holds a table: the rows set the rhythm. */
   .card.tcard {
     padding: 6px 24px 4px;
+  }
+
+  /* Two-column cards stay inside the card. Long paths wrap instead of
+     opening a sideways scroll. Comparison tables keep their own columns. */
+  .tcard:not(:has(table.t-cmp)) .tscroll {
+    overflow-x: clip;
+  }
+
+  .tcard table.t:not(.t-cmp) {
+    table-layout: fixed;
+  }
+
+  .tcard table.t:not(.t-cmp) :is(th, td) {
+    padding-right: 12px;
+  }
+
+  .tcard table.t:not(.t-cmp) .nw {
+    width: auto;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   /* On a phone a two-column table reads as a list: the name, then what it means. */
