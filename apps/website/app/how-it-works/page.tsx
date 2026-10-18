@@ -82,7 +82,7 @@ export default function HowItWorksPage() {
         <Step
           n={3}
           title="Guard"
-          lede="While the agent edits, Prism stops edits to generated files and flags widely used ones. These hooks run on Claude Code and opencode; on Cursor and Codex, a rule asks the agent to call Prism before and after a change."
+          lede="While the agent edits, Prism stops edits to generated files and flags widely used ones. Where the agent supports hooks, they run in the session. Otherwise a rule asks the agent to call Prism before and after a change."
         >
           <GuardDemo />
         </Step>

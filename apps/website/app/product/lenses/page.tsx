@@ -194,12 +194,12 @@ function CustomLensCell({ lens }: { lens: CustomLens }) {
       </p>
       <ChatTerminalPair
         chat={
-          <Window title="Claude Code" kind="chat">
+          <Window title="Your agent" kind="chat">
             <Bubble who="you">{lens.say}</Bubble>
             <Bubble who="prism">
               <LensBlock lens={lens} />
             </Bubble>
-            <Bubble who="agent" name="Claude Code">
+            <Bubble who="agent" name="Agent">
               {lens.reply}
             </Bubble>
           </Window>
@@ -254,7 +254,7 @@ export default function LensesPage() {
         pair={
           <ChatTerminalPair
             chat={
-              <Window title="Claude Code" kind="chat">
+              <Window title="Your agent" kind="chat">
                 <Bubble who="you">find bugs in the invoice code</Bubble>
                 <Bubble who="prism">
                   <span className="w">Lens: QA</span>
@@ -266,7 +266,7 @@ export default function LensesPage() {
                   2. State a concrete failure: the input, what the code does,
                   what goes wrong…
                 </Bubble>
-                <Bubble who="agent" name="Claude Code">
+                <Bubble who="agent" name="Agent">
                   credit-note.ts has no test. Input [] gives -0; here is the
                   test that should catch it.
                 </Bubble>
@@ -383,8 +383,8 @@ export default function LensesPage() {
               Naming a lens works everywhere
             </h3>
             <p className="mt-2 text-ink2">
-              On Claude Code a trigger phrase picks the lens by itself. On
-              Cursor, Codex and opencode, name the lens: “use the Triage lens”.
+              Where a prompt hook is available, a trigger phrase can pick the
+              lens. Otherwise, name it: “use the Triage lens”.
             </p>
           </div>
           <div>

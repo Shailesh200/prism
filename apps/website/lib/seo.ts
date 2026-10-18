@@ -323,7 +323,7 @@ export function websiteJsonLd(): Record<string, unknown> {
           "House style and habits",
           `MCP server with ${PRISM_TOOL_COUNT} tools for AI agents`,
           "CLI for terminals and CI",
-          "Claude Code, Cursor, Codex and opencode install",
+          "Installs next to your coding agent",
         ],
         publisher: { "@id": `${url}/#organization` },
       },

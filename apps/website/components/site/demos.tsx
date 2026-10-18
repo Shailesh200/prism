@@ -99,7 +99,7 @@ const MAP = [
 
 export function MapChat() {
   return (
-    <Window title="Claude Code" kind="chat">
+    <Window title="Your agent" kind="chat">
       <Bubble who="you">What is in this repo?</Bubble>
       <Bubble who="prism">
         <ToolTag>graph</ToolTag> mode: map
@@ -108,7 +108,7 @@ export function MapChat() {
         <br />
         ## src/lib/money.ts · callers: invoice.ts, totals.ts
       </Bubble>
-      <Bubble who="agent" name="Claude Code">
+      <Bubble who="agent" name="Agent">
         Billing lives in src/billing. Money helpers are in src/lib/money.ts.
       </Bubble>
     </Window>
@@ -135,9 +135,9 @@ export function StartDemo() {
         <Window title="~/northwind">
           <Typed cmd="prism start" />
           <Ln>
-            <span className="d">Installing for Claude Code…</span>
+            <span className="d">Installing for your agent…</span>
           </Ln>
-          <Ln>Prism {PRISM_VERSION} installed for Claude Code.</Ln>
+          <Ln>Prism {PRISM_VERSION} installed for your agent.</Ln>
           <Ln>Indexed 12 files in 0.1 s.</Ln>
           <Ln />
           {MapLines().slice(0, 5)}
@@ -158,7 +158,7 @@ export function PrepareDemo() {
   return (
     <ChatTerminalPair
       chat={
-        <Window title="Claude Code" kind="chat">
+        <Window title="Your agent" kind="chat">
           <Bubble who="you">
             Add VAT to computeTotals in the billing totals
           </Bubble>
@@ -173,7 +173,7 @@ export function PrepareDemo() {
             <span className="d">Run:</span> npx vitest run test/invoice.test.ts
             test/totals.test.ts
           </Bubble>
-          <Bubble who="agent" name="Claude Code">
+          <Bubble who="agent" name="Agent">
             Starting in totals.ts and running those two tests after.
           </Bubble>
         </Window>
@@ -210,13 +210,13 @@ export function GuardDemo() {
   return (
     <ChatTerminalPair
       chat={
-        <Window title="Claude Code" kind="chat">
+        <Window title="Your agent" kind="chat">
           <Bubble who="you">Add an email field to the API schema</Bubble>
           <Bubble who="prism">
             <span className="r">✗ Denied:</span> src/api/generated/schema.ts is
             generated. Do not edit generated or vendored files.
           </Bubble>
-          <Bubble who="agent" name="Claude Code">
+          <Bubble who="agent" name="Agent">
             That file is generated. I’ll change its source and regenerate it.
           </Bubble>
         </Window>
@@ -238,9 +238,9 @@ export function VerifyDemo() {
   return (
     <ChatTerminalPair
       chat={
-        <Window title="Claude Code" kind="chat">
+        <Window title="Your agent" kind="chat">
           <Bubble who="you">Tidy up the reduce in computeTotals</Bubble>
-          <Bubble who="agent" name="Claude Code">
+          <Bubble who="agent" name="Agent">
             Done. The reduce in computeTotals is shorter now.
           </Bubble>
           <Bubble who="prism">
@@ -253,7 +253,7 @@ export function VerifyDemo() {
             <br />
             <Failed />
           </Bubble>
-          <Bubble who="agent" name="Claude Code">
+          <Bubble who="agent" name="Agent">
             The test caught it: I wrote price + qty instead of price * qty.
             Fixed, and the next receipt says SHIP.
           </Bubble>
@@ -286,7 +286,7 @@ export function ReviewDemo() {
   return (
     <ChatTerminalPair
       chat={
-        <Window title="opencode" kind="chat">
+        <Window title="Your agent" kind="chat">
           <Bubble who="you">Review my changes before I open a PR</Bubble>
           <Bubble who="prism">
             <div className="rvw">
@@ -316,7 +316,7 @@ export function ReviewDemo() {
               </div>
             </div>
           </Bubble>
-          <Bubble who="agent" name="opencode">
+          <Bubble who="agent" name="Agent">
             One Critical finding: a caller in src/report.ts was left unchanged.
             I’ll update it, then review again.
           </Bubble>
@@ -355,7 +355,7 @@ export function SafeDeleteDemo() {
   return (
     <ChatTerminalPair
       chat={
-        <Window title="Codex" kind="chat">
+        <Window title="Your agent" kind="chat">
           <Bubble who="you">Can I delete src/legacy/cart.js?</Bubble>
           <Bubble who="prism">
             <ToolTag>safe_delete</ToolTag>
@@ -364,7 +364,7 @@ export function SafeDeleteDemo() {
             <br />
             src/pages/checkout.ts imports src/legacy/cart.js
           </Bubble>
-          <Bubble who="agent" name="Codex">
+          <Bubble who="agent" name="Agent">
             Not yet. I’ll move checkout.ts off cart.js first.
           </Bubble>
         </Window>

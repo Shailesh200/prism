@@ -282,11 +282,11 @@ export default function ReceiptsPage() {
       >
         <ChatTerminalPair
           chat={
-            <Window title="Claude Code" kind="chat">
+            <Window title="Your agent" kind="chat">
               <Bubble who="you">
                 Add an optional VAT rate to computeTotals
               </Bubble>
-              <Bubble who="agent" name="Claude Code">
+              <Bubble who="agent" name="Agent">
                 Done. computeTotals takes vatRate and returns vat.
               </Bubble>
               <Bubble who="prism">
@@ -304,7 +304,7 @@ export default function ReceiptsPage() {
                   {FINDING}
                 </ReceiptRow>
               </Bubble>
-              <Bubble who="agent" name="Claude Code">
+              <Bubble who="agent" name="Agent">
                 Tests pass, and the QA lens found two callers I didn’t update.
                 Updating them now.
               </Bubble>
@@ -390,8 +390,8 @@ export default function ReceiptsPage() {
         title="Check the branch, too."
         lede={
           <>
-            Claude Code and opencode print the receipt when the agent stops. On
-            Cursor and Codex, the rule asks the agent to call{" "}
+            Where hooks are available, the receipt prints when the agent
+            stops. Otherwise the rule asks the agent to call{" "}
             <code>receipt</code> before it says it is done;{" "}
             <code>prism install</code> turns that tool on. Before a push,{" "}
             <code>prism review --fail-on high</code> exits 1 on a risky branch,
@@ -402,11 +402,11 @@ export default function ReceiptsPage() {
       >
         <ChatTerminalPair
           chat={
-            <Window title="Claude Code" kind="chat">
+            <Window title="Your agent" kind="chat">
               <Bubble who="you">
                 Add an optional VAT rate to computeTotals
               </Bubble>
-              <Bubble who="agent" name="Claude Code">
+              <Bubble who="agent" name="Agent">
                 Done. computeTotals now takes vatRate and returns vat.
               </Bubble>
               <Bubble who="prism">

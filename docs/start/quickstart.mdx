@@ -5,7 +5,7 @@ description: "Install Prism, ask your agent for a change, and read the verdict."
 
 Your agent starts in the right files and every change gets a verdict.
 
-**Needs:** Node.js, a git repository, and one agent: Claude Code, Cursor, Codex or opencode.
+**Needs:** Node.js, a git repository, and a coding agent.
 
 ## 1. Install and connect your agent
 
@@ -23,10 +23,9 @@ prism start
 
 Coming from 1.x? Your old data moves to the same backup folder.
 
-To connect one agent only, name it: `prism install claude` (or `cursor`,
-`codex`, `opencode`). Add `--project` to write the config into this repository
-instead of your home. To add the MCP server by hand, see
-[Install](/docs/start/install).
+To connect one agent only, pass its name to `prism install`. Add `--project`
+to write the config into this repository instead of your home. To add the MCP
+server by hand, see [Install](/docs/start/install).
 
 <Callout tone="info" title="Tip">
   `prism doctor` shows which directory Prism treats as the workspace, your
@@ -42,7 +41,7 @@ names.
 
 ```text
 You: Add VAT to invoice totals.
-Claude Code: Starting in invoice.ts and totals.ts, then running their tests.
+Agent: Starting in invoice.ts and totals.ts, then running their tests.
 ```
 
 **Terminal** (the same file list, without an agent; shortened)
@@ -67,10 +66,9 @@ the house style. Paths only, never file bodies.
 ## 3. Read the verdict
 
 When the session ends, Prism runs the checks that reach the change and gives
-a verdict: **SHIP**, **NOT PROVEN** or **NO-SHIP**. In Claude Code it comes back
-in the agent's reply. A check that was already failing is reported on its own
-line and does not block. For the other agents, see
-[Install](/docs/start/install).
+a verdict: **SHIP**, **NOT PROVEN** or **NO-SHIP**. It comes back in the
+agent's reply. A check that was already failing is reported on its own line
+and does not block. See [Install](/docs/start/install).
 
 Receipts are kept. List them, or show the newest:
 

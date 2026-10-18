@@ -179,10 +179,10 @@ export default async function AgentInstallPage({ params }: Props) {
                     href={PRISM_CURSOR_INSTALL_URL}
                     {...installLinkAttrs(PRISM_CURSOR_INSTALL_URL)}
                   >
-                    Add to Cursor
+                    Add the server
                   </Button>
                   <p className="text-[15px] text-ink3">
-                    Opens Cursor and asks before it adds the server.
+                    Opens your editor and asks before it adds the server.
                   </p>
                 </div>
               ) : null}

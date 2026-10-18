@@ -28,7 +28,7 @@ export async function GET() {
       "files, tests, helpers to reuse and one run command before the edit",
     "/product/blast-radius": "what depends on a file or symbol",
     "/product/guardrails":
-      "safe delete and rename; Claude Code and opencode can stop a generated-file edit",
+      "safe delete and rename; hooks stop a generated-file edit where the agent supports them",
     "/product/receipts": "SHIP, NOT PROVEN or NO-SHIP from your checks",
     "/product/review":
       "reads the change and returns Critical, High, Low, and Nit findings, then a Receipt",

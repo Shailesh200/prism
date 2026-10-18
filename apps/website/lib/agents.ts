@@ -26,7 +26,7 @@ export const AGENTS: Agent[] = [
     name: "Claude Code",
     client: "claude",
     gets: "MCP server, five hooks and the prism skill.",
-    lede: "Claude Code gets the full set: the MCP server, five hooks and the prism skill. You get a file list before edits and a receipt after.",
+    lede: "This agent gets the MCP server, five hooks and the prism skill. You get a file list before edits and a receipt after.",
     config: {
       lang: "json",
       path: "~/.claude.json",
@@ -47,9 +47,9 @@ export const AGENTS: Agent[] = [
     name: "Cursor",
     client: "cursor",
     gets: "MCP server, plus a rule file per repo.",
-    lede: "Cursor gets the MCP server. In each repo, add --project to write a rule that asks the agent for the file list before editing and the verdict before it says it is done.",
+    lede: "This agent gets the MCP server. In each repo, add --project to write a rule that asks the agent for the file list before editing and the verdict before it says it is done.",
     notes: [
-      "Cursor reads rules per repository: in each one, run",
+      "Rules are per repository: in each one, run",
       "`prism install cursor --project` to add the prepare/receipt rule.",
     ],
     config: { lang: "json", path: "~/.cursor/mcp.json" },
@@ -61,14 +61,14 @@ export const AGENTS: Agent[] = [
       ],
       ["~/.prism/config.json", "Turns on the receipt tool"],
     ],
-    after: "Ask for a habit or a review by name, and Cursor asks Prism.",
+    after: "Ask for a habit or a review by name, and your agent asks Prism.",
   },
   {
     slug: "codex",
     name: "Codex",
     client: "codex",
     gets: "MCP server and a rule in AGENTS.md.",
-    lede: "Codex gets the MCP server and a short rule in AGENTS.md. Prism only edits the lines between its own markers.",
+    lede: "This agent gets the MCP server and a short rule in AGENTS.md. Prism only edits the lines between its own markers.",
     config: { lang: "toml", path: "~/.codex/config.toml" },
     writes: [
       ["~/.codex/config.toml", "The Prism MCP server, between Prism’s markers"],
@@ -78,14 +78,14 @@ export const AGENTS: Agent[] = [
       ],
       ["~/.prism/config.json", "Turns on the receipt tool"],
     ],
-    after: "Ask “what breaks if I change this?” and Codex asks Prism.",
+    after: "Ask “what breaks if I change this?” and your agent asks Prism.",
   },
   {
     slug: "opencode",
     name: "opencode",
     client: "opencode",
     gets: "MCP server, a plugin and a rule in AGENTS.md.",
-    lede: "opencode gets the MCP server, a plugin with Prism’s hooks (session start, before and after an edit, and stop) and a short rule in AGENTS.md.",
+    lede: "This agent gets the MCP server, a plugin with Prism’s hooks (session start, before and after an edit, and stop) and a short rule in AGENTS.md.",
     config: {
       lang: "json",
       path: "~/.config/opencode/opencode.json",
@@ -104,7 +104,7 @@ export const AGENTS: Agent[] = [
       ["~/.prism/config.json", "Turns on the receipt tool"],
     ],
     after:
-      "When the session goes idle, the plugin writes the verdict to opencode’s log; prism receipts shows it too.",
+      "When the session goes idle, the plugin writes the verdict to the agent log; prism receipts shows it too.",
   },
 ];
 

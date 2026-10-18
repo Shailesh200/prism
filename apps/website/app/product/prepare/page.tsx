@@ -73,11 +73,11 @@ export default function PreparePage() {
       >
         <ChatTerminalPair
           chat={
-            <Window title="Claude Code" kind="chat">
+            <Window title="Your agent" kind="chat">
               <Bubble who="you">
                 Remember that totals are stored in cents
               </Bubble>
-              <Bubble who="agent" name="Claude Code">
+              <Bubble who="agent" name="Agent">
                 Saved. Prepare will hand it back with src/billing/totals.ts.
               </Bubble>
             </Window>

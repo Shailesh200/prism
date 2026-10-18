@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AgentLogo } from "@/components/ui/agent-logo";
 import { Button } from "@/components/ui/button";
 import { StarButton } from "@/components/ui/star-button";
 import { Card, FeatureList, Stat, Steps } from "@/components/ui/card";
@@ -14,7 +13,6 @@ import { Bubble, ToolTag, Window } from "@/components/ui/window";
 import { SiteFooter } from "@/components/site/site-footer";
 import { PrepareDemo } from "@/components/site/demos";
 import { SiteNav } from "@/components/site/site-nav";
-import { AGENTS } from "@/lib/agents";
 import { SITE_DESCRIPTION, pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -54,9 +52,7 @@ function Hero() {
             <Button href="/install">Install guide</Button>
             <StarButton />
           </div>
-          <p className="hero-agents">
-            For Claude Code, Codex, opencode and Cursor.
-          </p>
+          <p className="hero-agents">Works with your coding agent.</p>
           <div className="tags mt-6">
             <Pill tone="brand">Free · MIT</Pill>
             <Pill tone="brand">Runs on your machine</Pill>
@@ -66,7 +62,7 @@ function Hero() {
         <div>
           <ChatTerminalPair
             chat={
-              <Window title="Claude Code" kind="chat">
+              <Window title="Your agent" kind="chat">
                 <Bubble who="you">Add VAT to invoice totals</Bubble>
                 <Bubble who="prism">
                   <ToolTag>prepare_change</ToolTag>
@@ -128,7 +124,7 @@ function Hero() {
                   </span>
                   <span className="d">…</span>
                 </Bubble>
-                <Bubble who="agent" name="Claude Code">
+                <Bubble who="agent" name="Agent">
                   Starting in invoice.ts and totals.ts, then running their
                   tests.
                 </Bubble>
@@ -322,9 +318,9 @@ export default function HomePage() {
         >
           <ChatTerminalPair
             chat={
-              <Window title="Claude Code" kind="chat">
+              <Window title="Your agent" kind="chat">
                 <Bubble who="you">Tidy up the reduce in computeTotals</Bubble>
-                <Bubble who="agent" name="Claude Code">
+                <Bubble who="agent" name="Agent">
                   Done. The reduce in computeTotals is shorter now.
                 </Bubble>
                 <Bubble who="prism">
@@ -337,7 +333,7 @@ export default function HomePage() {
                   <br />
                   <Failed />
                 </Bubble>
-                <Bubble who="agent" name="Claude Code">
+                <Bubble who="agent" name="Agent">
                   The test caught it: I wrote price + qty instead of price *
                   qty. Fixed, and the next receipt says SHIP.
                 </Bubble>
@@ -370,7 +366,7 @@ export default function HomePage() {
         >
           <ChatTerminalPair
             chat={
-              <Window title="Claude Code" kind="chat">
+              <Window title="Your agent" kind="chat">
                 <Bubble who="you">Where do we call getUser?</Bubble>
                 <Bubble who="prism">
                   <ToolTag>graph</ToolTag>
@@ -383,7 +379,7 @@ export default function HomePage() {
                   <br />← src/users/profile.ts{" "}
                   <span className="d">references · measured</span>
                 </Bubble>
-                <Bubble who="agent" name="Claude Code">
+                <Bubble who="agent" name="Agent">
                   getUser is called in two places: checkout.ts and profile.ts.
                   Both pass a user id.
                 </Bubble>
@@ -473,14 +469,8 @@ export default function HomePage() {
               }
               title="Works with your agent"
             >
-              <span className="agents">
-                {AGENTS.map((a) => (
-                  <Link key={a.slug} href={`/install/${a.slug}`}>
-                    <AgentLogo slug={a.slug} size={16} />
-                    {a.name}
-                  </Link>
-                ))}
-              </span>
+              Any coding agent that can call tools. One install connects the
+              agent already on your machine.
             </Card>
             <Card
               icon={

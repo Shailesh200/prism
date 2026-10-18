@@ -33,7 +33,7 @@ const DEPLOY: Habit = {
     "shell: npm run deploy:staging",
   ],
   output: "checklist",
-  agent: "Claude Code",
+  agent: "Your agent",
   reply: "✓ build  ✓ lint  ✓ deploy:staging. Staging is updated.",
 };
 
@@ -48,7 +48,7 @@ const EXAMPLES: Array<{ title: string; lede: string; habit: Habit }> = [
         "linear: my in-progress issues",
       ],
       output: "standup",
-      agent: "Cursor",
+      agent: "Your agent",
       reply: "Standup: 3 open PRs, 1 review request, 2 issues in progress.",
     },
   },
@@ -62,7 +62,7 @@ const EXAMPLES: Array<{ title: string; lede: string; habit: Habit }> = [
         "github: group them by label",
       ],
       output: "summary",
-      agent: "Codex",
+      agent: "Your agent",
       reply:
         "Since the last tag: 6 PRs merged. 3 features, 2 fixes, 1 docs change.",
     },
@@ -77,7 +77,7 @@ const EXAMPLES: Array<{ title: string; lede: string; habit: Habit }> = [
         "github: open bug reports with no label",
       ],
       output: "table",
-      agent: "opencode",
+      agent: "Your agent",
       reply:
         "4 new issues, 2 unlabelled bug reports. Table below, oldest first.",
     },
@@ -94,7 +94,7 @@ const EXAMPLES: Array<{ title: string; lede: string; habit: Habit }> = [
         "shell: prism review --base origin/main --fail-on high",
       ],
       output: "checklist",
-      agent: "Claude Code",
+      agent: "Your agent",
       reply: "✓ typecheck  ✓ tests  ✓ review: risk below high. Ready to push.",
     },
   },
@@ -153,8 +153,8 @@ export default function HabitsPage() {
               refuses steps that look like secrets.
             </Card>
             <Card level={2} icon={<ChatIcon />} title="Any agent">
-              Claude Code, Cursor, Codex and opencode get the same habit through
-              Prism’s <code>habits</code> tool.
+              Every connected agent gets the same habit through Prism’s{" "}
+              <code>habits</code> tool.
             </Card>
             <Card level={2} icon={<LayersIcon />} title="Prism runs nothing">
               It stores the steps and hands them to your agent. The commands are

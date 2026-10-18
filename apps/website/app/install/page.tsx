@@ -17,7 +17,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "Install",
   description:
-    "One command installs Prism, connects your agents (Claude Code, Cursor, Codex, opencode) and maps your code.",
+    "One command installs Prism, connects the coding agent on your machine, and maps your code.",
   path: "/install",
 });
 
@@ -56,10 +56,9 @@ export default function InstallPage() {
           <Container>
             <h2 className="d3 mb-2.5">Or pick an agent</h2>
             <p className="mb-6 text-ink3">
-              Use <code>prism install all</code> for every agent, or add{" "}
-              <code>--project</code> to write that agent’s files into this repo.
-              Codex still keeps its MCP config in <code>~/.codex</code>. Each
-              page also shows the config to add by hand.
+              Use <code>prism install all</code> for every agent on this
+              machine, or add <code>--project</code> to write that agent’s files
+              into this repo. Each page also shows the config to add by hand.
             </p>
             <div className="grid4">
               {AGENTS.map((a) => (

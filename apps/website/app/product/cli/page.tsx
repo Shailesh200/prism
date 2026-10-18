@@ -88,7 +88,7 @@ export default function CliPage() {
       >
         <ChatTerminalPair
           chat={
-            <Window title="Claude Code" kind="chat">
+            <Window title="Your agent" kind="chat">
               <Bubble who="you">Where do we call getUser?</Bubble>
               <Bubble who="prism">
                 <ToolTag>graph</ToolTag> mode: neighbors · direction: in
@@ -97,7 +97,7 @@ export default function CliPage() {
                 <br />← src/pages/checkout.ts references · measured
                 <br />← src/users/profile.ts references · measured
               </Bubble>
-              <Bubble who="agent" name="Claude Code">
+              <Bubble who="agent" name="Agent">
                 getUser is called in two places: checkout.ts and profile.ts.
                 Both pass a user id.
               </Bubble>
