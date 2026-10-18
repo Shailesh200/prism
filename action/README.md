@@ -1,6 +1,6 @@
 # Prism Review Action
 
-Composite GitHub Action that runs `prism review` on pull requests.
+Composite GitHub Action that runs `prism review` on pull requests. It installs `@prismapp/cli`.
 
 See [Wire into CI](https://www.prismhq.in/docs/guides/wire-into-ci) for setup,
 SARIF upload, sticky comments, and cold-start caching.

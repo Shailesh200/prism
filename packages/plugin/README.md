@@ -54,5 +54,5 @@ Both manifests are generated from `src/definition.ts`. The build fails if the
 definition and the directories disagree, because a pack missing a skill still
 installs — you find out when the skill never fires.
 
-The pack version tracks `@repo-prism/mcp-server`: installing the pack is
+The pack version tracks `@prismapp/mcp-server`: installing the pack is
 installing a way to talk to that server.

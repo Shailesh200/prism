@@ -1,7 +1,7 @@
-# @repo-prism/cli
+# @prismapp/cli
 
-[![npm](https://img.shields.io/npm/v/@repo-prism/cli.svg)](https://www.npmjs.com/package/@repo-prism/cli)
-[![license](https://img.shields.io/npm/l/@repo-prism/cli.svg)](https://github.com/Shailesh200/prism/blob/main/LICENSE)
+[![npm](https://img.shields.io/npm/v/@prismapp/cli.svg)](https://www.npmjs.com/package/@prismapp/cli)
+[![license](https://img.shields.io/npm/l/@prismapp/cli.svg)](https://github.com/Shailesh200/prism/blob/main/LICENSE)
 
 **`prism`** — local-first repository intelligence from a terminal or CI.
 
@@ -13,6 +13,10 @@ machine. Nothing is uploaded.
 > Requires **Node.js 24**.
 
 ## Setup — step by step
+
+```bash
+npm install -g @prismapp/cli
+```
 
 1. Open a terminal **inside your project**:
    ```bash
@@ -136,7 +140,7 @@ Notes live in `~/.prism/workspaces/<key>/memory.json`, never in the repository.
 
 | | |
 |---|---|
-| **MCP** | [`@repo-prism/mcp-server`](https://www.npmjs.com/package/@repo-prism/mcp-server) — one-command agent setup |
+| **MCP** | [`@prismapp/mcp-server`](https://www.npmjs.com/package/@prismapp/mcp-server) — one-command agent setup |
 | **IDE** | [Prism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
 | **Docs** | [CLI guide](https://www.prismhq.in/docs/usage) |
 | **Website** | [prismhq.in](https://www.prismhq.in) |

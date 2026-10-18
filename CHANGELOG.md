@@ -11,6 +11,10 @@ a supported configuration.
 
 ## Unreleased
 
+## 2.0.1 — Install names
+
+- READMEs on GitHub and npm name the packages `@prismapp/cli` and `@prismapp/mcp-server`. Install with `npm install -g @prismapp/cli`.
+
 ## 2.0.0 — Prepare, lens review and receipts
 
 Prism 2.0 is local software intelligence that catches what your coding agent missed. It gives the agent the right files before it edits, then checks the change. Everything runs on your machine. This is a clean break from 1.x.
