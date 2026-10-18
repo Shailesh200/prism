@@ -8,7 +8,7 @@
 | Related milestones | M-040, M-013, M-014, **M-041** (utilities epic), M-017, M-018 |
 | Resolves | Q-017, Q-018, Q-019, Q-020, Q-021 |
 | Related backlog | [`BACKLOG_STACK_UTILITIES.md`](../BACKLOG_STACK_UTILITIES.md) |
-| Epic doc | [`M-041_stack-utilities-foundation.md`](../milestones/M-041_stack-utilities-foundation.md) |
+| Epic doc | [`M-041_stack-utilities-foundation.md`](../archive/milestones/M-041_stack-utilities-foundation.md) |
 
 ## Context
 

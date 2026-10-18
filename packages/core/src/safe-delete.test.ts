@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -24,8 +25,18 @@ function readGolden(name: string): unknown {
   return JSON.parse(readFileSync(join(here, "fixtures", name), "utf8"));
 }
 
+/**
+ * A throwaway copy. The fixture lives inside this repository, and opening it
+ * in place makes `testImpact` read the repository's own git history.
+ */
+function fixtureCopy(): string {
+  const dir = mkdtempSync(join(tmpdir(), "prism-m011-"));
+  cpSync(refsFixture, dir, { recursive: true });
+  return dir;
+}
+
 async function openIndexed(): Promise<PrismWorkspace | null> {
-  const opened = Prism.create().openRepository(refsFixture);
+  const opened = Prism.create().openRepository(fixtureCopy());
   if (!opened.ok) return null;
   const indexed = await opened.value.index();
   if (!indexed.ok) return null;
@@ -91,19 +102,6 @@ describe("workspace change-safety APIs (M-021)", () => {
     if (!res.ok) return;
     expect(TestImpactReportSchema.safeParse(res.value).success).toBe(true);
     expect(res.value).toEqual(readGolden("test-impact-helper.golden.json"));
-  });
-
-  it("breakingChangeHints flags an exported symbol", async () => {
-    const ws = await openIndexed();
-    if (!ws) return;
-    const res = await ws.breakingChangeHints({
-      kind: "symbol",
-      id: "add",
-      path: "helper.ts",
-    });
-    expect(res.ok).toBe(true);
-    if (!res.ok) return;
-    expect(res.value.map((h) => h.kind)).toContain("exported-symbol");
   });
 
   it("errors for an unknown symbol", async () => {

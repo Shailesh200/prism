@@ -152,6 +152,35 @@ describe("computeSafeDelete", () => {
     ).toBe(true);
   });
 
+  it("a config that only globs over a file does not block deleting it (round 4)", () => {
+    const soft = (evidence: string[]) => ({
+      dependencyGraph: graphOf([]),
+      analyzedPaths: ["tsconfig.json", "src/dead.ts"],
+      softEdges: [
+        {
+          from: "tsconfig.json",
+          to: "src/dead.ts",
+          lane: "config" as const,
+          reason: "matched by tsconfig include",
+          confidence: "medium" as const,
+          evidence,
+        },
+      ],
+    });
+    const globbed = computeSafeDelete(
+      { kind: "file", id: "src/dead.ts" },
+      soft(["tsconfig.json#include", "glob: src/**/*"]),
+    );
+    expect(globbed.ok && globbed.value.safe).toBe(true);
+    expect(globbed.ok && globbed.value.blockers).toEqual([]);
+    // Named by path, the config does break.
+    const named = computeSafeDelete(
+      { kind: "file", id: "src/dead.ts" },
+      soft(["tsconfig.json#files", "path: src/dead.ts"]),
+    );
+    expect(named.ok && named.value.safe).toBe(false);
+  });
+
   it("errors for an unknown target", () => {
     const res = computeSafeDelete(
       { kind: "file", id: "ghost.ts" },
@@ -160,6 +189,71 @@ describe("computeSafeDelete", () => {
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.error.code).toBe("PRISM_NOT_FOUND");
+  });
+});
+
+describe("computeSafeDelete entry roles (plan §4.4)", () => {
+  // main.ts ─▶ app.ts ─▶ helper.ts, route.tsx ; public/sw.js has no importers
+  const graph = graphOf([
+    edge("app.ts", "helper.ts"),
+    edge("app.ts", "route.tsx"),
+    edge("app.ts", "app.config.ts"),
+    edge("main.ts", "app.ts"),
+  ]);
+  const analyzed = [
+    "main.ts",
+    "app.ts",
+    "helper.ts",
+    "route.tsx",
+    "app.config.ts",
+    "public/sw.js",
+  ];
+  const ctx = {
+    dependencyGraph: graph,
+    analyzedPaths: analyzed,
+    entryRoles: new Map([
+      ["public/sw.js", "literal-path"],
+      ["route.tsx", "route"],
+    ]),
+    isOrphanEligible: (p: string) => !p.includes(".config."),
+  };
+
+  it("SD-ENTRY-1 a file with no importers but an entry role is not safe", () => {
+    const res = computeSafeDelete({ kind: "file", id: "public/sw.js" }, ctx);
+    if (!res.ok) throw new Error(res.error.message);
+    expect(res.value.safe).toBe(false);
+    expect(res.value.entryRole).toBe("literal-path");
+  });
+
+  it("SD-ENTRY-2 entry-role and non-source files are never orphaned", () => {
+    const res = computeSafeDelete({ kind: "file", id: "app.ts" }, ctx);
+    if (!res.ok) throw new Error(res.error.message);
+    expect(res.value.orphans).toEqual(["helper.ts"]);
+  });
+
+  it("SD-ENTRY-3 a Next page is an entry point, not a dependent of the config globs over it (website round)", () => {
+    const page = "app/products/page.tsx";
+    const cover = (from: string) => ({
+      from,
+      to: page,
+      lane: "config" as const,
+      reason: "included by TypeScript project",
+      confidence: "medium" as const,
+      evidence: [`${from}#include`],
+    });
+    const res = computeSafeDelete(
+      { kind: "file", id: page },
+      {
+        dependencyGraph: graphOf([]),
+        analyzedPaths: [page, "tsconfig.json", "next.config.mjs"],
+        entryRoles: new Map([[page, "route"]]),
+        softEdges: [cover("tsconfig.json"), cover("next.config.mjs")],
+      },
+    );
+    if (!res.ok) throw new Error(res.error.message);
+    expect(res.value.blockers).toEqual([]);
+    expect(res.value.softBlockers).toBeUndefined();
+    expect(res.value.entryRole).toBe("route");
   });
 });
 
@@ -185,6 +279,137 @@ describe("computeTestImpact", () => {
         category: "test",
       },
     ]);
+  });
+
+  it("P9 WHY-1 test_impact every test has a non-empty reason", () => {
+    const res = computeTestImpact(
+      { kind: "file", id: "util.ts" },
+      { dependencyGraph: graph, analyzedPaths: analyzed },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.tests.length).toBeGreaterThan(0);
+    for (const row of res.value.tests) {
+      expect(row.reason.trim().length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("computeTestImpact co-change (P7)", () => {
+  const graph = graphOf([edge("app.test.ts", "app.ts")]);
+  const analyzed = ["app.ts", "app.test.ts", "e2e/flow.test.ts", "b.ts"];
+  const coChange = (p: string) =>
+    p === "app.ts"
+      ? [
+          { path: "app.test.ts", together: 4, jaccard: 0.9 },
+          { path: "e2e/flow.test.ts", together: 3, jaccard: 0.5 },
+          { path: "b.ts", together: 3, jaccard: 0.4 },
+          { path: "e2e/rare.test.ts", together: 2, jaccard: 0.1 },
+        ]
+      : [];
+
+  it("adds tests that change with the file, above the Jaccard floor", () => {
+    const res = computeTestImpact(
+      { kind: "file", id: "app.ts" },
+      { dependencyGraph: graph, analyzedPaths: analyzed, coChange },
+    );
+    if (!res.ok) throw new Error(res.error.message);
+    expect(res.value.tests.map((t) => t.path)).toEqual([
+      "app.test.ts",
+      "e2e/flow.test.ts",
+    ]);
+    expect(res.value.tests[1]).toEqual({
+      path: "e2e/flow.test.ts",
+      reason: "changed together with app.ts in 3 commits",
+      depth: 1,
+      category: "test",
+      lane: "test",
+      confidence: "medium",
+      evidence: ["co-change jaccard 0.50"],
+    });
+  });
+
+  it("leaves a symbol's test impact to the symbol walk", () => {
+    const res = computeTestImpact(
+      { kind: "symbol", id: "app.ts#run" },
+      {
+        dependencyGraph: graph,
+        analyzedPaths: analyzed,
+        coChange,
+        symbols: [],
+        references: [],
+      },
+    );
+    if (res.ok)
+      expect(res.value.tests.map((t) => t.path)).not.toContain(
+        "e2e/flow.test.ts",
+      );
+  });
+});
+
+describe("computeTestImpact symbol walk (plan §4.3)", () => {
+  const named = (from: string, to: string, imported: string[]) => ({
+    ...edge(from, to),
+    attrs: { imported },
+  });
+  const graph = graphOf([
+    {
+      ...edge("index.ts", "debounce.ts", "re-export"),
+      attrs: { reexports: [{ from: "*", as: "*" }] },
+    },
+    {
+      ...edge("index.ts", "nth.ts", "re-export"),
+      attrs: { reexports: [{ from: "*", as: "*" }] },
+    },
+    named("debounce.spec.ts", "index.ts", ["debounce"]),
+    named("nth.spec.ts", "index.ts", ["nth"]),
+  ]);
+  const ctx = {
+    dependencyGraph: graph,
+    analyzedPaths: [
+      "index.ts",
+      "debounce.ts",
+      "nth.ts",
+      "debounce.spec.ts",
+      "nth.spec.ts",
+    ],
+    fileExports: new Map([
+      ["debounce.ts", ["debounce"]],
+      ["nth.ts", ["nth"]],
+    ]),
+  };
+
+  it("TI-SYM-1 only tests that bind the changed symbol, with viaSymbol", () => {
+    const res = computeTestImpact({ kind: "file", id: "debounce.ts" }, ctx);
+    if (!res.ok) throw new Error(res.error.message);
+    expect(res.value.tests.map((t) => [t.path, t.viaSymbol])).toEqual([
+      ["debounce.spec.ts", "debounce"],
+    ]);
+    expect(res.value.run).toEqual([]);
+    expect(res.value.runNote).toMatch(/^1 test with no runner/);
+  });
+
+  it("TI-SYM-2 run holds a command for exactly the reached tests when the runner is known", () => {
+    const res = computeTestImpact(
+      { kind: "file", id: "debounce.ts" },
+      {
+        ...ctx,
+        testPackages: [{ dir: "", runner: "vitest", hasTestScript: true }],
+        packageManager: "npm",
+      },
+    );
+    if (!res.ok) throw new Error(res.error.message);
+    expect(res.value.run).toEqual([
+      {
+        cwd: ".",
+        command: "npx vitest run debounce.spec.ts",
+        argv: ["npx", "vitest", "run", "debounce.spec.ts"],
+        scope: "files",
+        runner: "vitest",
+        tests: ["debounce.spec.ts"],
+      },
+    ]);
+    expect(res.value.runNote).toBeUndefined();
   });
 });
 

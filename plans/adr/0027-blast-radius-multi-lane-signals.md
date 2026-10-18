@@ -7,7 +7,7 @@
 | Decision makers | Owner, Architect |
 | Related milestones | **M-049** (implementation), M-048 Phase 8 (design host, deferred), M-020, M-021, M-046 |
 | Supersedes | — (extends M-020/M-021; does not replace hard reverse-dep) |
-| Related | [M-049](../milestones/M-049_blast-radius-depth.md), [M-048 Phase 8 note](../milestones/M-048_extension-polish.md), Q-022 / Q-023 |
+| Related | [M-049](../archive/milestones/M-049_blast-radius-depth.md), [M-048 Phase 8 note](../archive/milestones/M-048_extension-polish.md), Q-022 / Q-023 |
 
 ## Context
 

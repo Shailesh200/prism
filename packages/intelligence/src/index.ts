@@ -27,6 +27,8 @@ export {
 export { createDefaultDetectorPacks } from "./stack/packs.js";
 export {
   assembleDnaReport,
+  FRAMEWORK_IMPORT_PACKAGES,
+  packageRootOf,
   enrichStackProfile,
   primaryDomain,
   rankDomainsByConfidence,
@@ -57,12 +59,20 @@ export {
 } from "./dependency/packages.js";
 export { findCycles } from "./dependency/cycles.js";
 export {
+  computeEntryPoints,
+  isOrphanEligibleSource,
+  type EntryPoints,
+  type EntryPointsInput,
+  type EntryRole,
+} from "./dependency/entry-points.js";
+export {
   loadTsconfigPathAliases,
   resolveAliasSpecifier,
   type PathAliasMap,
   type PathAliasRule,
   type TsconfigAliasConfig,
 } from "./dependency/aliases.js";
+export { cachedKnowledgeGraph } from "./prepare/graph-cache.js";
 export {
   buildKnowledgeGraph,
   findReferences,
@@ -80,191 +90,9 @@ export {
   type SymbolHit,
 } from "./semantic/build.js";
 export {
-  buildFeatureGraph,
-  listFeatures,
-  type FeatureGraphResult,
-  type FeatureInfo,
-} from "./feature/build.js";
-export {
-  assembleIntelligenceReport,
-  type AssembleIntelligenceOptions,
-} from "./intelligence/assemble.js";
-export {
-  checkIntelligenceConsistency,
-  type ConsistencyGraphId,
-} from "./intelligence/consistency.js";
-export {
-  createUtilitiesSession,
-  type UtilitiesSession,
-  type UtilitiesSessionOptions,
-} from "./utilities/session.js";
-export {
-  createIngestStore,
-  type IngestStore,
-  type WriteIngestInput,
-} from "./utilities/ingest-store.js";
-export { createConsentStore, type ConsentStore } from "./utilities/consent.js";
-export {
-  createUtilityJobService,
-  UTILITY_JOB_BUNDLE_STATS,
-  UTILITY_JOB_ECHO,
-  UTILITY_JOB_LIGHTHOUSE,
-  UTILITY_JOB_REMOTE_PROBE_STUB,
-  type BundleAnalyzeJobOptions,
-  type LighthouseJobOptions,
-  type StartUtilityJobInput,
-  type UtilityJobService,
-} from "./utilities/jobs.js";
-export {
-  detectBundleAnalyzeCapability,
-  discoverFreshBundleStatsFiles,
-} from "./utilities/bundle-detect.js";
-export {
-  parseBundleStatsJson,
-  parseEsbuildMetafile,
-  parseNextAnalyze,
-  parseRollupVisualizer,
-  parseWebpackStats,
-} from "./utilities/bundle-parsers.js";
-export {
-  BUNDLE_WEIGHT_CALLOUT,
-  DEFAULT_BUNDLE_THRESHOLDS,
-  buildBundleWeightReport,
-  emptyUnsupportedBundleReport,
-  formatBytes,
-} from "./utilities/bundle-weight.js";
-export {
-  getBundleWeightReport,
-  INGEST_KIND_BUNDLE_STATS,
-} from "./utilities/bundle-weight-from-artifact.js";
-export {
-  DEFAULT_BUNDLE_ANALYZE_TIMEOUT_MS,
-  runBundleAnalyze,
-} from "./utilities/bundle-analyze-runner.js";
-export {
-  ensureLighthouseCli,
-  isNonAppLabServer,
-  lighthouseLooksLikeNotFound,
-  looksLikeNotFoundHtml,
-  resolveSystemChrome,
-  runLighthouseCli,
-  resolveReachableLabUrl,
-  probeLabUrl,
-} from "./utilities/lighthouse-runner.js";
-export {
-  COMMON_LAB_PORTS,
-  PRISM_LAB_PORT,
-  detectLabKind,
-  discoverLabUrl,
-  resolveLabAppRoot,
-  resolveLabPreviewStart,
-  startLabPreviewServer,
-} from "./utilities/lab-server.js";
-export {
-  discoverFrontendAppRoutes,
-  extractFrontendRoutesFromSource,
-  heuristicFrontendRoutes,
-  normalizeFrontendRoute,
-  routeFromPageFilePath,
-} from "./utilities/frontend-routes.js";
-export { buildPersonaPresets } from "./utilities/presets.js";
-export {
-  CWV_THRESHOLDS,
-  CWV_UNRELIABLE_CEILINGS,
-  LIGHTHOUSE_CALLOUT,
-  attributionsFromLighthouseAudits,
-  attributionsFromPayload,
-  buildCwvReport,
-  buildCwvRollups,
-  categoryScoresFromLighthouse,
-  cwvFieldReportFromPagespeedJson,
-  cwvMetricsFromLighthouse,
-  cwvReportFromLighthouseJson,
-  fieldMetricsFromPagespeedJson,
-  insightsFromLighthouse,
-  labFixtureLighthouseJson,
-  labUrlForRoute,
-  medianMergeLighthouseReports,
-  mergeRouteCwvReports,
-  metric,
-  metricsFromLighthouseJson,
-  pickNumeric,
-  pickScore,
-  ratingFromMetricValue,
-  ratingFromScore,
-  routeKeyFromUrl,
-  scoreRating,
-  tbtMsFromLighthouse,
-  unreliableMetricWarnings,
-  unwrapLighthouseJson,
-} from "./utilities/cwv.js";
-export { getCwvReport } from "./utilities/cwv-from-artifact.js";
-export {
-  HEALTH_FACTOR_WEIGHTS,
-  computeHealthScore,
-  type ComputeHealthScoreOptions,
-  type HealthFactorId,
-} from "./health/score.js";
-export {
-  buildTestingReport,
-  ingestCoverageFromWorkspace,
-  type BuildTestingReportInput,
-} from "./testing/report.js";
-export {
-  buildSecurityReport,
-  type BuildSecurityReportInput,
-} from "./security/report.js";
-export {
-  computeEngineeringHealth,
-  type ComputeEngineeringHealthInput,
-} from "./health/engineering.js";
-export { computeRegionScores } from "./health/regions.js";
-export {
-  computeRegionMovers,
-  pickRegionMoverWindow,
-  type RegionMoverWindow,
-} from "./health/movers.js";
-export { buildHealthHistorySnapshot } from "./health/history.js";
-export {
-  UTILITY_OVERLAY_CATALOG,
-  buildUtilityOverlay,
-  extractDesktopIpcChannels,
-  listUtilityOverlayKinds,
-  parseUtilityOverlayKind,
-  type BuildUtilityOverlayInput,
-  type DesktopIpcChannel,
-} from "./utilities/overlays.js";
-export {
-  buildBackendReport,
-  expandMountPoints,
-  extractExpressLike,
-  extractGraphqlJs,
-  extractGraphqlSchema,
-  extractNest,
-  extractProtoServices,
-  extractTrpc,
-  type BuildBackendReportInput,
-} from "./backend/report.js";
-export {
   buildCodeExplorerReport,
   type BuildCodeExplorerInput,
 } from "./explorer/report.js";
-export {
-  collectWorkflowDispatchKeys,
-  mapGithubAuthenticatedLogin,
-  mapGithubRepoInfo,
-  mapGithubWorkflowRuns,
-  mapGithubWorkflowSummaries,
-  matchRemoteWorkflowId,
-  parseGithubRepoRef,
-  workflowDispatchKey,
-  type DispatchWorkflowInput,
-  type DispatchWorkflowKind,
-  type GithubCiConfig,
-  type GithubRepoInfo,
-  type GithubWorkflowRun,
-  type GithubWorkflowSummary,
-} from "./utilities/github-ci.js";
 export {
   buildPrepareChange,
   tokenizeTask,
@@ -275,6 +103,11 @@ export {
 export { buildWorkOrder, isWorkOrderHookArmed } from "./prepare/work-order.js";
 export { collectRationale } from "./semantic/rationale.js";
 export { checkGuardSession, type GuardCheckInput } from "./guard/session.js";
+export {
+  newSlowTypeExports,
+  publishesToJsr,
+  slowTypeExports,
+} from "./guard/slow-types.js";
 export {
   listFindings,
   findingStillOpen,
@@ -287,3 +120,25 @@ export {
   computeFindingFingerprint,
   normalizeFindingTitle,
 } from "./findings/index.js";
+
+export {
+  buildRepoMap,
+  mergeMapEntries,
+  type BuildRepoMapInput,
+  type MapFileEntry,
+  type MapSignature,
+} from "./map/build.js";
+export {
+  MAP_DEFAULT_BUDGET,
+  mapHasNoBodies,
+  renderMapFile,
+  renderRepoMap,
+} from "./map/render.js";
+export {
+  changedPaths,
+  mapCachePaths,
+  readMapCache,
+  snapshotKey,
+  writeMapCache,
+  type MapCachePayload,
+} from "./map/cache.js";

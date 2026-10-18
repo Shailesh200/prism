@@ -1,0 +1,159 @@
+{
+  "note": "Round 2 review tasks: the upstream fix plus planted problems. A seed with `same` is another location of that seed's problem; it counts once.",
+  "tasks": [
+    {
+      "id": "review-es-toolkit-meanBy",
+      "repo": "es-toolkit",
+      "fix": "d9574efdd25c4107c292b45f23d3c553fa0b5029",
+      "parent": "a1cd37624088b7e738e9ed93ff2e4b5ae2480444",
+      "seeds": [
+        {
+          "id": "meanBy-divisor",
+          "file": "src/compat/math/meanBy.ts",
+          "kind": "bug",
+          "find": "return sumBy(items, iterateeToolkit(iteratee ?? identity)) / length;",
+          "replace": "return sumBy(items, iterateeToolkit(iteratee ?? identity)) / (length - 1);",
+          "issue": "Divides by length - 1: every mean is wrong, and one item divides by zero."
+        },
+        {
+          "id": "meanBy-isNil-copy",
+          "file": "src/compat/math/meanBy.ts",
+          "kind": "reuse",
+          "find": "  const length = items == null ? 0 : items.length;",
+          "replace": "  const length = isNullish(items) ? 0 : items.length;",
+          "issue": "Adds a local isNullish helper although the repo already has isNil (src/predicate/isNil.ts)."
+        },
+        {
+          "id": "meanBy-isNil-copy-def",
+          "file": "src/compat/math/meanBy.ts",
+          "kind": "reuse",
+          "find": "export function meanBy<T>(",
+          "replace": "function isNullish(value: unknown): value is null | undefined {\n  return value === null || value === undefined;\n}\n\nexport function meanBy<T>(",
+          "issue": "Part of meanBy-isNil-copy.",
+          "same": "meanBy-isNil-copy"
+        }
+      ]
+    },
+    {
+      "id": "review-es-toolkit-orderBy",
+      "repo": "es-toolkit",
+      "fix": "323893f2a04de43a121ddf0773a6abaf656170e7",
+      "parent": "99af186056df1f3c7dcbb1e8e13a8c2789c40b9e",
+      "seeds": [
+        {
+          "id": "orderBy-off-by-one",
+          "file": "src/compat/array/orderBy.ts",
+          "kind": "bug",
+          "find": "return index > 0 && index === path.length ? target : undefined;",
+          "replace": "return index > 0 && index === path.length - 1 ? target : undefined;",
+          "issue": "Compares with path.length - 1: a fully resolved path returns undefined and a half-resolved one returns a parent object."
+        },
+        {
+          "id": "orderBy-var",
+          "file": "src/compat/array/orderBy.ts",
+          "kind": "style",
+          "find": "    let index = 0;",
+          "replace": "    var index = 0;",
+          "issue": "Uses var; the codebase uses let/const only."
+        }
+      ]
+    },
+    {
+      "id": "review-es-toolkit-intersectionBy",
+      "repo": "es-toolkit",
+      "fix": "827b92f7979cb53c397240e19249ce6dfb19bad8",
+      "parent": "323893f2a04de43a121ddf0773a6abaf656170e7",
+      "seeds": [
+        {
+          "id": "intersectionBy-count",
+          "file": "src/compat/array/intersectionBy.ts",
+          "kind": "bug",
+          "find": "const count = hasIteratee ? values.length - 1 : values.length;",
+          "replace": "const count = hasIteratee ? values.length : values.length - 1;",
+          "issue": "Count is swapped: the iteratee is treated as an array to intersect, and the last real array is skipped."
+        },
+        {
+          "id": "intersectionBy-unused-options",
+          "file": "src/compat/array/intersectionBy.ts",
+          "kind": "minimal",
+          "find": "import { iteratee as createIteratee } from '../util/iteratee.ts';\n",
+          "replace": "import { iteratee as createIteratee } from '../util/iteratee.ts';\n\nexport interface IntersectionByOptions {\n  /** Compare with SameValue instead of SameValueZero. */\n  strict?: boolean;\n}\n",
+          "issue": "Adds an exported IntersectionByOptions type that nothing uses (new public API nobody asked for)."
+        }
+      ]
+    },
+    {
+      "id": "review-hono-combine",
+      "repo": "hono",
+      "fix": "afb2068c1c53a530528ac5f237e245793dd03c07",
+      "parent": "e5bb2062a3ddd645e3a16d1300bd76d6c9af33a5",
+      "seeds": [
+        {
+          "id": "combine-true-response",
+          "file": "src/middleware/combine/index.ts",
+          "kind": "bug",
+          "find": "        } else if (result && result !== true) {",
+          "replace": "        } else if (result) {",
+          "issue": "A condition returning true now falls into the response branch only when finalized; `result` true is stored as the response and returned (not a Response)."
+        },
+        {
+          "id": "combine-wrap-error",
+          "file": "src/middleware/combine/index.ts",
+          "kind": "design",
+          "find": "    if (lastError) {\n      throw lastError\n    }\n    return response",
+          "replace": "    if (lastError) {\n      throw new HTTPException(500, { cause: lastError })\n    }\n    return response",
+          "issue": "Wraps every error in HTTPException(500): changes the error contract, so onError handlers and middleware that expect the original error (or its status) break."
+        },
+        {
+          "id": "combine-wrap-error-import",
+          "file": "src/middleware/combine/index.ts",
+          "kind": "design",
+          "find": "import { compose } from '../../compose'\n",
+          "replace": "import { compose } from '../../compose'\nimport { HTTPException } from '../../http-exception'\n",
+          "issue": "Part of combine-wrap-error.",
+          "same": "combine-wrap-error"
+        }
+      ]
+    },
+    {
+      "id": "review-hono-etag",
+      "repo": "hono",
+      "fix": "c3053ccf14f1c4c70a0c2888eed6121b9f6c8f95",
+      "parent": "c437d7569219a21e45fa81797749e8f34fe19dcc",
+      "seeds": [
+        {
+          "id": "etag-lowercase",
+          "file": "src/middleware/etag/index.ts",
+          "kind": "bug",
+          "find": "    (options?.retainedHeaders ?? RETAINED_304_HEADERS).map((header) => header.toLowerCase())",
+          "replace": "    options?.retainedHeaders ?? RETAINED_304_HEADERS",
+          "issue": "The Set keeps the caller's casing while lookups lowercase the key: a mixed-case retainedHeaders entry never matches (the bug this change was meant to fix)."
+        },
+        {
+          "id": "etag-per-request",
+          "file": "src/middleware/etag/index.ts",
+          "kind": "perf",
+          "find": "        if (!retainedHeaders.has(key.toLowerCase())) {",
+          "replace": "        if (!new Set([...retainedHeaders].map((h) => h.toLowerCase())).has(key.toLowerCase())) {",
+          "issue": "Builds a new Set for every header of every 304 response; the set built once per middleware already does this."
+        }
+      ]
+    },
+    {
+      "id": "review-hono-jsx-gap",
+      "repo": "hono",
+      "fix": "e5bb2062a3ddd645e3a16d1300bd76d6c9af33a5",
+      "parent": "c3053ccf14f1c4c70a0c2888eed6121b9f6c8f95",
+      "seeds": [
+        {
+          "id": "jsx-gap-regex",
+          "file": "src/jsx/utils.ts",
+          "kind": "bug",
+          "find": "grid-(?!.*gap)(?:ar|[^a])",
+          "replace": "grid-(?!gap)(?:ar|[^a])",
+          "issue": "The lookahead only skips grid-gap: numeric gridRowGap and gridColumnGap still get no px."
+        }
+      ]
+    }
+  ]
+}

@@ -9,7 +9,7 @@ SARIF upload, sticky comments, and cold-start caching.
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0
-- uses: Shailesh200/prism/action@v1
+- uses: Shailesh200/prism/action@v2
   with:
     fail-on: high
 ```

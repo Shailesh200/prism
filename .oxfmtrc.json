@@ -6,6 +6,7 @@
     "**/fixtures/**",
     "**/*.generated.ts",
     "plans/mockups/**",
-    "bun.lock"
+    "bun.lock",
+    "packages/plugin/hooks/prompt-hook.mjs"
   ]
 }

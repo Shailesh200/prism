@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   claudeManifest,
   cursorManifest,
+  devMcpConfig,
   mcpConfig,
   pluginDefinition,
 } from "./definition.js";
@@ -50,6 +51,19 @@ describe("the pack on disk", () => {
     );
   });
 
+  it("keeps the fixed listing small: one skill, commands hidden from the model", () => {
+    // Every model-invocable description is resent on every call.
+    expect(def.skills).toEqual(["prism"]);
+    for (const id of def.commands) {
+      const { fields } = parseFrontmatter(
+        readFileSync(join(root, "commands", `${id}.md`), "utf8"),
+      );
+      expect(fields["disable-model-invocation"], id).toBe("true");
+    }
+    const listed = skills.map((s) => s.description).join("");
+    expect(listed.length).toBeLessThan(300);
+  });
+
   it("gives every skill a description a model can match a request against", () => {
     for (const skill of skills) {
       // Short enough to be a label is too short to route on: the host picks a
@@ -85,7 +99,16 @@ describe("the pack on disk", () => {
     const shipped = new Set(
       [...reference.matchAll(/^\| \[`([a-z_]+)`\]/gm)].map((row) => row[1]),
     );
-    expect(shipped.size).toBeGreaterThan(30);
+    // The reference lists every tool (default + opt-in); its count is generated.
+    const allCount = Number(
+      /PRISM_ALL_TOOL_COUNT = (\d+)/.exec(
+        readFileSync(
+          join(root, "..", "shared", "src", "generated", "tool-count.ts"),
+          "utf8",
+        ),
+      )?.[1],
+    );
+    expect(shipped.size).toBe(allCount);
     for (const entry of [...skills, ...commands]) {
       // Backticked snake_case is how these files spell a Prism tool.
       for (const [, name] of entry.body.matchAll(/`([a-z][a-z_]{4,})`/g)) {
@@ -99,13 +122,64 @@ describe("the pack on disk", () => {
   });
 });
 
+describe("skills-tools contract (plan §10 Phase 1)", () => {
+  const reference = readFileSync(
+    join(root, "../../docs/reference/mcp-tools.md"),
+    "utf8",
+  );
+  const shipped = new Set(
+    [...reference.matchAll(/^\| \[`([a-z_]+)`\]/gm)].map((row) => row[1]),
+  );
+  const deleted: string[] = JSON.parse(
+    readFileSync(join(root, "../../scripts/deleted-names.json"), "utf8"),
+  ).names.filter((name: string) => /^[a-z]+(?:_[a-z]+)+$/.test(name));
+  const hook = readFileSync(join(root, "hooks", "prism-hook.mjs"), "utf8");
+
+  it("hooks, skills and commands never name a deleted tool", () => {
+    expect(deleted.length).toBeGreaterThan(0);
+    const texts = [
+      ["hooks/prism-hook.mjs", hook],
+      ...[...skills, ...commands].map((e) => [e.id, e.body]),
+    ];
+    for (const [id, text] of texts) {
+      for (const name of deleted) {
+        expect(
+          new RegExp(`\\b${name}\\b`).test(text),
+          `${id} names deleted tool \`${name}\``,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it("every tool the hook tells the agent about is shipped", () => {
+    // Literal context lines, and the exact tool ids the after-edit lines
+    // build with toolId("…") or spell as mcp__prism__… (round 4).
+    const told = [
+      ...[...hook.matchAll(/additionalContext: `([^`]*)`/g)].flatMap(
+        ([, text]) =>
+          [...text!.matchAll(/\b([a-z]+(?:_[a-z]+)+)\b/g)].map((m) => m[1]),
+      ),
+      ...[...hook.matchAll(/toolId\("([a-z_]+)"\)/g)].map((m) => m[1]),
+      ...[...hook.matchAll(/mcp__prism__([a-z]+(?:_[a-z]+)+)/g)].map(
+        (m) => m[1],
+      ),
+    ];
+    expect(told.length).toBeGreaterThan(0);
+    for (const name of told) {
+      expect(shipped.has(name), `hook tells the agent about \`${name}\``).toBe(
+        true,
+      );
+    }
+  });
+});
+
 describe("manifests", () => {
   it("gives Cursor directory strings and Claude an explicit file list", () => {
     expect(cursorManifest(def).skills).toBe("./skills/");
     expect(claudeManifest(def).commands).toEqual([
       "./commands/prism-review.md",
       "./commands/prism-check.md",
-      "./commands/prism-onboard.md",
+      "./commands/prism-graph.md",
     ]);
   });
 
@@ -124,6 +198,12 @@ describe("manifests", () => {
       readFileSync(join(root, "../mcp-server/mcp-install.json"), "utf8"),
     );
     expect(mcpConfig()).toEqual(shipped);
+    const dev = devMcpConfig({
+      node: "/node",
+      mcpBin: "/repo/packages/mcp-server/dist/bin.js",
+    });
+    expect(JSON.stringify(dev)).not.toContain("@repo-prism/mcp-server");
+    expect(JSON.stringify(dev)).toContain("dist/bin.js");
   });
 
   it("tracks the MCP server's version rather than inventing a second one", () => {

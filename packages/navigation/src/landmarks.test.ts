@@ -2,13 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   LandmarkSchema,
   unsafeRepoId,
-  type FeatureInfo,
   type IndexSnapshot,
 } from "@repo-prism/shared";
 import { listLandmarks } from "./landmarks.js";
 
 describe("listLandmarks", () => {
-  it("detects entrypoints, package roots, and features", () => {
+  it("detects entrypoints and package roots", () => {
     const snapshot: IndexSnapshot = {
       repoId: unsafeRepoId("repo:nav"),
       rootPath: "/tmp",
@@ -45,22 +44,11 @@ describe("listLandmarks", () => {
       },
       warnings: [],
     };
-    const features: FeatureInfo[] = [
-      {
-        id: "feat:checkout",
-        name: "Checkout",
-        slug: "checkout",
-        confidence: 0.8,
-        memberFiles: ["src/routes/checkout/page.ts"],
-        evidence: [],
-      },
-    ];
-    const landmarks = listLandmarks(snapshot, features);
+    const landmarks = listLandmarks(snapshot);
     expect(landmarks.every((l) => LandmarkSchema.safeParse(l).success)).toBe(
       true,
     );
     expect(landmarks.some((l) => l.kind === "entrypoint")).toBe(true);
     expect(landmarks.some((l) => l.kind === "package-root")).toBe(true);
-    expect(landmarks.some((l) => l.kind === "feature")).toBe(true);
   });
 });

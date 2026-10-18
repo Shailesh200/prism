@@ -90,7 +90,6 @@ function resolveCapabilities(
     // M-020: blast radius derives from the index snapshot dependency graph
     impact: ports.indexer !== undefined,
     // M-017: repository map (+ git signals) from the index snapshot
-    map: ports.indexer !== undefined,
     // M-016: findRoute / landmarks from graphs
     navigation: ports.indexer !== undefined,
   };

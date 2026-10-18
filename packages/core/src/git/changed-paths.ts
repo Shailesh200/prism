@@ -21,14 +21,23 @@ export type ChangedPaths = {
   readonly paths: readonly string[];
 };
 
+/**
+ * `--no-optional-locks`: `status` refreshes the index under `index.lock`
+ * unless told not to, and a background reader holding that lock makes the
+ * user's own `git checkout` or `git commit` fail with "index.lock exists".
+ */
 function git(rootPath: string, args: readonly string[]): string | null {
   try {
-    return execFileSync("git", ["-C", rootPath, ...args], {
-      encoding: "utf8",
-      maxBuffer: 16 * 1024 * 1024,
-      timeout: 15_000,
-      stdio: ["ignore", "pipe", "ignore"],
-    });
+    return execFileSync(
+      "git",
+      ["--no-optional-locks", "-C", rootPath, ...args],
+      {
+        encoding: "utf8",
+        maxBuffer: 16 * 1024 * 1024,
+        timeout: 15_000,
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    );
   } catch {
     return null;
   }

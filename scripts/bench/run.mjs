@@ -117,10 +117,8 @@ const samples = {
   index_incremental: [],
   dependency_graph: [],
   cycles: [],
-  repository_map: [],
   blast_radius: [],
   dna: [],
-  health: [],
 };
 
 let indexSizeBytes = 0;
@@ -157,12 +155,10 @@ for (let rep = 0; rep < reps; rep += 1) {
     await time(() => workspace.getDependencyGraph()),
   );
   samples.cycles.push(await time(() => workspace.getCycles()));
-  samples.repository_map.push(await time(() => workspace.getRepositoryMap()));
   samples.blast_radius.push(
     await time(() => workspace.blastRadius({ kind: "file", id: target })),
   );
   samples.dna.push(await time(() => workspace.getDna()));
-  samples.health.push(await time(() => workspace.getHealth()));
 
   workspace.close?.();
 }

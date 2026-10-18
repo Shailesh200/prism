@@ -23,3 +23,14 @@ export {
   computeTestImpact,
   type RenameTarget,
 } from "./change-impact.js";
+
+export {
+  detectTestRunner,
+  testRunPlan,
+  typecheckPlan,
+  PACKAGE_MANAGERS,
+  type PackageManager,
+  type PackageManifest,
+  type TestPackage,
+  type TypecheckRun,
+} from "./test-runner.js";

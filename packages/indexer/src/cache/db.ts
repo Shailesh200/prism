@@ -1,6 +1,9 @@
-import { mkdir, rm, unlink } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, open, rename, rm } from "node:fs/promises";
+import { recordEvent } from "@repo-prism/shared/events";
 import { createRequire } from "node:module";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import type BetterSqlite3 from "better-sqlite3";
 import {
   PrismErrorCode,
@@ -27,23 +30,103 @@ function isBunRuntime(): boolean {
   return typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
 }
 
+function requireFrom(base: string, specifier: string): unknown | undefined {
+  try {
+    const href = base.startsWith("file:") ? base : pathToFileURL(base).href;
+    return createRequire(href)(specifier);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
- * Resolve a native module from this package. Prefer `createRequire(import.meta.url)`
- * so Bun's global `require` (scoped to the playground Vite config) cannot miss
- * `better-sqlite3`. The CJS extension bundle still has a working `require`.
+ * Resolve a native module from this package. Vite bundles `vite.config.ts`
+ * and rewrites `import.meta.url` to the playground, so a single
+ * `createRequire(import.meta.url)` misses `packages/indexer/node_modules`.
  */
 function nativeRequire(specifier: string): unknown {
-  if (typeof import.meta.url === "string") {
-    try {
-      return createRequire(import.meta.url)(specifier);
-    } catch {
-      /* CJS host / bun builtins fall through. */
+  const loaded = requireFrom(import.meta.url, specifier);
+  if (loaded !== undefined) return loaded;
+
+  let dir = dirname(new URL(import.meta.url).pathname);
+  for (let i = 0; i < 10; i++) {
+    const pkg = join(dir, "package.json");
+    if (existsSync(join(dir, "node_modules", specifier))) {
+      const hit = requireFrom(pkg, specifier);
+      if (hit !== undefined) return hit;
     }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
+
+  let cwd = process.cwd();
+  for (let i = 0; i < 8; i++) {
+    const indexerPkg = join(cwd, "packages/indexer/package.json");
+    if (existsSync(indexerPkg)) {
+      const hit = requireFrom(indexerPkg, specifier);
+      if (hit !== undefined) return hit;
+    }
+    const parent = dirname(cwd);
+    if (parent === cwd) break;
+    cwd = parent;
+  }
+
   if (typeof require === "function") {
     return require(specifier);
   }
-  throw new Error(`Cannot load ${specifier}`);
+  throw new Error(`Cannot load ${specifier} (from ${import.meta.url})`);
+}
+
+const SQLITE_HEADER = "SQLite format 3\0";
+
+/**
+ * True when the file is missing (a first open creates it) or starts with the
+ * SQLite header. A stand-in file must be moved aside before the native driver
+ * opens it: on Windows that open keeps the file locked after it throws, and
+ * the quarantine rename then fails.
+ */
+async function hasSqliteHeader(dbPath: string): Promise<boolean> {
+  let handle: Awaited<ReturnType<typeof open>>;
+  try {
+    handle = await open(dbPath, "r");
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT";
+  }
+  try {
+    const buf = Buffer.alloc(SQLITE_HEADER.length);
+    const { bytesRead } = await handle.read(buf, 0, buf.length, 0);
+    return bytesRead === buf.length && buf.toString("utf8") === SQLITE_HEADER;
+  } finally {
+    await handle.close();
+  }
+}
+
+/** Driver/module failures are not cache corruption — do not delete the DB. */
+export function isSqliteDriverError(cause: unknown): boolean {
+  const text =
+    cause instanceof Error ? `${cause.message} ${cause.name}` : String(cause);
+  return /Cannot find module|Cannot load |MODULE_NOT_FOUND|dlopen|NODE_MODULE_VERSION|compiled against|ERR_DLOPEN|not a valid Win32|bun:sqlite/i.test(
+    text,
+  );
+}
+
+/**
+ * `bun:sqlite` is a Bun builtin. Vite's `createRequire` cannot see it, so
+ * playground Health-over-time used to fail open, delete the empty cache, and
+ * surface "Failed to open SQLite cache".
+ */
+function loadBunSqlite(): BunSqliteModule {
+  const getBuiltin = (process as { getBuiltinModule?: (id: string) => unknown })
+    .getBuiltinModule;
+  if (typeof getBuiltin === "function") {
+    try {
+      return getBuiltin("bun:sqlite") as BunSqliteModule;
+    } catch {
+      /* not a Bun builtin host */
+    }
+  }
+  return nativeRequire("bun:sqlite") as BunSqliteModule;
 }
 
 /**
@@ -63,7 +146,7 @@ function attachPragma(db: SqliteDatabase): SqliteDatabase {
 }
 
 function openBunSqlite(path: string): SqliteDatabase {
-  const mod = nativeRequire("bun:sqlite") as BunSqliteModule;
+  const mod = loadBunSqlite();
   const db =
     path === ":memory:"
       ? new mod.Database(path)
@@ -74,9 +157,16 @@ function openBunSqlite(path: string): SqliteDatabase {
 /**
  * Open SQLite. Node / the extension host use better-sqlite3 (ADR-0003).
  * Bun cannot dlopen that addon, so Bun-hosted hosts (playground Vite, MCP)
- * fall back to `bun:sqlite` — same file, same schema.
+ * use `bun:sqlite` first — same file, same schema.
  */
 export function openSqliteDatabase(path = ":memory:"): SqliteDatabase {
+  if (isBunRuntime()) {
+    try {
+      return openBunSqlite(path);
+    } catch {
+      /* native better-sqlite3 in a Node worker */
+    }
+  }
   try {
     const Database = nativeRequire("better-sqlite3") as SqliteConstructor;
     return attachPragma(new Database(path));
@@ -123,10 +213,30 @@ function isHealthy(db: SqliteDatabase): boolean {
   }
 }
 
-async function removeDbFiles(dbPath: string): Promise<void> {
-  await unlink(dbPath).catch(() => undefined);
-  await unlink(`${dbPath}-wal`).catch(() => undefined);
-  await unlink(`${dbPath}-shm`).catch(() => undefined);
+/**
+ * Move a corrupt database (and its WAL/SHM side files) aside as
+ * `*.corrupt-<ts>` so it is never read again but can still be inspected
+ * (plan §2.4), and log `index.corrupt`. A file that is not there is skipped.
+ */
+export async function quarantineDbFiles(
+  dbPath: string,
+  reason: string,
+  now: number = Date.now(),
+): Promise<readonly string[]> {
+  const moved: string[] = [];
+  for (const path of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
+    if (!existsSync(path)) continue;
+    const target = `${path}.corrupt-${now}`;
+    await rename(path, target);
+    moved.push(target);
+  }
+  recordEvent({
+    event: "index.corrupt",
+    outcome: "degraded",
+    reason,
+    detail: { path: dbPath, moved: moved.length },
+  });
+  return moved;
 }
 
 /**
@@ -176,19 +286,38 @@ export async function openIndexCache(
       return err(
         ioError(`Failed to open SQLite cache: ${dbPath}`, {
           cause: String(cause),
+          driver: isSqliteDriverError(cause),
         }),
       );
     }
   };
 
+  if (existsSync(dbPath) && !(await hasSqliteHeader(dbPath))) {
+    try {
+      await quarantineDbFiles(dbPath, "file is not a SQLite database");
+    } catch (moveCause) {
+      return err(
+        ioError(`Failed to move aside corrupt SQLite cache: ${dbPath}`, {
+          cause: String(moveCause),
+        }),
+      );
+    }
+  }
+
   let opened = tryOpen(false);
   if (!opened.ok) {
+    const details = opened.error.details as
+      | { cause?: unknown; driver?: boolean }
+      | undefined;
+    if (details?.driver === true || isSqliteDriverError(details?.cause)) {
+      return opened;
+    }
     try {
-      await removeDbFiles(dbPath);
-    } catch (cause) {
+      await quarantineDbFiles(dbPath, String(details?.cause ?? "open failed"));
+    } catch (moveCause) {
       return err(
-        ioError(`Failed to remove corrupt SQLite cache: ${dbPath}`, {
-          cause: String(cause),
+        ioError(`Failed to move aside corrupt SQLite cache: ${dbPath}`, {
+          cause: String(moveCause),
         }),
       );
     }

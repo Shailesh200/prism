@@ -1,317 +1,453 @@
-import { HomeLayout } from "fumadocs-ui/layouts/home";
-import { baseOptions } from "@/lib/layout.shared";
 import Link from "next/link";
-import { PageEnter } from "@/components/motion/PageEnter";
-import { Reveal } from "@/components/motion/Reveal";
-import { StaggerGrid } from "@/components/motion/StaggerGrid";
-import { SectionIntro } from "@/components/motion/SectionIntro";
-import { McpInstallPanel } from "@/components/mcp-install-panel";
-import { Counter } from "@/components/motion/Counter";
-import { SiteFooter } from "@/components/site-footer";
-import { FEATURES } from "@/lib/features";
 import type { ReactNode } from "react";
-import sampleReport from "@/data/benchmarks-sample.json";
+import { Callout } from "@/components/ui/callout";
+import { cx } from "@/components/ui/cx";
+import { Pill } from "@/components/ui/pill";
+import { Container } from "@/components/ui/container";
+import { CtaBand } from "@/components/ui/cta-band";
+import { PageHero } from "@/components/ui/page-hero";
+import { Table } from "@/components/ui/table";
+import { SiteFooter } from "@/components/site/site-footer";
+import { SiteNav } from "@/components/site/site-nav";
+import sample from "@/data/benchmarks-sample.json";
+import {
+  CURSOR_REVIEW_FOUND,
+  CURSOR_REVIEW_TOKENS,
+  GROUPS,
+  HABITS_RAN,
+  type Measure,
+  OPENCODE_B6_SOLVED,
+  OPENCODE_B6_TOKENS,
+  OPENCODE_R3_TOKENS,
+  change,
+  formatChange,
+  tok,
+  verdict,
+} from "@/lib/bench";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
-  title: "Features & Benchmarks",
+  title: "Benchmarks",
   description:
-    "What Prism can do, and the measured hop-count savings before an edit.",
+    "Prism 2.0 evaluation: real coding agents on real fixes, with and without Prism. Method, agents, tasks and every result, including where Prism did not help.",
   path: "/benchmarks",
 });
 
-type RunSide = {
-  toolCalls: number;
-  estimatedTokens: number;
-  tokensPerCall?: number;
-  elapsedMs: number;
-};
+/*
+ * Every number here comes from docs/benchmarks/2.x.md (the published real-agent run) or the Round 2 / Round 3
+ * sections of plans/notes/prism-2-next-change-report.md. The simulated reader numbers are read from
+ * data/benchmarks-sample.json. Add a number only with its source.
+ */
 
-type ScenarioRow = {
-  scenario: string;
-  label: string;
-  withoutPrism: RunSide;
-  withPrism: RunSide;
-  savings: { toolCallsPct: number; tokensPct: number; timePct: number };
-};
-
-type BenchReport = {
-  recordedAt: string;
-  machine?: { platform: string; arch: string; node: string };
-  totals: {
-    withoutPrism: RunSide;
-    withPrism: RunSide;
-    savings: { toolCallsPct: number; tokensPct: number; timePct: number };
-  };
-  fixtures: Array<{
-    id: string;
-    editTarget: string;
-    scenarios: ScenarioRow[];
-  }>;
-};
-
-const QUESTIONS: Array<{ id: string; tool: string; href: string }> = [
+const GLANCE: Array<{
+  metric: string;
+  value: string;
+  means: ReactNode;
+  why?: string;
+}> = [
   {
-    id: "orient",
-    tool: "repository_dna",
-    href: "/docs/guides/understand-a-repo",
+    metric: "Files found",
+    value: "61.8 %",
+    means:
+      "Of the files a real fix changed, the share in Prism’s list (220 tasks, 6 repos). The top 3 held 39.1 %.",
   },
   {
-    id: "safe_edit",
-    tool: "blast_radius",
-    href: "/docs/guides/before-you-edit",
+    metric: "Tests found",
+    value: "64.9 %",
+    means: (
+      <>
+        Of the tests a real fix needed, the share <code>test_impact</code>{" "}
+        found. 27.9 % of the tests it listed were needed.
+      </>
+    ),
   },
   {
-    id: "health",
-    tool: "repository_health",
-    href: "/docs/guides/track-health",
-  },
-  { id: "find", tool: "find_symbol", href: "/docs/reference/mcp-tools" },
-  {
-    id: "test_impact",
-    tool: "test_impact",
-    href: "/docs/guides/before-you-edit",
+    metric: "Change requests recognised",
+    value: "99.6 %",
+    means: "Prompts asking for a code change that Prism recognised.",
   },
   {
-    id: "cycles",
-    tool: "dependency_cycles",
-    href: "/docs/concepts/graphs",
+    metric: "Questions mistaken for changes",
+    value: "1.3 %",
+    means: "Plain questions Prism wrongly treated as a change request.",
+  },
+  {
+    metric: "Review",
+    value: "10 of 11",
+    means:
+      "Seeded problems Claude Code found in review, with and without Prism. Cursor agent CLI: 4 of 7 with, 3 of 7 without.",
+    why: "Review with Prism was never worse.",
+  },
+  {
+    metric: "Custom skills",
+    value: "10 of 10",
+    means:
+      "Your own skills ran with Prism installed, on Claude Code, Cursor and opencode.",
+  },
+  {
+    metric: "Habits",
+    value: "4/4 · 2/2",
+    means:
+      "Cursor 4 of 4, opencode 2 of 2. Claude Code ran a habit when you named it (2 of 2), not by itself (0 of 2).",
+  },
+  {
+    metric: "Hook time",
+    value: "under 1 s",
+    means:
+      "At p95 on an idle machine: prompt 896 ms, stop 508 ms; edit hooks 39 ms on an earlier 2.0 build.",
+  },
+  {
+    metric: "Agents",
+    value: "4 of 4",
+    means:
+      "Claude Code, Cursor, Codex and opencode pass install, doctor and a sample hook on macOS.",
   },
 ];
 
-function questionStats(report: BenchReport, id: string) {
-  let without = 0;
-  let withPrism = 0;
-  let label = id;
-  for (const fixture of report.fixtures) {
-    for (const scenario of fixture.scenarios) {
-      if (scenario.scenario !== id) continue;
-      label = scenario.label;
-      without += scenario.withoutPrism.toolCalls;
-      withPrism += scenario.withPrism.toolCalls;
-    }
-  }
-  const saved =
-    without === 0 ? 0 : Math.round(((without - withPrism) / without) * 100);
-  return { label, without, withPrism, saved };
+const WINS: Array<{
+  m: Measure;
+  title: string;
+  who: string;
+  also?: Measure;
+}> = [
+  {
+    m: OPENCODE_R3_TOKENS,
+    title: "Fewer tokens for the same tests passing",
+    who: "opencode · 11 small fixes · tests pass 8 of 11 both ways",
+  },
+  {
+    m: CURSOR_REVIEW_FOUND,
+    title: "More seeded problems found in review",
+    who: "Cursor agent CLI (grok-4.7-high) · 4 reviews each way",
+    also: CURSOR_REVIEW_TOKENS,
+  },
+  {
+    m: OPENCODE_B6_SOLVED,
+    title: "One more task solved",
+    who: "opencode · 11 small fixes",
+    also: OPENCODE_B6_TOKENS,
+  },
+  {
+    m: HABITS_RAN,
+    title: "Your habits run when you ask",
+    who: "Cursor agent CLI 4 of 4, opencode 2 of 2",
+  },
+];
+
+const TONE = { win: "ok", loss: "bad", tie: undefined } as const;
+
+function ChangePill({ m }: { m: Measure }) {
+  return <Pill tone={TONE[verdict(m)]}>{formatChange(m)}</Pill>;
 }
 
-async function loadLatestReport(): Promise<BenchReport | null> {
-  return sampleReport as BenchReport;
-}
-
-export default async function BenchmarksPage() {
-  const report = await loadLatestReport();
-
+/** Two bars on one scale: without Prism, then with it. */
+function Bars({ m }: { m: Measure }) {
+  const max = Math.max(m.without.v, m.with.v) || 1;
+  const rows = [
+    ["Without", m.without, false],
+    ["With Prism", m.with, true],
+  ] as const;
   return (
-    <HomeLayout {...baseOptions()}>
-      <PageEnter>
-        <main className="mx-auto flex w-full max-w-5xl flex-col gap-12 px-6 py-16">
-          <SectionIntro
-            index="Nº FEATURES + PROOF"
-            title="Features & Benchmarks"
-            description="Task-led capabilities, then the hop-count proof: six questions, five fixture repos."
-          />
-
-          <StaggerGrid items="li">
-            <ul className="divide-y divide-fd-border border-y border-fd-border">
-              {FEATURES.map((f, i) => (
-                <li key={f.href}>
-                  <Link
-                    href={f.href}
-                    className="group flex flex-col gap-2 py-5 transition sm:flex-row sm:items-baseline sm:justify-between sm:gap-8"
-                  >
-                    <div className="flex items-baseline gap-4">
-                      <span className="font-mono text-xs text-fd-primary">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <span className="font-display text-lg font-medium text-fd-foreground group-hover:text-fd-primary">
-                        {f.title}
-                      </span>
-                    </div>
-                    <p className="max-w-md text-sm text-fd-muted-foreground sm:text-right">
-                      {f.body}
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </StaggerGrid>
-
-          <Reveal>
-            <section className="space-y-3 text-fd-muted-foreground">
-              <h2 className="font-display text-xl font-medium text-fd-foreground">
-                What we measure
-              </h2>
-              <p className="max-w-2xl leading-relaxed">
-                The same six questions an agent asks before it edits, on five
-                fixture repos. One side lists, greps, and skims. The other calls
-                Core — the same tools MCP exposes. We count discrete tool calls
-                — the hops an agent takes before it can answer.
-              </p>
-            </section>
-          </Reveal>
-
-          {report ? (
-            <Reveal delay={0.05}>
-              <section className="space-y-6">
-                <h2 className="font-display text-xl font-medium text-fd-foreground">
-                  Latest run
-                </h2>
-                <p className="text-sm text-fd-muted-foreground">
-                  Recorded{" "}
-                  {new Date(report.recordedAt).toLocaleString("en-US", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                    timeZone: "UTC",
-                  })}{" "}
-                  UTC
-                  {report.machine
-                    ? ` · ${report.machine.platform}/${report.machine.arch} · ${report.machine.node}`
-                    : null}
-                </p>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <Stat label="Tool calls saved">
-                    <Counter
-                      value={report.totals.savings.toolCallsPct}
-                      suffix="%"
-                    />
-                  </Stat>
-                  <Stat label="Naive steps → Prism">
-                    <Counter value={report.totals.withoutPrism.toolCalls} />
-                    {" → "}
-                    <Counter value={report.totals.withPrism.toolCalls} />
-                  </Stat>
-                  <Stat label="Questions on five fixtures">
-                    <Counter
-                      value={
-                        report.fixtures.length *
-                        (report.fixtures[0]?.scenarios.length ??
-                          QUESTIONS.length)
-                      }
-                    />
-                  </Stat>
-                </div>
-              </section>
-            </Reveal>
-          ) : (
-            <Reveal delay={0.05}>
-              <p className="text-sm text-fd-muted-foreground">
-                No committed sample yet. Run{" "}
-                <code className="text-fd-primary">
-                  bun run bench:orientation
-                </code>{" "}
-                after <code className="text-fd-primary">bun run build</code>.
-              </p>
-            </Reveal>
-          )}
-
-          {report ? (
-            <Reveal>
-              <section className="space-y-8">
-                <div className="space-y-3">
-                  <h3 className="font-display text-lg font-medium text-fd-foreground">
-                    By question
-                  </h3>
-                  <p className="max-w-2xl text-sm text-fd-muted-foreground">
-                    Summed across the five fixtures — list/grep on the left, a
-                    Prism tool on the right.
-                  </p>
-                  <div className="overflow-x-auto rounded-lg border border-fd-border">
-                    <table className="w-full text-left text-sm">
-                      <thead className="border-b border-fd-border bg-fd-card">
-                        <tr>
-                          <th className="px-4 py-3 font-medium">Question</th>
-                          <th className="px-4 py-3 font-medium">Without</th>
-                          <th className="px-4 py-3 font-medium">With Prism</th>
-                          <th className="px-4 py-3 font-medium">Calls saved</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {QUESTIONS.map((item) => {
-                          const stats = questionStats(report, item.id);
-                          return (
-                            <tr
-                              key={item.id}
-                              className="border-b border-fd-border last:border-0"
-                            >
-                              <td className="px-4 py-3">
-                                <Link
-                                  href={item.href}
-                                  className="hover:text-fd-primary"
-                                >
-                                  {stats.label}
-                                </Link>
-                                <div className="mt-0.5 font-mono text-xs text-fd-muted-foreground">
-                                  {item.tool}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 font-mono text-xs tabular-nums">
-                                {stats.without}
-                              </td>
-                              <td className="px-4 py-3 font-mono text-xs tabular-nums">
-                                {stats.withPrism}
-                              </td>
-                              <td className="px-4 py-3 tabular-nums text-fd-primary">
-                                −{stats.saved}%
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="space-y-3 text-sm leading-relaxed text-fd-muted-foreground">
-                  <h2 className="font-display text-xl font-medium text-fd-foreground">
-                    How to read this
-                  </h2>
-                  <p>
-                    The win is fewer round-trips and a complete structural
-                    answer. Naive grep grows with file count; Prism answers stay
-                    one or two calls. Wall time includes a cold index per
-                    question so the runs stay isolated; a real session pays that
-                    once.
-                  </p>
-                  <p>
-                    Re-run locally after{" "}
-                    <code className="text-fd-primary">bun run build</code>:{" "}
-                    <code className="text-fd-primary">
-                      bun run bench:orientation
-                    </code>
-                    .
-                  </p>
-                </div>
-              </section>
-            </Reveal>
-          ) : null}
-
-          <Reveal delay={0.1}>
-            <section className="space-y-4 border-t border-fd-border pt-10">
-              <h2 className="font-display text-xl font-medium text-fd-foreground">
-                One-click MCP install
-              </h2>
-              <p className="text-sm text-fd-muted-foreground">
-                Add Prism to your agent in one step, then ask in plain language.
-              </p>
-              <McpInstallPanel />
-            </section>
-          </Reveal>
-        </main>
-      </PageEnter>
-      <SiteFooter />
-    </HomeLayout>
+    <div className="bars">
+      {rows.map(([label, val, on]) => (
+        <div key={label} className="bar">
+          <span>{label}</span>
+          <i>
+            <b
+              className={cx(on && "on")}
+              style={{ width: `${Math.max((val.v / max) * 100, 2)}%` }}
+            />
+          </i>
+          <span className="v">{val.text}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
-function Stat({ label, children }: { label: string; children: ReactNode }) {
+function Win({ m, title, who, also }: (typeof WINS)[number]) {
+  const c = change(m);
   return (
-    <div className="rounded-lg border border-fd-border bg-fd-card p-4">
-      <div className="font-display text-2xl font-semibold text-fd-primary">
-        {children}
-      </div>
-      <div className="mt-1 text-xs text-fd-muted-foreground">{label}</div>
+    <div className="card win">
+      <div className="num">{c === null ? m.with.text : formatChange(m)}</div>
+      <h3 className="t mt-3">{title}</h3>
+      <p className="text-[15px]">{who}</p>
+      <Bars m={m} />
+      {also && (
+        <p className="mt-3 text-[15px]">
+          Also {also.label.toLowerCase()}: <ChangePill m={also} />
+        </p>
+      )}
     </div>
+  );
+}
+
+const fmt = (n: number) => n.toLocaleString("en-US");
+const SIM = sample.totals;
+const SIM_CALLS: Measure = {
+  label: "Tool calls",
+  without: tok(SIM.withoutPrism.toolCalls),
+  with: tok(SIM.withPrism.toolCalls),
+  better: "lower",
+};
+const SIM_TOKENS: Measure = {
+  label: "Estimated tokens",
+  without: tok(SIM.withoutPrism.estimatedTokens),
+  with: tok(SIM.withPrism.estimatedTokens),
+  better: "lower",
+};
+
+const Value = ({ children }: { children: ReactNode }) => (
+  <span className="font-mono text-base font-medium whitespace-nowrap text-ink">
+    {children}
+  </span>
+);
+
+const METHOD: Array<[term: string, detail: ReactNode]> = [
+  [
+    "Agents",
+    "Claude Code (claude-opus-5-5), Cursor agent CLI (grok-4.7-high), opencode (mimo-v2.6-flash-free)",
+  ],
+  [
+    "Tasks",
+    "Real fixes, three-turn follow-ups and reviews with seeded problems, on public repositories (mainly es-toolkit and hono)",
+  ],
+  [
+    "Grading",
+    "Tests run on every result. Quality graded 1 to 5 by a grader that does not know which run used Prism",
+  ],
+  [
+    "Setup",
+    "One 8 GB macOS machine. Tokens, time and cost are medians per task",
+  ],
+  ["Scope", "Small samples. Prism’s own evaluation, not an independent audit"],
+  [
+    "Not published",
+    "A “tokens saved” estimate: it did not hold up when checked",
+  ],
+];
+
+export default function BenchmarksPage() {
+  return (
+    <>
+      <SiteNav />
+      <main>
+        <PageHero
+          eyebrow="Benchmarks"
+          title={
+            <>
+              Prism 2.0, <em>measured.</em>
+            </>
+          }
+          lede="Real coding agents on real fixes from public repositories, with Prism and without it, on the same tasks and the same model. Every result is published, including where Prism did not help."
+        />
+
+        <section className="sec">
+          <Container>
+            <h2 className="d3">Where Prism helps</h2>
+            <p className="lede mt-3.5 mb-7 text-lg">
+              The best results. The full results below list every measure,
+              including the ones where Prism did worse.
+            </p>
+            <div className="grid4">
+              {WINS.map((w) => (
+                <Win key={w.title} {...w} />
+              ))}
+            </div>
+          </Container>
+        </section>
+
+        <section className="sec">
+          <Container>
+            <h2 className="d3">Accuracy at a glance</h2>
+            <p className="lede mt-3.5 mb-7 text-lg">
+              How well Prism picks files and tests (220 tasks, 6 public
+              repositories), spots change requests, and how fast its hooks run.
+            </p>
+            <div className="card tcard">
+              <Table className="t-kv">
+                <thead>
+                  <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                    <th>Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {GLANCE.map((g) => (
+                    <tr key={g.metric}>
+                      <td className="nw">
+                        <b className="font-semibold">{g.metric}</b>
+                      </td>
+                      <td className="nw">
+                        <Value>{g.value}</Value>
+                      </td>
+                      <td>
+                        {g.means}
+                        {g.why && <span className="text-ink3"> {g.why}</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          </Container>
+        </section>
+
+        <section className="sec">
+          <Container>
+            <h2 className="d3">Full results</h2>
+            <p className="lede mt-3.5 mb-7 text-lg">
+              Every with-and-without comparison. Change is with Prism against
+              without, on the same tasks and the same model.
+            </p>
+            <div className="mb-6">
+              <Callout tone="info" title="How to read these numbers">
+                <ul className="list-disc space-y-1 pl-5">
+                  <li>
+                    Change is with Prism against without, on the same tasks and
+                    the same model. Green is better, red is worse.
+                  </li>
+                  <li>
+                    Tokens, time and cost are medians per task. Grades are 1 to
+                    5, given by a grader that does not know which run used
+                    Prism.
+                  </li>
+                  <li>
+                    Compare within one tool only: each tool ran its own tasks
+                    with its own model.
+                  </li>
+                  <li>
+                    Hook times are p95 on an idle machine. Under heavy load the
+                    stop hook took 1,307 ms at p95.
+                  </li>
+                </ul>
+              </Callout>
+            </div>
+            <div className="grid2 items-start gap-6">
+              {GROUPS.map((g) => (
+                <div key={g.tool + g.run} className="card tcard bgroup">
+                  <div className="bg-h">
+                    <b>{g.tool}</b> <span>· {g.model}</span>
+                    <p>{g.run}</p>
+                  </div>
+                  <Table className="t-cmp">
+                    <thead>
+                      <tr>
+                        <th>Measure</th>
+                        <th>Without</th>
+                        <th>With</th>
+                        <th>Change</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {g.measures.map((m) => (
+                        <tr key={m.label}>
+                          <td>{m.label}</td>
+                          <td className="nw">
+                            <Value>{m.without.text}</Value>
+                          </td>
+                          <td className="nw">
+                            <Value>{m.with.text}</Value>
+                          </td>
+                          <td className="nw">
+                            <ChangePill m={m} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                  {g.note && <p className="bg-f">{g.note}</p>}
+                </div>
+              ))}
+            </div>
+            <p className="mt-5 text-[15px] text-ink3">
+              Tokens, time and cost are medians per task; grades are 1 to 5,
+              blind. Compare within one tool only.{" "}
+              <Link href="/docs/benchmarks/2.x">
+                <u>Full method and raw results</u>
+              </Link>
+              .
+            </p>
+          </Container>
+        </section>
+
+        <section className="sec">
+          <Container className="grid2 grid-cols-[minmax(0,.62fr)_minmax(0,1.38fr)] items-start">
+            <div>
+              <h2 className="d3">Simulated reader</h2>
+              <p className="lede mt-3.5 text-lg">
+                Five questions on {sample.fixtures.length} small repositories,
+                answered once by listing and reading files and once through
+                Prism. No model is involved; tokens are estimated as bytes ÷ 4.
+              </p>
+            </div>
+            <div className="card tcard">
+              <Table className="t-cmp">
+                <thead>
+                  <tr>
+                    <th>Simulated</th>
+                    <th>Reading files</th>
+                    <th>Through Prism</th>
+                    <th>Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <b className="font-semibold">Tool calls</b>
+                    </td>
+                    <td>
+                      <Value>{fmt(SIM.withoutPrism.toolCalls)}</Value>
+                    </td>
+                    <td>
+                      <Value>{fmt(SIM.withPrism.toolCalls)}</Value>
+                    </td>
+                    <td>
+                      <ChangePill m={SIM_CALLS} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <b className="font-semibold">Estimated tokens</b>
+                    </td>
+                    <td>
+                      <Value>{fmt(SIM.withoutPrism.estimatedTokens)}</Value>
+                    </td>
+                    <td>
+                      <Value>{fmt(SIM.withPrism.estimatedTokens)}</Value>
+                    </td>
+                    <td>
+                      <ChangePill m={SIM_TOKENS} />
+                    </td>
+                  </tr>
+                </tbody>
+              </Table>
+              <p className="mt-2 mb-3 text-[15px] text-ink3">
+                Recorded {sample.recordedAt.slice(0, 10)}. A simulation shows
+                how much reading Prism replaces, not what a real agent saves;
+                the full results above do.
+              </p>
+            </div>
+          </Container>
+        </section>
+
+        <section className="sec">
+          <Container>
+            <h2 className="d3 mb-6">Method</h2>
+            <dl className="method">
+              {METHOD.map(([term, detail]) => (
+                <div key={term}>
+                  <dt>{term}</dt>
+                  <dd>{detail}</dd>
+                </div>
+              ))}
+            </dl>
+          </Container>
+        </section>
+        <CtaBand />
+      </main>
+      <SiteFooter />
+    </>
   );
 }

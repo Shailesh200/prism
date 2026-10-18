@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: "Ignore rules, environment variables, CLI, MCP, and extension settings."
+description: "Ignore rules, environment variables, CLI and MCP settings."
 ---
 
 There is very little to configure, which is deliberate. Everything below has a
@@ -33,7 +33,7 @@ ecosystem-specific additions once Prism detects the ecosystem.
 
 ## `.prism/config.json`
 
-Shared indexing knobs for CLI and IDE (Core reads this at workspace open):
+Indexing settings shared by the CLI and the MCP server (read when a workspace opens):
 
 ```json
 {
@@ -78,8 +78,8 @@ workspace variable:
 {
   "mcpServers": {
     "prism": {
-      "command": "npx",
-      "args": ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
+      "command": "prism-mcp",
+      "args": [],
       "env": {
         "NODE_USE_SYSTEM_CA": "1"
       }
@@ -89,8 +89,12 @@ workspace variable:
 ```
 
 Canonical copy:
-[`packages/mcp-server/mcp-install.json`](https://github.com/Shailesh200/prism/blob/main/packages/mcp-server/mcp-install.json) —
-keep `@latest` so the server can hop to the newest publish.
+[`packages/mcp-server/mcp-install.json`](https://github.com/Shailesh200/prism/blob/main/packages/mcp-server/mcp-install.json).
+`prism install <editor>` (and `prism start`) write this entry for you with
+absolute paths (`node …/mcp-server/dist/bin.js`), pointing at the server
+installed with the CLI; they do not write `npx` or `@latest`. The hand-written
+config on [Install](/docs/start/install) and the Add to Cursor button start the
+published server with `npx` instead.
 
 Resolution: `--workspace` → `PRISM_WORKSPACE` → host `WORKSPACE_FOLDER_PATHS`
 → `CURSOR_WORKSPACE` → nearest git root → cwd. When that lands on a directory
@@ -100,23 +104,13 @@ folders via MCP roots — retried until answered — and follows
 client cannot report roots. See
 [MCP install](/docs/start/install).
 
-## Extension settings
-
-See [IDE settings](/docs/reference/ide-settings). One VS Code setting lives in the editor:
-
-| Setting | Default | Effect |
-|---|---|---|
-| `prism.codeLens.enabled` | `true` | Blast Radius, Ownership and Map lenses above the first line of TS/JS files |
-
-Consent and privacy toggles are documented under
-[consent and privacy](/docs/concepts/consent-and-privacy).
-
 ## What is stored, and where
 
-Settings that belong to a repository — consent, bookmarks — live in `.prism/`
-alongside the index. Presentation settings belong to the client.
+Machine-wide settings live in `~/.prism/config.json` (`extraTools[]`, the
+opt-in MCP tools). Per-repository state lives under
+`~/.prism/workspaces/<key>/`, never in your checkout.
 
 ## Related
 
 [Troubleshooting](/docs/help/troubleshooting) · [CLI usage](/docs/usage) ·
-[Consent and privacy](/docs/concepts/consent-and-privacy)
+[privacy](/privacy)

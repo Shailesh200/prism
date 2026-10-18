@@ -1,0 +1,656 @@
+{
+  "repo": "hono",
+  "pinnedSha": "588ec13fa68ea44fed1b5e1b503341db2bf09d70",
+  "tasks": [
+    {
+      "id": "hono-001",
+      "repo": "hono",
+      "commit": "588ec13fa68ea44fed1b5e1b503341db2bf09d70",
+      "parent": "552ea024250093a48071b3ded9710de4c6e05f14",
+      "task": "only serve GET and HEAD requests",
+      "firstFile": "src/middleware/serve-static/index.ts",
+      "files": [
+        "src/middleware/serve-static/index.ts"
+      ],
+      "tests": [
+        "src/middleware/serve-static/index.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-002",
+      "repo": "hono",
+      "commit": "ae595de8ae05ea548560da93140ee1d53e5a8202",
+      "parent": "f23b146afcec63606144cde50b5fbd360dd60238",
+      "task": "introduce Mount Middleware and deprecate `app.mount`",
+      "firstFile": "src/hono-base.ts",
+      "files": [
+        "src/hono-base.ts"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-003",
+      "repo": "hono",
+      "commit": "f23b146afcec63606144cde50b5fbd360dd60238",
+      "parent": "6d73a74f9757ed65d6103c0e8375097fa20873c4",
+      "task": "allow JSXNode function component results",
+      "firstFile": "src/jsx/base.ts",
+      "files": [
+        "src/jsx/base.ts"
+      ],
+      "tests": [
+        "src/jsx/base.test.tsx"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-004",
+      "repo": "hono",
+      "commit": "afb2068c1c53a530528ac5f237e245793dd03c07",
+      "parent": "e5bb2062a3ddd645e3a16d1300bd76d6c9af33a5",
+      "task": "return a Response from a short-circuiting middleware in some()",
+      "firstFile": "src/middleware/combine/index.ts",
+      "files": [
+        "src/middleware/combine/index.ts"
+      ],
+      "tests": [
+        "src/middleware/combine/index.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-005",
+      "repo": "hono",
+      "commit": "e5bb2062a3ddd645e3a16d1300bd76d6c9af33a5",
+      "parent": "c3053ccf14f1c4c70a0c2888eed6121b9f6c8f95",
+      "task": "add px to numeric gridGap, gridRowGap and gridColumnGap",
+      "firstFile": "src/jsx/utils.ts",
+      "files": [
+        "src/jsx/utils.ts"
+      ],
+      "tests": [
+        "src/jsx/utils.test.ts"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "hono-006",
+      "repo": "hono",
+      "commit": "c3053ccf14f1c4c70a0c2888eed6121b9f6c8f95",
+      "parent": "c437d7569219a21e45fa81797749e8f34fe19dcc",
+      "task": "correctly match mixed-case header name in retainedHeader option",
+      "firstFile": "src/middleware/etag/index.ts",
+      "files": [
+        "src/middleware/etag/index.ts"
+      ],
+      "tests": [
+        "src/middleware/etag/index.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-007",
+      "repo": "hono",
+      "commit": "72f0d8d58e20547c25370a97191765a9ca0e1d9b",
+      "parent": "f3d5e8856244eb5faf9e1322834ca1639134d971",
+      "task": "publish to JSR",
+      "firstFile": "adapters/netlify/src/mod.ts",
+      "files": [
+        "adapters/netlify/src/mod.ts",
+        "adapters/netlify/src/conninfo.ts",
+        "adapters/netlify/src/index.ts"
+      ],
+      "tests": [
+        "adapters/netlify/src/conninfo.test.ts"
+      ],
+      "blast": [
+        "adapters/netlify/src/conninfo.ts",
+        "adapters/netlify/src/index.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "hono-008",
+      "repo": "hono",
+      "commit": "1c6e060d1309195d2feacf29b4a7b5bd7eb3eccb",
+      "parent": "b877827fccde0be4ee78457ae8b65db2436139f9",
+      "task": "publish to JSR",
+      "firstFile": "adapters/deno/src/index.ts",
+      "files": [
+        "adapters/deno/src/index.ts"
+      ],
+      "tests": [
+        "adapters/deno/src/conninfo.test.ts",
+        "adapters/deno/src/websocket.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-009",
+      "repo": "hono",
+      "commit": "90d02fb1645c12a65d27f39594d2129db2065ba7",
+      "parent": "5f31392d724cf98c9e48a3de119a55284583ad5f",
+      "task": "allow returning a Blob as a response body",
+      "firstFile": "src/context.ts",
+      "files": [
+        "src/context.ts"
+      ],
+      "tests": [
+        "src/context.test.ts",
+        "src/middleware/serve-static/index.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-010",
+      "repo": "hono",
+      "commit": "6cadf7537385c6e3df9cbd6d05c9b84c82ae0361",
+      "parent": "de310ac063febf3e7b73f6206142d0e88800661f",
+      "task": "fail with a descriptive error on a malformed event",
+      "firstFile": "src/adapter/lambda-edge/handler.ts",
+      "files": [
+        "src/adapter/lambda-edge/handler.ts"
+      ],
+      "tests": [
+        "src/adapter/lambda-edge/handler.test.ts"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "hono-011",
+      "repo": "hono",
+      "commit": "de310ac063febf3e7b73f6206142d0e88800661f",
+      "parent": "28e8572cd265b4da1160ce6cd51919bb70516e2c",
+      "task": "sync content type detection with aws-lambda",
+      "firstFile": "src/adapter/lambda-edge/handler.ts",
+      "files": [
+        "src/adapter/lambda-edge/handler.ts"
+      ],
+      "tests": [
+        "src/adapter/lambda-edge/handler.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-012",
+      "repo": "hono",
+      "commit": "28e8572cd265b4da1160ce6cd51919bb70516e2c",
+      "parent": "0d86899d28e146da0c8760201b2d08ddae732eaa",
+      "task": "preserve empty query parameters",
+      "firstFile": "src/adapter/aws-lambda/handler.ts",
+      "files": [
+        "src/adapter/aws-lambda/handler.ts"
+      ],
+      "tests": [
+        "src/adapter/aws-lambda/handler.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-013",
+      "repo": "hono",
+      "commit": "0d86899d28e146da0c8760201b2d08ddae732eaa",
+      "parent": "52febbcc30bc509d5e4987577e63906fe08fc471",
+      "task": "treat binary +xml archive media types as binary",
+      "firstFile": "src/adapter/aws-lambda/handler.ts",
+      "files": [
+        "src/adapter/aws-lambda/handler.ts"
+      ],
+      "tests": [
+        "src/adapter/aws-lambda/handler.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-014",
+      "repo": "hono",
+      "commit": "52febbcc30bc509d5e4987577e63906fe08fc471",
+      "parent": "f950277cd3d9264622785e82785f21c648da699a",
+      "task": "throw JwtTokenInvalid when the signature is not valid base64url",
+      "firstFile": "src/utils/jwt/jwt.ts",
+      "files": [
+        "src/utils/jwt/jwt.ts"
+      ],
+      "tests": [
+        "src/utils/jwt/jwt.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-015",
+      "repo": "hono",
+      "commit": "f950277cd3d9264622785e82785f21c648da699a",
+      "parent": "00ee875728e2369b98a9ab7dda0690b77afedcff",
+      "task": "don't break responses with unparseable JSON bodies",
+      "firstFile": "src/middleware/pretty-json/index.ts",
+      "files": [
+        "src/middleware/pretty-json/index.ts"
+      ],
+      "tests": [
+        "src/middleware/pretty-json/index.test.ts"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "hono-016",
+      "repo": "hono",
+      "commit": "00ee875728e2369b98a9ab7dda0690b77afedcff",
+      "parent": "f5a53463ad2ff791fc02418b645750ce75a260ad",
+      "task": "don't match an empty path segment as a param",
+      "firstFile": "src/router/linear-router/router.ts",
+      "files": [
+        "src/router/linear-router/router.ts"
+      ],
+      "tests": [
+        "src/router/common.case.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-017",
+      "repo": "hono",
+      "commit": "f5a53463ad2ff791fc02418b645750ce75a260ad",
+      "parent": "cb5bea3614e6591e8ab933ef9a38ce7addf1d09a",
+      "task": "match media types and language tags case-insensitively",
+      "firstFile": "src/helper/accepts/accepts.ts",
+      "files": [
+        "src/helper/accepts/accepts.ts"
+      ],
+      "tests": [
+        "src/helper/accepts/accepts.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-018",
+      "repo": "hono",
+      "commit": "cb5bea3614e6591e8ab933ef9a38ce7addf1d09a",
+      "parent": "098e11912ab244c5c33931de007f04dc8e3c2929",
+      "task": "replace Suspense and ErrorBoundary content across newlines",
+      "firstFile": "src/jsx/components.ts",
+      "files": [
+        "src/jsx/components.ts",
+        "src/jsx/streaming.ts"
+      ],
+      "tests": [
+        "src/helper/streaming/sse.test.tsx"
+      ],
+      "blast": [
+        "src/jsx/streaming.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "hono-019",
+      "repo": "hono",
+      "commit": "e8c8c21244f87da80aaa5ac5ab9c92f3faca2489",
+      "parent": "8755b17fbcfdee76511eeb460e18e94e6c9a8d30",
+      "task": "optimize matching-head child lookup during reconciliation",
+      "firstFile": "src/jsx/dom/render.ts",
+      "files": [
+        "src/jsx/dom/render.ts"
+      ],
+      "tests": [
+        "src/jsx/dom/index.test.tsx"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-020",
+      "repo": "hono",
+      "commit": "edd138ee3049749190de3dcd7e32d7bcbf224e41",
+      "parent": "9b4e9c2864c30ea9275cf426e2d2716bd9f05195",
+      "task": "keep the request media type when reusing a cached body",
+      "firstFile": "src/request.ts",
+      "files": [
+        "src/request.ts"
+      ],
+      "tests": [
+        "src/request.test.ts"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "hono-021",
+      "repo": "hono",
+      "commit": "9b4e9c2864c30ea9275cf426e2d2716bd9f05195",
+      "parent": "65cff90e152dbbbcdde2808af15b48344676edfe",
+      "task": "clamp a negative q to 0, not 1",
+      "firstFile": "src/utils/accept.ts",
+      "files": [
+        "src/utils/accept.ts"
+      ],
+      "tests": [
+        "src/utils/accept.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-022",
+      "repo": "hono",
+      "commit": "65cff90e152dbbbcdde2808af15b48344676edfe",
+      "parent": "f147de5ea1eeadd4b4851ab075999673e140a303",
+      "task": "treat the q parameter name as case-insensitive",
+      "firstFile": "src/utils/accept.ts",
+      "files": [
+        "src/utils/accept.ts"
+      ],
+      "tests": [
+        "src/utils/accept.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-023",
+      "repo": "hono",
+      "commit": "f147de5ea1eeadd4b4851ab075999673e140a303",
+      "parent": "90e1b948467961718afd3ae34af9dee582b42248",
+      "task": "skip accept entries with quality 0 when matching",
+      "firstFile": "src/helper/accepts/accepts.ts",
+      "files": [
+        "src/helper/accepts/accepts.ts",
+        "src/middleware/language/language.ts"
+      ],
+      "tests": [
+        "src/helper/accepts/accepts.test.ts",
+        "src/middleware/language/index.test.ts"
+      ],
+      "blast": [
+        "src/middleware/language/language.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "hono-024",
+      "repo": "hono",
+      "commit": "90e1b948467961718afd3ae34af9dee582b42248",
+      "parent": "7792f5dc14acaa92056c1bf402241567ff9c7396",
+      "task": "respect backpressure when streaming the response body",
+      "firstFile": "src/adapter/aws-lambda/handler.ts",
+      "files": [
+        "src/adapter/aws-lambda/handler.ts"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-025",
+      "repo": "hono",
+      "commit": "7792f5dc14acaa92056c1bf402241567ff9c7396",
+      "parent": "e7b38ee42bfa41f20194ad20fb949b625346be62",
+      "task": "reduce lookup work for large keyed updates",
+      "firstFile": "src/jsx/dom/render.ts",
+      "files": [
+        "src/jsx/dom/render.ts"
+      ],
+      "tests": [
+        "src/jsx/dom/index.test.tsx"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "hono-026",
+      "repo": "hono",
+      "commit": "dac5d5794c6134711e469c5e69d09cd6274e1fc1",
+      "parent": "ec648d683768ec5093315e5dc694c05594fec185",
+      "task": "use forEach for consistent handler iteration",
+      "firstFile": "src/hono-base.ts",
+      "files": [
+        "src/hono-base.ts"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-027",
+      "repo": "hono",
+      "commit": "e2740d5a1bd0b4254e517e3af8b60789284bc7bd",
+      "parent": "499c35ebda35777fd35a7dd1906dd4f2687da61e",
+      "task": "allow symbol keys in Context<any> get and set fallbacks",
+      "firstFile": "src/context.ts",
+      "files": [
+        "src/context.ts"
+      ],
+      "tests": [
+        "src/context.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-028",
+      "repo": "hono",
+      "commit": "499c35ebda35777fd35a7dd1906dd4f2687da61e",
+      "parent": "50b8788cf54cb60112b7cd93642bc5094901475c",
+      "task": "normalize root WebSocket URLs",
+      "firstFile": "src/client/client.ts",
+      "files": [
+        "src/client/client.ts"
+      ],
+      "tests": [
+        "src/client/client.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-029",
+      "repo": "hono",
+      "commit": "50b8788cf54cb60112b7cd93642bc5094901475c",
+      "parent": "06880c4a2b04de9dd74217f26dd831209b9c01f1",
+      "task": "keep a param value of \"index\" in $url() and $path()",
+      "firstFile": "src/client/client.ts",
+      "files": [
+        "src/client/client.ts"
+      ],
+      "tests": [
+        "src/client/client.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-030",
+      "repo": "hono",
+      "commit": "5e5b83d6ed963a2bc7d8384002e1c953648253b1",
+      "parent": "241ae4c72b7ab732e425f40ea28cd3af2e78d8a2",
+      "task": "do not let abort listeners crash abort()",
+      "firstFile": "src/utils/stream.ts",
+      "files": [
+        "src/utils/stream.ts"
+      ],
+      "tests": [
+        "src/utils/stream.test.ts"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "hono-031",
+      "repo": "hono",
+      "commit": "241ae4c72b7ab732e425f40ea28cd3af2e78d8a2",
+      "parent": "c409d855d91d1f0904d19439692216fcf789e6cb",
+      "task": "allow parsing signed cookies with empty string values",
+      "firstFile": "src/utils/cookie.ts",
+      "files": [
+        "src/utils/cookie.ts"
+      ],
+      "tests": [
+        "src/helper/cookie/index.test.ts",
+        "src/utils/cookie.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-032",
+      "repo": "hono",
+      "commit": "c409d855d91d1f0904d19439692216fcf789e6cb",
+      "parent": "612b59c0227b421090d46721cd5a98243ad8c6ec",
+      "task": "serialize cached JSON body in cloneRawRequest",
+      "firstFile": "src/request.ts",
+      "files": [
+        "src/request.ts"
+      ],
+      "tests": [
+        "src/request.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-033",
+      "repo": "hono",
+      "commit": "612b59c0227b421090d46721cd5a98243ad8c6ec",
+      "parent": "73794bdabeadca93676cdbd54aa82d018feb69b8",
+      "task": "drop stale content length for cloned FormData",
+      "firstFile": "src/request.ts",
+      "files": [
+        "src/request.ts"
+      ],
+      "tests": [
+        "src/request.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-034",
+      "repo": "hono",
+      "commit": "73794bdabeadca93676cdbd54aa82d018feb69b8",
+      "parent": "28a9c128912de19f3fb28b00ae289c9b93f6f392",
+      "task": "omit empty query delimiter",
+      "firstFile": "src/client/client.ts",
+      "files": [
+        "src/client/client.ts"
+      ],
+      "tests": [
+        "src/client/client.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-035",
+      "repo": "hono",
+      "commit": "28a9c128912de19f3fb28b00ae289c9b93f6f392",
+      "parent": "1096d66e03a3fd16a5cc5f912c2d5e8fd6d990b0",
+      "task": "support wildcard media types and specificity ordering in defaultMatch",
+      "firstFile": "src/helper/accepts/accepts.ts",
+      "files": [
+        "src/helper/accepts/accepts.ts"
+      ],
+      "tests": [
+        "src/helper/accepts/accepts.test.ts"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "hono-036",
+      "repo": "hono",
+      "commit": "1096d66e03a3fd16a5cc5f912c2d5e8fd6d990b0",
+      "parent": "c4a44071eee614c7317403f3534cd213d3f0e0b3",
+      "task": "support custom buildSearchParams and filter undefined query in $ws()",
+      "firstFile": "src/client/client.ts",
+      "files": [
+        "src/client/client.ts"
+      ],
+      "tests": [
+        "src/client/client.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-037",
+      "repo": "hono",
+      "commit": "c4a44071eee614c7317403f3534cd213d3f0e0b3",
+      "parent": "2059584f84187a688354956e0647269834ccf3a6",
+      "task": "skip an undefined entry inside a form array",
+      "firstFile": "src/client/client.ts",
+      "files": [
+        "src/client/client.ts"
+      ],
+      "tests": [
+        "src/client/client.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-038",
+      "repo": "hono",
+      "commit": "2059584f84187a688354956e0647269834ccf3a6",
+      "parent": "d6c0b0de163a3b709e4dc57de0e0e8581aa08b7b",
+      "task": "skip an undefined entry inside a query array",
+      "firstFile": "src/client/utils.ts",
+      "files": [
+        "src/client/utils.ts"
+      ],
+      "tests": [
+        "src/client/client.test.ts",
+        "src/client/utils.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-039",
+      "repo": "hono",
+      "commit": "d6c0b0de163a3b709e4dc57de0e0e8581aa08b7b",
+      "parent": "f8b7847d755d98009feb2d7d1e6dff0921f8c500",
+      "task": "skip undefined header and cookie values",
+      "firstFile": "src/client/client.ts",
+      "files": [
+        "src/client/client.ts"
+      ],
+      "tests": [
+        "src/client/client.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "hono-040",
+      "repo": "hono",
+      "commit": "f8b7847d755d98009feb2d7d1e6dff0921f8c500",
+      "parent": "4b44abe1b5c7755aac8555d7943611555183450b",
+      "task": "match If-None-Match tags with optional whitespace before the comma",
+      "firstFile": "src/middleware/etag/index.ts",
+      "files": [
+        "src/middleware/etag/index.ts"
+      ],
+      "tests": [
+        "src/middleware/etag/index.test.ts"
+      ],
+      "blast": [],
+      "heldOut": true
+    }
+  ]
+}

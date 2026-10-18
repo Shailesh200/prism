@@ -5,7 +5,31 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.integration.test.ts"],
-  "references": [{ "path": "../shared" }, { "path": "../core" }]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.integration.test.ts"
+  ],
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../daemon"
+    },
+    {
+      "path": "../mcp-server"
+    },
+    {
+      "path": "../plugin"
+    },
+    {
+      "path": "../shared"
+    },
+    {
+      "path": "../test-support"
+    }
+  ]
 }

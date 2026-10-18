@@ -135,17 +135,68 @@ already concurrent.
 that oxc dominates. A single-pass rewrite is analyzer surgery for a return the
 benchmark cannot currently see.
 
+## Graph daemon (M-095, 2026-10-11)
+
+Measured with `node scripts/bench/daemon-freshness.mjs --scale <s> --edits 20
+--prepares 20` on the reference machine, Node 24.18.1. The harness runs the
+daemon in-process on the generated fixture, appends an exported function to
+one file at a time, and polls through the daemon's loopback client.
+
+| | 1k files (small) | 10k files (medium) | Target |
+|---|---|---|---|
+| Edit → index fresh, p50 / p95 | 180 / 191 ms | 257 / 268 ms | < 1 s p95 ✅ |
+| Edit → new symbol answerable, p50 / p95 | 355 / 363 ms | 2,083 / 2,344 ms | < 1 s p95 ❌ at 10k |
+| Warm `prepare_change` (800-token auto-Prepare), p50 / p95 | 42 / 53 ms | 786 / 1,714 ms | ≤ 300 ms p95 ❌ at 10k |
+
+"Fresh" includes the 150 ms debounce after the last file event; macOS
+delivers the event itself in about 13 ms.
+
+What changed to get there, each measured before and after at 10k files:
+
+- **A watcher reindex re-read every cached row.** A single-file reindex
+  loaded and Zod-validated all ~12k rows from SQLite (1.2 s), then scored
+  health for the trend (0.6 s). Dirty runs now merge against the snapshot
+  already in memory, which was validated when it was loaded, and health
+  history is written on full runs only. 1.97 s → 70 ms.
+- **`findSymbol` rebuilt the symbol graph on every call**, changed index or
+  not: 2.5 s per call. Core now uses Intelligence's per-snapshot cache. Repeat
+  calls 2.5 s → 5 ms.
+- **The symbol graph sorted with `localeCompare`.** ICU collation was half the
+  build. Ids now sort by code unit, which is also locale-independent.
+  2.55 s → 1.94 s.
+- **Prepare was quadratic.** `scoreReuse` scanned every feature's member list
+  for every exported symbol; `isolatedHomonym` scanned every file per matching
+  symbol; git rows and feature membership were linear lookups per file; stack
+  detection walked the tree on every call. Each is now a lookup built once
+  per snapshot or index. Warm call 10.8 s → 0.79 s.
+
+What still misses, and the next fix for each:
+
+- **Symbol answers after an edit at 10k (2.1 s).** The whole symbol graph is
+  rebuilt for the new snapshot. The fix is an incremental symbol graph that
+  replaces only the changed file's symbols and re-resolves the references
+  that named them. Not attempted in M-095.
+- **Warm Prepare at 10k (0.79 s).** The per-call scoring loop still visits
+  every file. The fix is an inverted index from task tokens to files, so a
+  call touches only candidate files.
+- **Heavy builds block the daemon.** Everything runs on one event loop, so a
+  hook-snapshot rewrite (high-blast ranking, seconds at 10k) delays answers
+  while it runs. The rewrite is debounced to 15 s of quiet; moving builds to a
+  worker thread is the structural fix. Pre-warming after every save made
+  edit → fresh p95 14.7 s, so the daemon pre-warms once after the first index
+  only.
+
 ## Known costs that remain
 
 Recorded rather than fixed, because each is a trade against something else and
 none of them is the thing a user waits on most.
 
-**Reading the cache re-validates every row.** About half of the remaining
-incremental reindex time is `JSON.parse` plus a Zod parse of every cached file.
-The validation is a real trust boundary — the cache is on-disk data that a
-different Prism version or a stray editor could have touched — so removing it is
-a decision about what Prism trusts, not a micro-optimisation. Worth revisiting
-with a hand-written validator if incremental reindex becomes the complaint.
+**Reading the cache re-validates every row.** The first load of a process
+still `JSON.parse`s and Zod-validates every cached file. The validation is a
+real trust boundary — the cache is on-disk data that a different Prism version
+or a stray editor could have touched — so it stays. Since M-095 a watcher
+reindex no longer pays it: it merges against the snapshot this process already
+validated.
 
 **Cold index is dominated by parsing, not by Prism.** 96 seconds for 50k files
 is roughly the cost of running oxc over 50k files; the harness around it is
@@ -171,3 +222,9 @@ slow".
 
 Raising a budget requires a note here saying why the work got more expensive.
 Silently widening the ceiling turns the file into decoration.
+
+**2026-10-17, small `dna` 250 → 500.** GitHub-hosted ubuntu (`bench` on PR #12)
+measured a median of 335 ms, with the three reps between 328 and 360. That is
+the same small fixture as the August laptop baseline, on a slower runner, and
+it sits above the old 250 ms ceiling. 500 ms stays under twice the measured
+median, so a real algorithmic jump still fails the check.

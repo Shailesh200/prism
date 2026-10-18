@@ -1,0 +1,22 @@
+{
+  "scale": "medium",
+  "files": 11811,
+  "node": "v24.18.1",
+  "coldIndexMs": 35322,
+  "editToIndexed": {
+    "p50": 239,
+    "p95": 248,
+    "samples": 20
+  },
+  "editToVisible": {
+    "p50": 2272,
+    "p95": 2346,
+    "max": 2403,
+    "samples": 20
+  },
+  "warmPrepare800": {
+    "p50": 819,
+    "p95": 1956,
+    "samples": 20
+  }
+}

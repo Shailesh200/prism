@@ -12,7 +12,7 @@
 
 This is the end-to-end plan for the **agent-native** product. **Envelope** is the agentic experience (Graphify-class query of Iris, without a dump). Other named products (Finding Loop, Guard, …) stay outside Envelope. Cuts 1–3 are **done**. A fourth cut is **set aside** (plan-only discussion for Prism Cloud and paid plans — not scheduled).
 
-Companion catalog: the [feature catalog canvas](file:///Users/shaileshjha/.cursor/projects/Users-shaileshjha-Prism/canvases/agentic-feature-catalog.canvas.tsx) (what / how / fits / impact). This file is the **product** contract. Execution, verify-plan, smoke, and T0–T3 proof: [`PROGRAM_agent-native-3-PHASES.md`](./PROGRAM_agent-native-3-PHASES.md).
+Companion catalog: the [feature catalog canvas](file://~/.cursor/projects/<project>/canvases/agentic-feature-catalog.canvas.tsx) (what / how / fits / impact). This file is the **product** contract. Execution, verify-plan, smoke, and T0–T3 proof: [`PROGRAM_agent-native-3-PHASES.md`](./PROGRAM_agent-native-3-PHASES.md).
 
 ---
 
@@ -194,8 +194,8 @@ Existing tools stay. `review_changes`, `blast_radius`, `test_impact`, `repositor
 
 Before new IDs:
 
-1. **Audit the tree vs [M-058](./M-058_agent-surface.md) DoD.** `product-open-ends` claimed most P-C items are already in code while the milestone is still Planned. Either mark Verified with evidence, or finish leftovers on `milestone/M-058-agent-surface`.
-2. **Audit vs [M-059](./M-059_reference-precision.md).** The milestone file says implemented-uncommitted on another branch. Reconcile: cherry-pick / cut a clean branch from `main`, or finish it. **Do not stack on a dirty M-053 branch.**
+1. **Audit the tree vs [M-058](../archive/milestones/M-058_agent-surface.md) DoD.** `product-open-ends` claimed most P-C items are already in code while the milestone is still Planned. Either mark Verified with evidence, or finish leftovers on `milestone/M-058-agent-surface`.
+2. **Audit vs [M-059](../archive/milestones/M-059_reference-precision.md).** The milestone file says implemented-uncommitted on another branch. Reconcile: cherry-pick / cut a clean branch from `main`, or finish it. **Do not stack on a dirty M-053 branch.**
 
 Do not start M-070 until:
 
@@ -512,7 +512,7 @@ Defaults shipped. Cut 4 stays set aside.
 
 ## 14. References
 
-- [M-058](./M-058_agent-surface.md) · [M-059](./M-059_reference-precision.md)
+- [M-058](../archive/milestones/M-058_agent-surface.md) · [M-059](../archive/milestones/M-059_reference-precision.md)
 - [ADR-0029](../adr/0029-signal-provenance.md) · [ADR-0045](../adr/0045-checkout-first-jobs.md) · [ADR-0049](../adr/0049-host-delegated-integrations.md) · [ADR-0052](../adr/0052-product-identity-and-iris.md) · [ADR-0053](../adr/0053-console-information-architecture.md)
 - [CONSOLE_FLEET.md](../mockups/CONSOLE_FLEET.md)
 - [COMPETITIVE_LANDSCAPE_2026-09.md](../notes/COMPETITIVE_LANDSCAPE_2026-09.md)

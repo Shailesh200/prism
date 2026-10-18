@@ -1,6 +1,7 @@
 {
   "name": "@repo-prism/plugin",
-  "version": "1.1.17",
+  "version": "2.0.0",
+  "private": true,
   "type": "module",
   "description": "Prism plugin pack — skills and commands that compose Prism intelligence with the connectors your editor already has",
   "exports": {
@@ -9,11 +10,14 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json && bun run scripts/build-pack.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "gen:prompt-hook": "bun run scripts/gen-prompt-hook.ts"
   },
   "license": "MIT",
   "repository": {

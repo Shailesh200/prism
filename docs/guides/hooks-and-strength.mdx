@@ -1,0 +1,47 @@
+---
+title: Hooks and strength
+description: The five Claude Code hooks, what opencode, Cursor and Codex get instead, and prism strength full, lite or off.
+source: packages/cli/src/install/hosts.ts; packages/cli/src/commands/strength.ts; packages/plugin/hooks/prism-hook.mjs
+---
+
+> Hooks are how Prism joins the session. Strength is how much of that you want.
+
+## Claude Code
+
+`prism install claude` registers five hooks.
+
+| Moment | What Prism does |
+| --- | --- |
+| Session start | The rules, and on full a short orientation. |
+| Prompt | The file list for a change request, and the lens. |
+| Before an edit | Denies a generated or vendor file. Warns when a file needs sign-off. |
+| After an edit | Notes a high-blast file, and that the receipt will say whether a test reaches it. |
+| Stop | Runs the checks and prints the verdict. |
+
+## opencode
+
+`prism install opencode` writes a plugin. It runs session start (`session.created`), before an edit, after an edit, and stop. Stop runs on `session.idle`, and the verdict is written to opencode’s app log. There is no prompt hook, so a lens arrives through `prepare_change` when you name it.
+
+## Cursor and Codex
+
+`prism install cursor` writes `~/.cursor/mcp.json` and prints that the rule needs `prism install cursor --project` in each repository (`.cursor/rules/prism.mdc`).
+
+`prism install codex` writes the MCP block in `~/.codex/config.toml` and a rule in `~/.codex/AGENTS.md`. `--project` writes the rule into that repository’s `AGENTS.md` instead.
+
+Install also turns on the receipt tool for Cursor, Codex and opencode.
+
+## Strength
+
+```bash
+prism strength
+prism strength lite
+prism strength off --repo
+```
+
+| Level | What the hooks do |
+| --- | --- |
+| full | The default. Session, prompt, both edit hooks, and the stop receipt. |
+| lite | Session rules and the stop receipt. The prompt and edit hooks stay quiet. |
+| off | The hooks say nothing. MCP tools still answer when called. |
+
+Without `--repo`, the level is written to `~/.prism/config.json`. `--repo` writes `.prism/config.json` for this repository, and that one wins.

@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stopDaemon } from "@repo-prism/daemon";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { COMMANDS } from "./commands.js";
 
@@ -81,10 +82,74 @@ describe("prism binary (M-028)", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("exits 0 and prints help when given no command", async () => {
-    const result = await runCli([]);
+  it("indexes and prints the map when given no command (SMK-5)", async () => {
+    const result = await runCli([], {}, fixture);
     expect(result.code).toBe(0);
-    expect(result.stderr).toContain("Usage:");
+    expect(result.stdout).toMatch(/^Indexed \d+ code files in [\d.]+ s\.\n/);
+    expect(result.stdout).toMatch(/Try: prism prepare .*prepare_change/);
+  }, 60_000);
+
+  it("global flags with no command still give the first answer", async () => {
+    const result = await runCli(["--json"], {}, fixture);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout).ok).toBe(true);
+  }, 60_000);
+
+  describe("prism start (ONB)", () => {
+    let home: string;
+    beforeAll(async () => {
+      home = await mkdtemp(join(tmpdir(), "prism-start-"));
+    });
+    afterAll(async () => {
+      // `prism start` leaves a daemon running, as it should for a user.
+      for (const name of ["hosts", "none"]) {
+        await stopDaemon({
+          env: { ...process.env, ...env(join(home, name)), PRISM_DAEMON: "1" },
+        });
+      }
+      await rm(home, { recursive: true, force: true });
+    });
+    const env = (dir: string) => ({
+      HOME: dir,
+      USERPROFILE: dir,
+      PRISM_HOME: join(dir, ".prism"),
+      XDG_CONFIG_HOME: join(dir, ".config"),
+    });
+
+    it("installs every detected host, indexes and answers (ONB-1, ONB-3)", async () => {
+      const dir = join(home, "hosts");
+      await mkdir(join(dir, ".claude"), { recursive: true });
+      await mkdir(join(dir, ".cursor"), { recursive: true });
+      const first = await runCli(["start"], env(dir), fixture);
+      expect(first.code).toBe(0);
+      expect(first.stdout).toMatch(
+        /installed for Claude Code, Cursor \(local build/,
+      );
+      expect(first.stdout).toMatch(/Indexed \d+ code files/);
+      expect(first.stdout).toMatch(/prepare_change/);
+      const settings = await readFile(
+        join(dir, ".claude", "settings.json"),
+        "utf8",
+      );
+      const mcp = await readFile(join(dir, ".cursor", "mcp.json"), "utf8");
+      const again = await runCli(["start"], env(dir), fixture);
+      expect(again.code).toBe(0);
+      expect(
+        await readFile(join(dir, ".claude", "settings.json"), "utf8"),
+      ).toBe(settings);
+      expect(await readFile(join(dir, ".cursor", "mcp.json"), "utf8")).toBe(
+        mcp,
+      );
+    }, 120_000);
+
+    it("still indexes when no agent is installed (ONB-2)", async () => {
+      const dir = join(home, "none");
+      await mkdir(dir, { recursive: true });
+      const result = await runCli(["start"], env(dir), fixture);
+      expect(result.code).toBe(0);
+      expect(result.stdout).toMatch(/^No coding agent found/);
+      expect(result.stdout).toMatch(/Indexed \d+ code files/);
+    }, 60_000);
   });
 
   it("suggests a nearby command name for typos", async () => {
@@ -108,15 +173,16 @@ describe("prism binary (M-028)", () => {
   }, 60_000);
 
   it("emits nothing but JSON on stdout", async () => {
-    const result = await runCli(["dna", "--workspace", fixture, "--json"]);
+    const result = await runCli(["overview", "--workspace", fixture, "--json"]);
     expect(result.code).toBe(0);
 
     const parsed = JSON.parse(result.stdout) as {
       ok: boolean;
-      data: { languages: unknown[] };
+      data: { dna: unknown; landmarks: unknown };
     };
     expect(parsed.ok).toBe(true);
-    expect(Array.isArray(parsed.data.languages)).toBe(true);
+    expect(parsed.data.dna).toBeTypeOf("object");
+    expect(parsed.data.landmarks).toBeTypeOf("object");
   }, 60_000);
 
   it("keeps progress off stdout in JSON mode", async () => {
@@ -158,7 +224,7 @@ describe("prism binary (M-028)", () => {
 
   it("reports a missing workspace as a usage error, in the envelope", async () => {
     const missing = join(fixture, "..", "not-a-real-directory-8fa2");
-    const result = await runCli(["dna", "--workspace", missing, "--json"]);
+    const result = await runCli(["overview", "--workspace", missing, "--json"]);
 
     expect(result.code).toBe(2);
     // In JSON mode even the failure belongs on stdout, so a script reading one
@@ -173,7 +239,7 @@ describe("prism binary (M-028)", () => {
 
   it("puts a human-mode failure on stderr and leaves stdout empty", async () => {
     const missing = join(fixture, "..", "not-a-real-directory-8fa2");
-    const result = await runCli(["dna", "--workspace", missing]);
+    const result = await runCli(["overview", "--workspace", missing]);
 
     expect(result.code).toBe(2);
     expect(result.stdout).toBe("");
@@ -188,7 +254,7 @@ describe("prism binary (M-028)", () => {
   });
 
   it("accepts a global flag after the subcommand, which is how people type", async () => {
-    const result = await runCli(["dna", "--workspace", fixture, "--json"]);
+    const result = await runCli(["overview", "--workspace", fixture, "--json"]);
     expect(result.code).toBe(0);
     expect(() => JSON.parse(result.stdout)).not.toThrow();
   }, 60_000);
@@ -205,10 +271,11 @@ describe("prism binary (M-028)", () => {
       ["missing the second required argument", ["route", "a.ts"]],
       ["given an argument the command does not take", ["deps", "a.ts"]],
       ["an unknown command", ["nope"]],
-      ["an unknown flag", ["dna", "--nope"]],
-      ["a bad --zoom value", ["map", "--zoom", "repository"]],
-      ["a bad --fail-on value", ["health", "--fail-on", "catastrophic"]],
+      ["an unknown flag", ["overview", "--nope"]],
+      ["a bad --fail-on value", ["blast", "a.ts", "--fail-on", "catastrophic"]],
       ["a bad --limit value", ["cycles", "--limit", "0"]],
+      ["an unknown data action", ["data", "nope"]],
+      ["an unknown doctor topic", ["doctor", "nope"]],
     ];
 
     for (const [name, argv] of cases) {
@@ -220,23 +287,77 @@ describe("prism binary (M-028)", () => {
     }
   });
 
+  it("symbol and refs on a name that is not in the index exit 2, like blast", async () => {
+    for (const command of ["symbol", "refs"]) {
+      const result = await runCli([
+        command,
+        "noSuchSymbolAnywhere",
+        "--workspace",
+        fixture,
+      ]);
+      expect(result.code, command).toBe(2);
+      expect(result.stderr).toContain("NOT_FOUND");
+    }
+  }, 60_000);
+
+  it("explain on a path that does not exist is NOT_FOUND", async () => {
+    const result = await runCli(["explain", "nope/x", "--workspace", fixture]);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain("NOT_FOUND");
+  }, 60_000);
+
+  it("habit: an unknown action is usage; edit runs $EDITOR without a warning", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-habit-"));
+    try {
+      const env = {
+        HOME: home,
+        PRISM_HOME: join(home, ".prism"),
+        EDITOR: "true",
+      };
+      const bad = await runCli(["habit", "nope", "x"], env);
+      expect(bad.code).toBe(2);
+      expect(bad.stderr).toContain("Usage: prism habit");
+      const add = await runCli(
+        ["habit", "add", "day", "--step", "github: list my open PRs"],
+        env,
+      );
+      expect(add.code, add.stderr).toBe(0);
+      expect(add.stdout).toContain("(1 step)");
+      const edit = await runCli(["habit", "edit", "day"], env);
+      expect(edit.code, edit.stderr).toBe(0);
+      expect(edit.stderr).not.toContain("DEP0190");
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it("`prism help` and `prism help <command>` print help", async () => {
+    const root = await runCli(["help"]);
+    expect(root.code).toBe(0);
+    expect(root.stdout).toContain("Usage: prism");
+    const sub = await runCli(["help", "blast"]);
+    expect(sub.code).toBe(0);
+    expect(sub.stdout).toContain("--fail-on");
+  });
+
   it("still exits 0 for help on a subcommand", async () => {
-    const result = await runCli(["map", "--help"]);
+    const result = await runCli(["blast", "--help"]);
     expect(result.code).toBe(0);
-    expect(result.stdout).toContain("--zoom");
+    expect(result.stdout).toContain("--fail-on");
   });
 
   it("names the valid values when a choice flag is wrong", async () => {
     // A rejection that does not say what would have worked leaves the user
     // guessing at a closed set the CLI already knows.
     const result = await runCli([
-      "map",
-      "--zoom",
-      "repository",
+      "blast",
+      "a.ts",
+      "--fail-on",
+      "catastrophic",
       "--workspace",
       fixture,
     ]);
-    expect(result.stderr).toContain("repo, package, feature, file, symbol");
+    expect(result.stderr).toMatch(/--fail-on expects one of /);
   }, 60_000);
 });
 
@@ -261,32 +382,48 @@ const ARGUMENTS: Record<string, readonly string[]> = {
   // Named explicitly: the fixture is not a git repository, and `review` with
   // no paths asks git what changed.
   review: [TARGET],
-  // Reads an ingested build artifact rather than the source tree, so there is
-  // nothing to point it at in a fixture that has never been built.
-  bundle: [],
   completions: ["bash"],
   "agents-md": ["generate"],
   findings: ["list"],
+  // Dry run by default: lists what it would drop and deletes nothing.
+  data: ["prune"],
+  remember: ["the fixture keeps widgets in one file"],
+  forget: ["no-such-memory"],
+  // Never a real client here: install writes editor configs under the real
+  // home. An unknown client exercises the envelope without writing anything.
+  install: ["no-such-client"],
 };
 
 /** Commands that cannot succeed on a fixture without extra setup. */
-const EXPECT_FAILURE = new Set(["bundle"]);
+const EXPECT_FAILURE = new Set<string>([
+  // Unknown client: a usage error, nothing written.
+  "install",
+  // No install record in the test home: "not installed".
+  "upgrade",
+]);
 
 describe("every command (M-029)", () => {
-  let agentsMdHome: string;
+  // Every command gets a throwaway HOME and PRISM_HOME: start, install,
+  // upgrade and doctor --fix write agent configs under HOME, so a command run
+  // with the real HOME rewrites the developer's setup (2026-10-17).
+  let commandHome: string;
 
   beforeAll(async () => {
-    agentsMdHome = await mkdtemp(join(tmpdir(), "prism-cli-every-command-"));
+    commandHome = await mkdtemp(join(tmpdir(), "prism-cli-every-command-"));
   });
 
   afterAll(async () => {
     await rm(join(fixture, ".prism"), { recursive: true, force: true });
-    await rm(agentsMdHome, { recursive: true, force: true });
+    await rm(commandHome, { recursive: true, force: true });
   });
 
-  /** Never lets `agents-md` write into the real developer `~/.prism`. */
-  const envFor = (name: string): NodeJS.ProcessEnv =>
-    name === "agents-md" ? { PRISM_HOME: agentsMdHome } : {};
+  /** Never lets a command write into the real home or `~/.prism`. */
+  const envFor = (_name: string): NodeJS.ProcessEnv => ({
+    HOME: commandHome,
+    USERPROFILE: commandHome,
+    PRISM_HOME: join(commandHome, ".prism"),
+    XDG_CONFIG_HOME: join(commandHome, ".config"),
+  });
 
   it.each(COMMANDS.map((command) => command.name))(
     "%s produces a valid JSON envelope and nothing else on stdout",

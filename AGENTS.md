@@ -1,6 +1,6 @@
 # AGENTS.md — Working on Prism
 
-This repository is **Prism**, a local-first Software Intelligence Engine (formerly working name RepoPulse).
+This repository is **Prism**: local context and change checks for coding agents (formerly working name RepoPulse).
 
 ## Source of truth
 
@@ -27,7 +27,7 @@ If code and plan disagree, **stop and reconcile the plan** before continuing.
 
 ## Architecture rules
 
-- All user-facing surfaces consume **`@repo-prism/core`** for **analysis**. The MCP server may also import `@repo-prism/dispatch` for jobs (ADR-0035). Do not put Dispatch inside Core.
+- All user-facing surfaces consume **`@repo-prism/core`** for **analysis**.
 - Prism holds no third-party credentials. Connectors belong to the agent window; Prism discovers what is there and composes with it (ADR-0049). Do not add an OAuth flow to Prism.
 - Do not reimplement analysis inside extensions or MCP tools.
 - Prefer smaller milestones; do not expand scope without owner approval.

@@ -1,0 +1,15 @@
+{
+  "benchmark": "B10-install-matrix",
+  "recordedAt": "2026-10-14T08:40:00Z",
+  "prismHead": "8b46042199e4538674d1161984fd2ac0225419eb",
+  "cellsRun": "macOS 26 arm64 (M1) / Node 24.18.1 only; ubuntu and windows cells need CI, which needs a push (not allowed before 2.0.0)",
+  "result": {
+    "S-INS-1": "fail: 1.x has no `prism install` command (CLI_COMMAND_NAMES has no install/uninstall)",
+    "S-INS-2": "not runnable (depends on S-INS-1)",
+    "S-INS-3": "not runnable (depends on S-INS-1)",
+    "S-INS-4": "fail: no `prism uninstall`",
+    "S-INS-5": "not runnable",
+    "hook.pack-isolation (R-A1)": "fail: prism-hook.mjs copied alone to a temp dir returns {} for a change prompt (mcpBin() finds no sibling dist; stop would fall back to `npx -y @repo-prism/mcp-server`, the published package)"
+  },
+  "cellPassRate": 0
+}

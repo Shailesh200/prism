@@ -9,6 +9,9 @@ export default defineConfig({
     alias: { "@": root },
   },
   test: {
+    // Never the real HOME: every run gets a throwaway HOME and PRISM_HOME.
+    globalSetup: ["../../packages/test-support/src/home-guard.ts"],
+    setupFiles: ["../../packages/test-support/src/home-guard-setup.ts"],
     name: "@repo-prism/website",
     include: ["lib/**/*.test.ts"],
   },

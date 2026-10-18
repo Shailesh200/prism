@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   asEdgeId,
-  asFeatureId,
   asFileId,
   asNodeId,
   asRepoId,
   asSymbolId,
   unsafeEdgeId,
-  unsafeFeatureId,
   unsafeFileId,
   unsafeNodeId,
   unsafeRepoId,
@@ -22,7 +20,6 @@ describe("IDs", () => {
     expect(isOk(asSymbolId("sym:foo"))).toBe(true);
     expect(isOk(asNodeId("node:1"))).toBe(true);
     expect(isOk(asEdgeId("edge:1"))).toBe(true);
-    expect(isOk(asFeatureId("feat:billing"))).toBe(true);
   });
 
   it("rejects empty / illegal", () => {
@@ -37,6 +34,5 @@ describe("IDs", () => {
     expect(unsafeSymbolId("x")).toBe("x");
     expect(unsafeNodeId("x")).toBe("x");
     expect(unsafeEdgeId("x")).toBe("x");
-    expect(unsafeFeatureId("x")).toBe("x");
   });
 });

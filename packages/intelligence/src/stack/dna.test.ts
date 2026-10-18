@@ -12,6 +12,7 @@ import {
 import { createStackHost } from "../host.js";
 import {
   assembleDnaReport,
+  packageRootOf,
   primaryDomain,
   rankDomainsByConfidence,
 } from "./dna.js";
@@ -198,5 +199,53 @@ describe("rankDomainsByConfidence (M-046)", () => {
       id: StackDomain.FRONTEND,
       confidence: ranked[0]?.confidence,
     });
+  });
+});
+
+describe("frameworks only count when imported (plan §4.1, RO-1)", () => {
+  const profile = {
+    rootPath: "/repo",
+    generatedAt: "2026-01-01T00:00:00.000Z",
+    domains: [StackDomain.FRONTEND],
+    personas: [],
+    summary: "synthetic",
+    packages: [],
+    signals: [
+      {
+        id: "frontend-react",
+        domain: StackDomain.FRONTEND,
+        confidence: 0.6,
+        personas: [],
+        evidence: ["package.json"],
+      },
+      {
+        id: "frontend-vite",
+        domain: StackDomain.FRONTEND,
+        confidence: 0.6,
+        personas: [],
+        evidence: ["vite.config.ts"],
+      },
+    ],
+  };
+
+  it("DNA-IMP-1 a devDependency React never imported by app code is dropped", () => {
+    const dna = assembleDnaReport({
+      profile,
+      importedPackages: new Set(["hono"]),
+    });
+    expect(dna.frameworks).toEqual(["frontend-vite"]);
+  });
+
+  it("DNA-IMP-2 React imported (even by subpath) counts", () => {
+    const dna = assembleDnaReport({
+      profile,
+      importedPackages: new Set([packageRootOf("react/jsx-runtime") ?? ""]),
+    });
+    expect(dna.frameworks).toEqual(["frontend-react", "frontend-vite"]);
+  });
+
+  it("packageRootOf", () => {
+    expect(packageRootOf("@scope/pkg/sub")).toBe("@scope/pkg");
+    expect(packageRootOf("./x")).toBeNull();
   });
 });

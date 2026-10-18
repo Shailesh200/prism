@@ -87,7 +87,43 @@ function languageShares(
     .sort((a, b) => b.share - a.share || a.id.localeCompare(b.id));
 }
 
-function frameworkIds(signals: readonly StackSignal[]): string[] {
+/**
+ * JS frameworks that only count when app code imports them (plan §4.1:
+ * hono's own JSX is not React). Package roots per signal id; a signal not
+ * listed here (build tools, non-JS stacks, infra) is kept as detected.
+ */
+export const FRAMEWORK_IMPORT_PACKAGES: Readonly<
+  Record<string, readonly string[]>
+> = {
+  "frontend-react": ["react", "react-dom"],
+  "frontend-next": ["next"],
+  "frontend-vue": ["vue", "nuxt"],
+  "frontend-svelte": ["svelte", "@sveltejs/kit"],
+  "frontend-angular": ["@angular/core"],
+  "frontend-astro": ["astro"],
+  "frontend-remix": ["@remix-run/react", "@remix-run/node"],
+  "backend-express": ["express"],
+  "backend-fastify": ["fastify"],
+  "backend-nest": ["@nestjs/core", "@nestjs/common"],
+  "mobile-react-native": ["react-native"],
+  "mobile-expo": ["expo"],
+  "desktop-electron": ["electron"],
+  "desktop-tauri": ["@tauri-apps/api"],
+};
+
+/** `@scope/pkg/sub` → `@scope/pkg`; `pkg/sub` → `pkg`; relative → null. */
+export function packageRootOf(specifier: string): string | null {
+  if (specifier.startsWith(".") || specifier.startsWith("/")) return null;
+  const parts = specifier.split("/");
+  if (specifier.startsWith("@"))
+    return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : null;
+  return parts[0] ?? null;
+}
+
+function frameworkIds(
+  signals: readonly StackSignal[],
+  importedPackages?: ReadonlySet<string>,
+): string[] {
   return uniqueSorted(
     signals
       .map((s) => s.id)
@@ -98,7 +134,12 @@ function frameworkIds(signals: readonly StackSignal[]): string[] {
           !id.startsWith("mono-") &&
           id !== "nodejs-manifest" &&
           id !== "unknown",
-      ),
+      )
+      .filter((id) => {
+        const pkgs = FRAMEWORK_IMPORT_PACKAGES[id];
+        if (!pkgs || importedPackages === undefined) return true;
+        return pkgs.some((p) => importedPackages.has(p));
+      }),
   );
 }
 
@@ -235,12 +276,17 @@ export type AssembleDnaOptions = {
   readonly profile: StackProfile;
   /** Optional repo-relative paths (e.g. from last index) for language shares. */
   readonly filePaths?: readonly string[];
+  /**
+   * Package roots imported by non-test app source (plan §4.1). When given,
+   * JS frameworks in {@link FRAMEWORK_IMPORT_PACKAGES} only count if imported.
+   */
+  readonly importedPackages?: ReadonlySet<string>;
 };
 
 /** Assemble a DnaReport from a StackProfile (+ optional file paths). */
 export function assembleDnaReport(options: AssembleDnaOptions): DnaReport {
   const profile = enrichStackProfile(options.profile);
-  const frameworks = frameworkIds(profile.signals);
+  const frameworks = frameworkIds(profile.signals, options.importedPackages);
   const pm = packageManager(profile.signals);
   const runners = testRunners(profile.signals);
   const hints = architectureHints(profile);

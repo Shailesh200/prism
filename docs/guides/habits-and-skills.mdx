@@ -1,0 +1,39 @@
+---
+title: Habits and skills
+description: A habit is a routine you name, saved as a skill file. Prism stores habits and runs nothing.
+source: packages/shared/src/habits.ts; packages/cli/src/commands/habit.ts; packages/cli/src/commands/doctor-skills.ts
+---
+
+> A habit is a routine you save. Prism saves it as a skill file, and any agent can run it through the `habits` tool.
+
+See also the [habits product page](/product/habits).
+
+## Habits
+
+`prism habit add` saves the habit as a skill: `~/.prism/skills/<name>/SKILL.md`, with the steps in a fixed layout. Prism does not run them, and it holds no credentials. Steps that look like a secret are refused.
+
+```bash
+prism habit add "start my day" --description "Open work for the morning" --step "github: list my open PRs" --step "linear: my in-progress issues" --output standup
+```
+
+Ask your agent to run it by name (“run my start my day habit”). It calls the `habits` tool, gets the steps, and runs each one with its own tools. If a tool is not connected, it says so and continues. On Claude Code a habit runs when you name it, not by itself.
+
+A step is `source: action`, with an optional filter after `|`. github, linear, notion, slack, gmail, calendar and jira are known labels. Any other label tells the agent to use whichever tool fits.
+
+`--output` is standup, summary, checklist, table or free. `--template` is an optional layout.
+
+```bash
+prism habit list
+prism habit show "start my day"
+prism habit remove "start my day"
+```
+
+`prism habit edit` opens `$EDITOR` on the habit's `SKILL.md` and checks it again on save. Keep the layout: `# name`, an optional `Description:` line, `## Steps` as `1. source: action | filter`, and `## Output` as `format: template`.
+
+Habits saved by an older Prism in `~/.prism/habits.json` move to skill files the first time Prism reads them. The old file is kept as `habits.json.migrated-<time>.bak`.
+
+## Skills
+
+Your agent's other skills are the host’s own files, such as `.claude/skills/<name>/SKILL.md` or `.cursor/skills/<name>/SKILL.md`. Prism does not own those files. The same folders in your home directory, and `~/.prism/skills`, are included.
+
+`prism doctor skills` reads skills that name a Prism tool and checks the name against the tools this install registers. A skill that names a tool which is not registered gets a warning with the file. Prism does not edit the skill.

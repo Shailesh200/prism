@@ -1,4 +1,5 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { promisify } from "node:util";
 import { statSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import type {
@@ -10,6 +11,9 @@ import type {
   GitRepoSummary,
   GitSyncStatus,
 } from "@repo-prism/shared";
+import { buildCoChange, type CoChangeIndex } from "./co-change.js";
+
+const execFileAsync = promisify(execFile);
 
 /** Number of trailing weeks summarized for churn sparklines. */
 export const GIT_WEEKS = 12;
@@ -31,6 +35,8 @@ export type GitSignals = {
   readonly authors: GitAuthorRollup[];
   /** SHAs present locally but not on the tracked upstream (unpushed). */
   readonly unpushedShas?: ReadonlySet<string>;
+  /** Files that change together (P7); absent on a shallow clone. */
+  readonly coChange?: CoChangeIndex;
 };
 
 export type ParseGitLogOptions = {
@@ -40,6 +46,8 @@ export type ParseGitLogOptions = {
   readonly keepPaths?: ReadonlySet<string>;
   readonly weeks?: number;
   readonly recencyWindowDays?: number;
+  /** Build the co-change index (default true). */
+  readonly coChange?: boolean;
 };
 
 type MutFile = {
@@ -87,6 +95,9 @@ export function parseGitLog(
   let headSha: string | undefined;
 
   let current: GitCommitRef | null = null;
+  /** Every path each commit touched, for co-change. */
+  const commitPaths: string[][] = [];
+  let currentPaths: string[] | null = null;
   let currentAuthorKey: string | null = null;
   let currentAgeDays = 0;
 
@@ -106,8 +117,11 @@ export function parseGitLog(
       const [sha, author, email, date, ...rest] = raw.slice(1).split(SEP);
       if (!sha || !author || !date) {
         current = null;
+        currentPaths = null;
         continue;
       }
+      currentPaths = [];
+      commitPaths.push(currentPaths);
       const message = rest.join(SEP);
       current = {
         sha,
@@ -177,6 +191,7 @@ export function parseGitLog(
         .trim();
     }
     if (!path) continue;
+    currentPaths?.push(path);
     if (options.keepPaths && !options.keepPaths.has(path)) continue;
 
     let f = files.get(path);
@@ -264,6 +279,9 @@ export function parseGitLog(
     signals,
     days,
     authors,
+    ...(options.coChange === false
+      ? {}
+      : { coChange: buildCoChange(commitPaths, options.keepPaths) }),
     summary: {
       ...(headSha === undefined ? {} : { headSha }),
       // parseGitLog only sees the scanned window; readGitSignals enriches
@@ -318,15 +336,10 @@ export type ReadGitSignalsOptions = {
   readonly now?: number;
 };
 
-/**
- * Read local git history for `rootPath`. Returns `null` (fail soft) when the
- * path is not a git work tree or `git` is unavailable. No network.
- */
-export function readGitSignals(
-  rootPath: string,
-  options: ReadGitSignalsOptions = {},
-): GitSignals | null {
-  const run = (args: string[]): string | null => {
+type GitRun = (args: string[]) => string | null;
+
+function syncRunner(rootPath: string): GitRun {
+  return (args) => {
     try {
       return execFileSync("git", ["-C", rootPath, ...args], {
         encoding: "utf8",
@@ -338,16 +351,22 @@ export function readGitSignals(
       return null;
     }
   };
+}
 
-  const inside = run(["rev-parse", "--is-inside-work-tree"]);
-  if (!inside || inside.trim() !== "true") return null;
-
-  const maxCommits = options.maxCommits ?? GIT_MAX_COMMITS;
-  const stdout = run(gitLogArgs(maxCommits));
-  if (stdout === null) return null;
-
+/** Everything but the `git log` itself: cheap plumbing reads. */
+function assembleGitSignals(
+  rootPath: string,
+  stdout: string,
+  run: GitRun,
+  options: ReadGitSignalsOptions,
+  maxCommits: number,
+): GitSignals {
+  // A shallow clone's history is cut off, so its co-change counts mislead.
+  const shallow =
+    run(["rev-parse", "--is-shallow-repository"])?.trim() === "true";
   const parsed = parseGitLog(stdout, {
     now: options.now ?? Date.now(),
+    coChange: !shallow,
     ...(options.keepPaths === undefined
       ? {}
       : { keepPaths: options.keepPaths }),
@@ -368,7 +387,51 @@ export function readGitSignals(
     authors: parsed.authors,
     summary,
     ...(unpushedShas ? { unpushedShas } : {}),
+    ...(parsed.coChange ? { coChange: parsed.coChange } : {}),
   };
+}
+
+/**
+ * Read local git history for `rootPath`. Returns `null` (fail soft) when the
+ * path is not a git work tree or `git` is unavailable. No network.
+ */
+export function readGitSignals(
+  rootPath: string,
+  options: ReadGitSignalsOptions = {},
+): GitSignals | null {
+  const run = syncRunner(rootPath);
+  const inside = run(["rev-parse", "--is-inside-work-tree"]);
+  if (!inside || inside.trim() !== "true") return null;
+  const maxCommits = options.maxCommits ?? GIT_MAX_COMMITS;
+  const stdout = run(gitLogArgs(maxCommits));
+  if (stdout === null) return null;
+  return assembleGitSignals(rootPath, stdout, run, options, maxCommits);
+}
+
+/**
+ * {@link readGitSignals} with the `git log` (the only slow read: about a
+ * second on a few thousand commits) run without blocking the event loop, so
+ * a daemon keeps answering while history is re-read after a checkout.
+ */
+export async function readGitSignalsAsync(
+  rootPath: string,
+  options: ReadGitSignalsOptions = {},
+): Promise<GitSignals | null> {
+  const run = syncRunner(rootPath);
+  const inside = run(["rev-parse", "--is-inside-work-tree"]);
+  if (!inside || inside.trim() !== "true") return null;
+  const maxCommits = options.maxCommits ?? GIT_MAX_COMMITS;
+  let stdout: string;
+  try {
+    ({ stdout } = await execFileAsync(
+      "git",
+      ["-C", rootPath, ...gitLogArgs(maxCommits)],
+      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, timeout: 15_000 },
+    ));
+  } catch {
+    return null; // same fail-soft contract as the sync read
+  }
+  return assembleGitSignals(rootPath, stdout, run, options, maxCommits);
 }
 
 /**

@@ -38,8 +38,7 @@ symbols, imports and diagnostics — Oxc for TypeScript and JavaScript.
 ### `@repo-prism/indexer`
 
 Walks the repository, hashes file contents, and persists the result to SQLite in
-`.prism/cache/`. Owns incremental invalidation and watch mode, plus the health
-history table.
+`.prism/cache/`. Owns incremental invalidation and watch mode.
 
 **Must never** re-parse what has not changed. The hash is the whole point.
 
@@ -54,9 +53,8 @@ knowledge graph and the feature graph share one implementation.
 ### `@repo-prism/intelligence`
 
 The largest internal package, and the one that turns structure into judgement:
-stack detection, repository DNA, health scoring, engineering, testing and
-security reports, backend and frontend analysis, feature inference, the consent
-store, and the utility job runner.
+stack detection, entry points, lens routing, guard and session analysis, and
+the facts Prepare and review read.
 
 **Must never** make a network call without a consent purpose gating it.
 
@@ -70,10 +68,6 @@ signals described in the decision record on blast radius.
 Feature and symbol navigation: find a symbol, find its references, find a route
 between two things.
 
-### `@repo-prism/repository-map`
-
-The map model — clusters, landmarks, layers, and the aggregation between zoom
-levels.
 
 ## The public API
 
@@ -89,46 +83,32 @@ returns an engine-internal type. See [the Core SDK](./core-sdk.md).
 
 ## Presentation
 
-### `@repo-prism/app-shell`
-
-Every product screen — Overview, Map, Domains, Impact, Trends, Integrations,
-Settings — as React components, plus the `AppShellClient` interface a host
-implements to serve them data.
-
-Shared by the extension webview and the playground, which is why a screen change
-lands in both at once.
-
-**Must never** import Node APIs. It runs in a browser.
 
 ### `@repo-prism/ui`
 
-Lower-level shared React components: the map canvas, the explorer, and the
-primitives the screens are built from.
+Design tokens and motion helpers the website imports. Private; not published.
 
-### `@repo-prism/host-session`
 
-The Core-backed request surface two hosts both need: the `HostRequest` /
-`HostResponse` protocol, its runtime guards, the `PrismSession` wrapper around
-Core, and the dispatcher that turns one into the other.
+### `@repo-prism/daemon`
 
-Extracted from the IDE extension so the Prism Console can answer the same RPC
-(ADR-0048) instead of the extension running a second, tokenless server on
-`:17321`. The filesystem-rename fallback lives here; the extension injects its
-own workspace-edit version.
+The Prism graph daemon (ADR-0063): one local process per machine that keeps
+each open repository indexed and fresh from file-system events, and answers
+tool calls over loopback so MCP servers, the CLI and hooks share one index
+instead of building their own. Holds the single-instance lock, the 0600 record
+under `~/.prism/daemon`, the loopback server, the attach-first client, and the
+memory, priority and battery limits.
 
-Import `@repo-prism/host-session/protocol` for the types and guards alone —
-that entry point does not reach Core, which is what lets the Console validate
-a request before deciding to load the engine.
+The process itself is `prism-mcp --daemon`, because it serves the MCP tool
+definitions. `@repo-prism/daemon` is the reusable part; `./server` is a
+separate entry so a caller that only attaches never loads Core.
 
-**Must never** import `vscode`. It runs in the extension host *and* in a plain
-Node daemon.
+**Must never** bind anything but loopback, edit a file, run a model, or run a
+job.
 
 ## Surfaces
 
 Each of these consumes `@repo-prism/core` for analysis and computes nothing
-itself. The MCP server additionally consumes `@repo-prism/dispatch` for the
-teammate workflow (ADR-0035) and `@repo-prism/dispatch-hub` for the jobs
-board (ADR-0043).
+itself.
 
 ### `@repo-prism/cli`
 
@@ -141,40 +121,18 @@ boundary test.
 
 ### `@repo-prism/mcp-server`
 
-The `prism-mcp` binary. Intelligence tools over Core, plus Dispatch tools over
-`@repo-prism/dispatch`, on the same stdio server named `prism`.
+The `prism-mcp` binary: tools over Core, on a stdio server named `prism`. Nine
+tools are registered by default (`prepare_change`, `blast_radius`,
+`guard_session`, `test_impact`, `habits`, `safe_delete`,
+`rename_impact`, `repository_overview`, `graph`); the rest are opt-in through
+`extraTools` in `~/.prism/config.json`.
 
-**Must never** expose Core's consent-gated analysis APIs. Intelligence tools
-stay read-only. Dispatch tools are a second path (ADR-0035): jobs, OAuth, and
-local workers, never an index.
+**Must never** make a network call outside the daily update check, and never
+relaunches itself.
 
-### `@repo-prism/dispatch`
+### `@repo-prism/checks`
 
-Chat-native jobs, memories, OAuth drivers, worktree adopt/create, and local
-workers on the host's own agent CLI — Cursor SDK in Cursor, Claude Code CLI in
-Claude Code (ADR-0044). Jobs are checkout-first (ADR-0045): edits land in the
-user's tree uncommitted, and a worktree + job branch is the explicit or
-parallel-collision path. Consumed by `@repo-prism/mcp-server` and
-`@repo-prism/dispatch-hub`. Makes no network calls and stores no third-party
-credentials: `host-connectors.ts` learns which connectors are signed in —
-Cursor session MCP tools (not the plugin download cache, and not a plugin
-that still only exposes `mcp_auth`) plus Claude plugin installs and host
-MCP configs — names and capabilities, never tokens — and
-`fill-contract.ts` turns that into the sections `start_my_day` asks the host
-agent to fill with its own tools (ADR-0049). Cursor workers sign in via a
-browser Cursor login (ADR-0038), not mcp.json; Claude workers reuse the
-machine's `claude` sign-in.
-Job ids are tickets or title slugs; chat never speaks `job-<hex>` (ADR-0039).
-Workers run out-of-process; live status and
-finished/failed results are reaped into `list_jobs` / start-my-day (ADR-0040).
-Job agents do not attach Prism MCP; Prism worktrees symlink the host
-`node_modules` (ADR-0041). Prism verifies after
-the agent stops and commits worktree placements; in-process subagents are on
-(ADR-0042). The jobs board is
-a separate package (`@repo-prism/dispatch-hub`, ADR-0043).
-
-**Must never** be imported by `@repo-prism/core`, any engine package, or the
-IDE extension. The extension talks to the hub over HTTP.
+Detects the repo's own typecheck, lint, and test scripts and runs the ones a change reaches. Used by the change receipt and the stop hook. Not Core.
 
 ### `@repo-prism/plugin`
 
@@ -195,52 +153,15 @@ definition and directories disagree.
 Depends on nothing. It ships text, not code, and importing it at runtime would
 mean the pack had become a second way to configure the server.
 
-### `@repo-prism/dispatch-hub`
 
-The **Prism Console**: a user-level loopback daemon on `prismhq.localhost:17330`
-(`127.0.0.1` keeps working) with two planes (ADR-0048).
 
-The Jobs plane is always on and Core-free — it watches every registered
-workspace's `.prism/dispatch/` tree, serves the dashboard over HTTP and SSE,
-drains the job queue (ADR-0047), and fires OS notifications when a teammate
-finishes. The Intelligence plane loads `@repo-prism/host-session` on the first
-`POST /api/host` and holds one Core session at a time, evicted when idle, so a
-user who only watches jobs never pays for the engine.
-
-Spawned by host `prism-mcp`. State lives in `~/.prism/hub/`. Every request
-needs the token from `~/.prism/hub/hub.json`. `PRISM_HUB=0` opts out.
-
-**Must never** be imported by Core or by the IDE extension (the extension uses
-HTTP, and finds the Console by reading the hub record). Workers never spawn it.
-**Must never** import Core statically — the lazy `import()` in
-`intelligence.ts` is the only path, and a static edge would put the engine back
-in the always-on process.
-
-### `@repo-prism/vscode-extension`
-
-The **Prism** IDE extension. Hosts the app-shell in a webview, bridges it to
-Core over RPC via `@repo-prism/host-session`, and owns the extension-side
-concerns: indexing lifecycle, file watching, and the content security policy.
-
-*Open in Browser* opens the Prism Console rather than starting a server of its
-own; the `:17321` bridge was retired by ADR-0048.
-
-### `@repo-prism/cursor-extension`
-
-A packaging overlay on the VS Code extension rather than a second
-implementation. Same build output, different marketplace identity.
-
-### `@repo-prism/playground` (in `apps/`)
-
-A browser host for the same screens, served by Vite against a local repository.
-The dev-tools loop the extension webview does not have, which is why screen work
-usually happens here first.
 
 ### `@repo-prism/website` (in `apps/`)
 
 Next.js + Fumadocs app that serves the public marketing site and documentation
 (and admin architecture docs). Replaces the VitePress docs app. Markdown source
 stays in `/docs` at the repository root.
+
 
 ## Development only
 
@@ -260,8 +181,6 @@ for which fixture to reach for.
 
 ```
 surface  →  @repo-prism/core  →  engine internals  →  @repo-prism/shared
-mcp-server  →  @repo-prism/dispatch  (jobs only; ADR-0035)
-mcp-server  →  @repo-prism/dispatch-hub  (the Console; ADR-0048)
 ```
 
 Arrows point at what may be imported. There is no arrow from a surface to an

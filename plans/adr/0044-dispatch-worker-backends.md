@@ -5,7 +5,7 @@
 | Status | Accepted |
 | Date | 2026-08-31 |
 | Decision makers | Owner, Architect |
-| Related milestones | [M-065](../milestones/M-065_claude-code-worker.md) |
+| Related milestones | [M-065](../archive/milestones/M-065_claude-code-worker.md) |
 | Extends | [ADR-0035](./0035-dispatch-vertical.md), [ADR-0040](./0040-dispatch-worker-supervisor.md) |
 | Amends | [ADR-0038](./0038-cursor-worker-sdk-login.md) |
 

@@ -424,3 +424,42 @@ export function stripJsonc(source: string): string {
   }
   return out;
 }
+
+/** Drop `,` before `}` or `]` outside strings (tsconfig allows trailing commas). */
+function stripTrailingCommas(source: string): string {
+  let out = "";
+  let inString = false;
+  for (let i = 0; i < source.length; i++) {
+    const c = source[i]!;
+    if (inString) {
+      out += c;
+      if (c === "\\" && i + 1 < source.length) {
+        out += source[++i]!;
+      } else if (c === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      out += c;
+      continue;
+    }
+    if (c === ",") {
+      let j = i + 1;
+      while (j < source.length && /\s/.test(source[j]!)) j++;
+      if (source[j] === "}" || source[j] === "]") continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
+/**
+ * Parse JSONC (comments + trailing commas, as tsconfig and VS Code settings
+ * allow). String contents are never touched, so `"@/*": ["./src/*"]` survives.
+ * Throws a SyntaxError on anything else, so callers can report it.
+ */
+export function parseJsonc(source: string): unknown {
+  return JSON.parse(stripTrailingCommas(stripJsonc(source)));
+}

@@ -53,13 +53,61 @@ function readCommitted(root: string, rel: string): string | null {
   }
 }
 
-function mentionedPaths(text: string, indexed: ReadonlySet<string>): string[] {
+function mentionedPaths(
+  tokens: readonly string[],
+  indexed: ReadonlySet<string>,
+): string[] {
   const hits = new Set<string>();
-  for (const raw of text.match(PATH_TOKEN) ?? []) {
-    const norm = raw.replace(/\\/g, "/").replace(/^\.\//, "");
-    if (indexed.has(norm)) hits.add(norm);
-  }
+  for (const norm of tokens) if (indexed.has(norm)) hits.add(norm);
   return [...hits].sort((a, b) => a.localeCompare(b));
+}
+
+/** What one file contributes: path mentions (ADR files) and WHY/NOTE lines. */
+type FileScan = {
+  readonly adr: boolean;
+  readonly pathTokens: readonly string[];
+  readonly notes: readonly string[];
+};
+
+/**
+ * Per-file scans keyed by root and path, kept while the content hash holds.
+ * A reindex makes a new snapshot; without this every file was read again
+ * (most of a cold Prepare after a checkout, token fix 2).
+ */
+const scanCache = new Map<string, { hash: string; scan: FileScan | null }>();
+const SCAN_CACHE_MAX = 200_000;
+
+function scanFile(
+  root: string,
+  path: string,
+  hash: string | null,
+): FileScan | null {
+  const key = `${root}\0${path}`;
+  const hit = hash ? scanCache.get(key) : undefined;
+  if (hit && hit.hash === hash) return hit.scan;
+  const body = readCommitted(root, path);
+  let scan: FileScan | null = null;
+  if (body) {
+    const adr = ADR_FILE.test(path);
+    const pathTokens = adr
+      ? (body.match(PATH_TOKEN) ?? []).map((raw) =>
+          raw.replace(/\\/g, "/").replace(/^\.\//, ""),
+        )
+      : [];
+    const notes: string[] = [];
+    WHY_NOTE.lastIndex = 0;
+    let match: RegExpExecArray | null = WHY_NOTE.exec(body);
+    while (match) {
+      notes.push(`${match[1]}: ${match[2]!.trim()}`);
+      match = WHY_NOTE.exec(body);
+    }
+    scan = { adr, pathTokens, notes };
+  }
+  if (hash) {
+    if (scanCache.size >= SCAN_CACHE_MAX) scanCache.clear();
+    scanCache.set(key, { hash, scan });
+  }
+  return scan;
 }
 
 export function collectRationale(snapshot: IndexSnapshot): {
@@ -93,10 +141,10 @@ export function collectRationale(snapshot: IndexSnapshot): {
   };
 
   for (const file of snapshot.files) {
-    const body = readCommitted(snapshot.rootPath, file.path);
-    if (!body) continue;
+    const scan = scanFile(snapshot.rootPath, file.path, file.contentHash);
+    if (!scan) continue;
 
-    if (ADR_FILE.test(file.path)) {
+    if (scan.adr) {
       const id = adrNodeId(file.path);
       if (!nodes.has(id)) {
         const label =
@@ -110,16 +158,13 @@ export function collectRationale(snapshot: IndexSnapshot): {
           attrs: { path: file.path },
         });
       }
-      for (const toPath of mentionedPaths(body, indexed)) {
+      for (const toPath of mentionedPaths(scan.pathTokens, indexed)) {
         if (toPath === file.path) continue;
         addEdge(id, toPath, `ADR names ${toPath}`, file.path);
       }
     }
 
-    WHY_NOTE.lastIndex = 0;
-    let match: RegExpExecArray | null = WHY_NOTE.exec(body);
-    while (match) {
-      const text = `${match[1]}: ${match[2]!.trim()}`;
+    for (const text of scan.notes) {
       const id = adrNodeId(file.path);
       if (!nodes.has(id)) {
         nodes.set(id, {
@@ -130,7 +175,6 @@ export function collectRationale(snapshot: IndexSnapshot): {
         });
       }
       addEdge(id, file.path, text, file.path);
-      match = WHY_NOTE.exec(body);
     }
   }
 

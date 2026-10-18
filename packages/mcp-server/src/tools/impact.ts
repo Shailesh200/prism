@@ -11,6 +11,7 @@ import {
   type PrismError,
   type Result,
   err,
+  findingsFromReceiptParts,
   ok,
   prismError,
 } from "@repo-prism/shared";
@@ -18,6 +19,10 @@ import { z } from "zod";
 import { boundList, limitInput } from "../limits.js";
 import { allWorkspaceRelative, toWorkspaceRelative } from "../paths.js";
 import { defineTool, type ToolContext } from "../tool-registry.js";
+import {
+  prDescriptionFor,
+  reviewLensFindings,
+} from "../safety/review-extras.js";
 
 /** Every impact tool names its target the same way. */
 const target = {
@@ -28,7 +33,7 @@ const target = {
     .string()
     .min(1)
     .describe(
-      "Workspace-relative file path, or symbol name as returned by find_symbol.",
+      "Workspace-relative file path, or symbol name as returned by graph (mode find).",
     ),
   path: z
     .string()
@@ -76,6 +81,7 @@ function resolveTarget(
 export const blastRadius = defineTool({
   name: "blast_radius",
   title: "Blast radius",
+  alwaysLoad: true,
   description:
     "What depends on a file or symbol, and how risky changing it is: direct and transitive dependents, confidence lanes, evidence and a risk band. Results are import/soft-lane based — coverageLimitations lists classes it cannot see (DI containers, string-keyed registries, event buses, template/i18n refs, runtime-loaded config, generated-code consumers). Call this before editing or deleting code you did not write. Use intent 'delete' when removing rather than modifying. affectedFiles and testsLikelyAffected are bounded (default 50).",
   inputSchema: {
@@ -148,8 +154,9 @@ export const renameImpact = defineTool({
 export const testImpact = defineTool({
   name: "test_impact",
   title: "Test impact",
+  alwaysLoad: true,
   description:
-    "Which test files transitively cover a change target — the tests worth running after touching it. Prism reports which tests are relevant; it does not run them. The tests list is bounded (default 50).",
+    "Which tests import the changed symbol, or a symbol that reaches it — the tests worth running after touching a target. Each test carries reason and viaSymbol; `run` gives one ready command per package (cwd, command, argv) with its runner (vitest, jest, mocha, bun, node:test) and package manager — run it as given. Prism never runs it. The tests list is bounded (default 50).",
   inputSchema: {
     ...target,
     limit: limitInput,
@@ -168,99 +175,102 @@ export const testImpact = defineTool({
   },
 });
 
-export const breakingChangeHints = defineTool({
-  name: "breaking_change_hints",
-  title: "Breaking change hints",
-  description:
-    "Deprecated: breaking-change hints are included in blast_radius (and review_changes). Prefer those tools. Heuristic hints about what a change to this target could break for consumers — exported surface, widely imported modules, public entrypoints. Heuristic by design: treat as prompts to check, not as findings.",
-  inputSchema: target,
-  async call(context, args) {
-    const resolved = resolveTarget(context, args);
-    if (!resolved.ok) return resolved;
-    return context.workspace.breakingChangeHints(resolved.value);
-  },
-});
+/** The review part of `guard_session {review:true}` (plan P12). */
+export const reviewInput = {
+  paths: z
+    .array(z.string().min(1))
+    .min(1)
+    .optional()
+    .describe(
+      "Workspace-relative paths that changed. Omit to auto-discover from git (working tree, or base when set).",
+    ),
+  base: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "Git base ref for auto-discover, or a display label when paths are provided explicitly.",
+    ),
+  lens: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "Lens whose data-backed checks to run (architect, dev, qa, or a custom lens id). Omit to run every enabled lens.",
+    ),
+  format: z
+    .enum(["json", "prDescription"])
+    .optional()
+    .describe(
+      "prDescription adds the measured facts for a PR description: what changed, impact, and verification (never a test run Prism did not see).",
+    ),
+};
 
-export const changedPaths = defineTool({
-  name: "changed_paths",
-  title: "Changed paths",
-  description:
-    "List workspace-relative paths changed in the working tree, or against an optional git base ref. Use before review_changes when you need the path list alone, or let review_changes auto-discover by omitting paths. Fails when git is unavailable — that is not the same as an empty change set.",
-  inputSchema: {
-    base: z
-      .string()
-      .min(1)
-      .optional()
-      .describe(
-        "Optional git base ref (e.g. origin/main). Omit for the working tree (staged, unstaged, and untracked).",
-      ),
-  },
-  async call({ workspace }, args) {
-    return workspace.getChangedPaths(
+type ReviewArgs = {
+  readonly paths?: readonly string[];
+  readonly base?: string;
+  readonly lens?: string;
+  readonly format?: "json" | "prDescription";
+};
+
+export async function runReview(
+  { workspace, workspaceRoot }: ToolContext,
+  args: ReviewArgs,
+) {
+  let paths: readonly string[];
+  let base = args.base;
+
+  if (args.paths !== undefined && args.paths.length > 0) {
+    const resolved = allWorkspaceRelative(workspaceRoot, args.paths);
+    if (!resolved.ok) return resolved;
+    paths = resolved.value;
+  } else {
+    const changed = workspace.getChangedPaths(
       args.base === undefined ? undefined : { base: args.base },
     );
-  },
-});
+    if (!changed.ok) return changed;
+    paths = changed.value.paths;
+    base = base ?? changed.value.base;
+  }
 
-export const reviewChanges = defineTool({
-  name: "review_changes",
-  title: "Review changes",
-  description:
-    "Review changed paths in one call: blast radius, test impact and breaking-change hints per path, rolled up with an overall risk band. Omit paths to auto-discover via git (same as changed_paths); pass base to compare against a ref. Use for 'review my branch' rather than calling the per-file tools repeatedly.",
-  inputSchema: {
-    paths: z
-      .array(z.string().min(1))
-      .min(1)
-      .optional()
-      .describe(
-        "Workspace-relative paths that changed. Omit to auto-discover from git (working tree, or base when set).",
+  const report = await workspace.reviewChanges({
+    paths,
+    ...(base ? { base } : {}),
+  });
+  if (!report.ok) return report;
+  if (paths.length === 0) {
+    // RC-4: a clean tree is an answer, not an error.
+    return ok({ ...report.value, paths: [], findings: [] });
+  }
+  const analysed = report.value.items.map((item) => item.path);
+  const lens = await reviewLensFindings(
+    workspace,
+    report.value,
+    analysed,
+    args.lens,
+  );
+  if (lens.unknownLens) {
+    return err(
+      prismError(
+        PrismErrorCode.VALIDATION,
+        `No lens named ${lens.unknownLens}. Run \`prism lens list\` to see them.`,
       ),
-    base: z
-      .string()
-      .min(1)
-      .optional()
-      .describe(
-        "Git base ref for auto-discover, or a display label when paths are provided explicitly.",
-      ),
-  },
-  async call({ workspace, workspaceRoot }, args) {
-    let paths: readonly string[];
-    let base = args.base;
-
-    if (args.paths !== undefined && args.paths.length > 0) {
-      const resolved = allWorkspaceRelative(workspaceRoot, args.paths);
-      if (!resolved.ok) return resolved;
-      paths = resolved.value;
-    } else {
-      const changed = workspace.getChangedPaths(
-        args.base === undefined ? undefined : { base: args.base },
-      );
-      if (!changed.ok) return changed;
-      paths = changed.value.paths;
-      base = base ?? changed.value.base;
-      if (paths.length === 0) {
-        return err(
-          prismError(
-            PrismErrorCode.VALIDATION,
-            "No changed paths to review (working tree clean, or nothing under this workspace)",
+    );
+  }
+  return ok({
+    ...report.value,
+    paths,
+    findings: findingsFromReceiptParts({ lensFindings: lens.findings }),
+    ...(args.format === "prDescription"
+      ? {
+          prDescription: prDescriptionFor(
+            workspaceRoot,
+            report.value,
+            analysed,
           ),
-        );
-      }
-    }
+        }
+      : {}),
+  });
+}
 
-    return workspace.reviewChanges({
-      paths,
-      ...(base ? { base } : {}),
-    });
-  },
-});
-
-export const IMPACT_TOOLS = [
-  blastRadius,
-  safeDelete,
-  renameImpact,
-  testImpact,
-  breakingChangeHints,
-  changedPaths,
-  reviewChanges,
-];
+export const IMPACT_TOOLS = [blastRadius, safeDelete, renameImpact, testImpact];

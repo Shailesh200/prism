@@ -11,13 +11,47 @@ a supported configuration.
 
 ## Unreleased
 
-## 1.12.0 — Agent-native: Envelope, Prepare, Guard
+## 2.0.0 — Prepare, lens review and receipts
+
+Prism 2.0 is local software intelligence that catches what your coding agent missed. It gives the agent the right files before it edits, then checks the change. Everything runs on your machine. This is a clean break from 1.x.
+
+### Start
+
+- **`npm i -g @prismapp/cli && prism start`** installs Prism for the agents it finds (Claude Code, Cursor, Codex, opencode), indexes the repo, prints the top of the map and shows what to try. `prism install` does the same per host. The CLI ships the matching MCP server and hook pack; the versions move in lockstep.
+- Install records what it writes, and uninstall removes exactly that. Installing over 1.x removes 1.x data; valid custom lenses and config keys are kept.
+- Hooks stay current after an upgrade. When a release changes Prism's hooks, the next Claude Code session updates Prism's own entries in `settings.json`, keeps your other hooks and writes a backup next to the file. If Prism's entries were edited by hand, Prism leaves them and prints one line with the `prism install` command to run. `prism doctor` shows the same check, and `prism doctor --fix` applies the update.
+- New `prism stats` and `prism doctor --fix`. `prism doctor --surfaces` lists every Prism entry each host can see.
+- `prism strength full|lite|off` sets how much the hooks do.
+
+### Before the edit
+
+- **Prepare**: the automatic file list holds at most 3 files Prism is sure of, with nearby tests and one run command. Files that changed in the same commits are ranked into that list.
+- The prompt hook runs in one Node process, inside the 1 s budget, with the same behaviour for Claude Code, opencode and the daemon-off path.
+- `graph` gains `map` and `symbol` modes; `prism graph map` prints a compact repo map.
+
+### After the edit
+
+- **Receipts** put the verdict first: SHIP, NOT PROVEN (with the cheapest command that would prove it) or NO-SHIP. Checks run your typecheck, lint and the tests the change reaches.
+- **Review** is `guard_session` with `review: true`. Findings say what, where, how to fix it, and the risk if you skip it.
+- **Lenses** are shared by every repository, with nine data-backed checks and custom trigger phrases. `prism review --lens <name>` prints one lens's checks (✓ passed, △ unproven, ✗ failed) with evidence.
+- `test_impact` returns a ready command for each package. Blast radius works per symbol, and type-only imports no longer count as cycles.
+
+### Agents
+
+- New `habits` tool and `prism habit` command for saved routines. Prism stores the steps; your agent runs them.
+- One `prism` skill replaces five earlier ones: prism-review-pr, prism-safe-change, prism-onboard, prism-lens and prism-habits.
+- Every tool takes `maxTokens` (200–12,000).
+
+### Removed
+
+- The 1.x VS Code and Cursor extensions, app-shell, playground, Dispatch, and the 1.x tool names and environment variables.
+
+## 1.12.0 — Agent-native: Prepare, Guard
 
 Cuts 1–3 of the agent-native program. One loop: prepare, edit, this repo’s checks, Guard, findings that stay open until a re-scan. Still local. No Prism account. Not an LLM product.
 
 ### Intelligence
 
-- **Envelope** — every Intelligence call writes a local receipt (`tool`, counts, `truncated`, bytes) to `~/.prism/envelope-ledger.jsonl`. No prompts, paths, or source. Console Iris shows bytes kept vs dump. An empty week is “no sessions,” never `0%`.
 - **Honest lists** — `search_symbols` and other list tools return a real `totalCount`. A cut list sets `truncated: true`.
 - **Honest edges** — import / call / feature edges carry `measured` | `heuristic` | `inferred`. Inferred is not load-bearing until you open the file.
 - **True refs** — two symbols with the same name stay `ambiguous`. They are not merged.
@@ -31,7 +65,7 @@ Cuts 1–3 of the agent-native program. One loop: prepare, edit, this repo’s c
 
 ### Console
 
-- **Iris** (`#/iris`) no longer mounts the repository map. Facts + Envelope scoreboard + last Prepare for the selected repo.
+- **Iris** (`#/iris`) no longer mounts the repository map. Facts + last Prepare for the selected repo.
 - Findings **Fix with teammate** uses the same payload as `queue_finding`.
 - Pulse finding count is the open count from health history, not finished jobs.
 - Verify chip is **—** when this repo has no checks — never Failure from a missing `typecheck`.
@@ -52,7 +86,7 @@ Cuts 1–3 of the agent-native program. One loop: prepare, edit, this repo’s c
 
 Keep `@latest`. `@repo-prism/dispatch@1.12.0`, `@repo-prism/dispatch-hub@1.12.0`, `@repo-prism/mcp-server@1.12.0`, `@repo-prism/shared@1.3.0`, `@repo-prism/indexer@1.0.3`, `@repo-prism/intelligence@1.1.0`, `@repo-prism/core@1.1.0`, `@repo-prism/host-session@1.2.0`, `@repo-prism/cli@1.1.0`, and Prism extension `1.1.0`. Engine packages that did not change stay `@1.0.1` (analyzer, graph-engine, impact, navigation, repository-map).
 
-See docs: Envelope and Iris, Prepare a change, Guard a session, Findings.
+See docs: Iris, Prepare a change, Guard a session, Findings.
 
 ## 1.11.1 — Skills history and Pulse meter
 

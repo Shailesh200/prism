@@ -9,7 +9,7 @@ Typed in-memory graph store on **ngraph** with query primitives for dependency /
 ## Usage
 
 ```ts
-import { createGraphStore, layoutGraph } from "@repo-prism/graph-engine";
+import { createGraphStore } from "@repo-prism/graph-engine";
 
 const store = createGraphStore({ id: "demo" });
 store.bulkLoad({
@@ -25,7 +25,6 @@ store.neighbors("a", { direction: "out" }); // ["b"]
 store.shortestPath("a", "b"); // ok(["a", "b"])
 store.toJSON(); // deterministic node/edge order
 
-layoutGraph(store.toJSON()); // basic layered positions
 ```
 
 Domain builders (import resolution, semantic edges) land in **M-010 / M-011**.  

@@ -2,13 +2,18 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    // Never the real HOME: every run gets a throwaway HOME and PRISM_HOME.
+    globalSetup: ["../test-support/src/home-guard.ts"],
+    setupFiles: ["../test-support/src/home-guard-setup.ts"],
     name: "@repo-prism/core",
     include: ["src/**/*.test.ts"],
-    // Core's tests index real fixtures through the oxc parser, which takes a
-    // few seconds per file. At the 5s default they passed alone and timed out
-    // under parallel load — a flaky suite is worse than a slow one. Making the
-    // indexing itself faster belongs to M-035.
-    testTimeout: 30_000,
-    hookTimeout: 30_000,
+    // Suites that index a real repository, spawn git or run a repo's own
+    // checks live in *.integration.test.ts (plan P22). Unit tests keep
+    // vitest's 5 s default: one that needs more is an integration test.
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "src/**/*.integration.test.ts",
+    ],
   },
 });

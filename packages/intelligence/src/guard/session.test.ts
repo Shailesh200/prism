@@ -1,7 +1,11 @@
 import type { IndexSnapshot, IndexedFile } from "@repo-prism/shared";
 import { describe, expect, it } from "vitest";
 import { buildDependencyGraph } from "../dependency/build.js";
-import { checkGuardSession } from "./session.js";
+import {
+  checkGuardSession,
+  looksLikeSameSymbol,
+  reexportFamily,
+} from "./session.js";
 
 function snapshot(files: IndexedFile[]): IndexSnapshot {
   return {
@@ -96,6 +100,90 @@ describe("checkGuardSession > orphan", () => {
 });
 
 describe("checkGuardSession > duplicate", () => {
+  it("does not flag a barrel re-export as a duplicate of its own source (B3 false alarm)", () => {
+    const snap = snapshot([
+      file("src/predicate/isBlob.ts", {
+        symbols: [
+          {
+            name: "isBlob",
+            kind: "function",
+            start: 0,
+            end: 20,
+            exported: true,
+          },
+        ],
+        exports: [{ name: "isBlob", kind: "name" }],
+      }),
+      file("src/predicate/index.ts", {
+        symbols: [
+          {
+            name: "isBlob",
+            kind: "function",
+            start: 0,
+            end: 20,
+            exported: true,
+          },
+        ],
+        exports: [{ name: "isBlob", kind: "name", source: "./isBlob.ts" }],
+      }),
+    ]);
+    const graph = buildDependencyGraph(snap).graph;
+    expect(
+      reexportFamily(graph, "src/predicate/index.ts").has(
+        "src/predicate/isBlob.ts",
+      ),
+    ).toBe(true);
+    const flags = checkGuardSession({
+      snapshot: snap,
+      sessionPaths: ["src/predicate/index.ts"],
+      dependencyGraph: graph,
+    });
+    expect(
+      flags
+        .get("src/predicate/index.ts")
+        ?.some((f) => f.kind === "duplicate") ?? false,
+    ).toBe(false);
+  });
+
+  it("keeps siblings behind one barrel comparable (re-export family is directional)", () => {
+    const sym = (name: string) => ({
+      name,
+      kind: "function" as const,
+      start: 0,
+      end: 20,
+      exported: true,
+    });
+    const snap = snapshot([
+      file("src/array/dropRightWhile.ts", {
+        symbols: [sym("dropRightWhile")],
+        exports: [{ name: "dropRightWhile", kind: "name" }],
+      }),
+      file("src/compat/dropRightWhile.ts", {
+        symbols: [sym("dropRightWhile")],
+        exports: [{ name: "dropRightWhile", kind: "name" }],
+      }),
+      file("src/index.ts", {
+        symbols: [],
+        exports: [
+          {
+            name: "dropRightWhile",
+            kind: "name",
+            source: "./array/dropRightWhile.ts",
+          },
+          {
+            name: "compatDropRightWhile",
+            kind: "name",
+            source: "./compat/dropRightWhile.ts",
+          },
+        ],
+      }),
+    ]);
+    const graph = buildDependencyGraph(snap).graph;
+    const family = reexportFamily(graph, "src/compat/dropRightWhile.ts");
+    expect(family.has("src/index.ts")).toBe(true);
+    expect(family.has("src/array/dropRightWhile.ts")).toBe(false);
+  });
+
   it("flags a new export that looks like an existing one elsewhere", () => {
     const snap = snapshot([
       file("src/cache/lruCache.ts", {
@@ -286,5 +374,146 @@ describe("checkGuardSession > duplicate", () => {
     expect(flags.get("src/b.ts")?.some((f) => f.kind === "duplicate")).toBe(
       false,
     );
+  });
+});
+
+describe("duplicate flags: name-overlap noise (website round)", () => {
+  const sym = (name: string) => ({
+    name,
+    kind: "function" as const,
+    start: 0,
+    end: 20,
+    exported: true,
+  });
+  it("one common word inside a longer name is not a copy", () => {
+    expect(looksLikeSameSymbol("metadata", "pageMetadata")).toBe(false);
+    expect(looksLikeSameSymbol("AdminPage", "Page")).toBe(false);
+    expect(looksLikeSameSymbol("lruCache", "lruCacheForUsers")).toBe(true);
+    expect(looksLikeSameSymbol("formatDate", "formatdate")).toBe(true);
+  });
+
+  it("a framework route's exports are never compared", () => {
+    const snap = snapshot([
+      file("app/a/page.tsx", {
+        symbols: [sym("generateStaticParams")],
+        exports: [{ name: "generateStaticParams", kind: "name" }],
+      }),
+      file("app/b/page.tsx", {
+        symbols: [sym("generateStaticParams")],
+        exports: [{ name: "generateStaticParams", kind: "name" }],
+      }),
+    ]);
+    const flags = checkGuardSession({
+      snapshot: snap,
+      sessionPaths: ["app/b/page.tsx"],
+      dependencyGraph: buildDependencyGraph(snap).graph,
+      entryRoles: new Map([
+        ["app/a/page.tsx", "route"],
+        ["app/b/page.tsx", "route"],
+      ]),
+    });
+    expect(
+      flags.get("app/b/page.tsx")?.some((f) => f.kind === "duplicate") ?? false,
+    ).toBe(false);
+  });
+});
+
+describe("guard: only what the change adds (round 5, B3 noise)", () => {
+  const dupSnap = () =>
+    snapshot([
+      file("src/compat/predicate/isBoolean.ts", {
+        symbols: [
+          {
+            name: "isBoolean",
+            kind: "function",
+            start: 0,
+            end: 20,
+            exported: true,
+          },
+        ],
+        exports: [{ name: "isBoolean", kind: "name" }],
+      }),
+      file("src/predicate/index.ts", {
+        symbols: [
+          {
+            name: "isBoolean",
+            kind: "function",
+            start: 0,
+            end: 20,
+            exported: true,
+          },
+          {
+            name: "isEmptyObject",
+            kind: "function",
+            start: 30,
+            end: 50,
+            exported: true,
+          },
+        ],
+        exports: [
+          { name: "isBoolean", kind: "name" },
+          { name: "isEmptyObject", kind: "name" },
+        ],
+      }),
+    ]);
+
+  it("a symbol the file already had at HEAD is not a duplicate (es-toolkit 50339c32)", () => {
+    const snap = dupSnap();
+    const input = {
+      snapshot: snap,
+      sessionPaths: ["src/predicate/index.ts"],
+      dependencyGraph: buildDependencyGraph(snap).graph,
+    };
+    // Without HEAD the old behaviour stands: the barrel's isBoolean is flagged.
+    expect(
+      checkGuardSession(input)
+        .get("src/predicate/index.ts")
+        ?.some((f) => f.kind === "duplicate"),
+    ).toBe(true);
+    const head = "export { isBoolean } from './isBoolean';\n";
+    expect(
+      checkGuardSession({ ...input, headSource: () => head })
+        .get("src/predicate/index.ts")
+        ?.some((f) => f.kind === "duplicate"),
+    ).toBeFalsy();
+    // A new file has no HEAD version: its symbols are all new, still checked.
+    expect(
+      checkGuardSession({ ...input, headSource: () => null })
+        .get("src/predicate/index.ts")
+        ?.some((f) => f.kind === "duplicate"),
+    ).toBe(true);
+  });
+
+  it("flags a new export with no return type in a JSR package (hono 6a0607a9)", () => {
+    const snap = snapshot([
+      file("src/utils/url.ts"),
+      file("src/utils/url.test.ts"),
+    ]);
+    const before =
+      "const tryDecodeURI = (str: string) => tryDecode(str, decodeURI)\n";
+    const after = `export ${before}`;
+    const input = {
+      snapshot: snap,
+      sessionPaths: ["src/utils/url.ts", "src/utils/url.test.ts"],
+      dependencyGraph: buildDependencyGraph(snap).graph,
+      headSource: () => before,
+      readSource: () => after,
+    };
+    const slow = (
+      over: Partial<Parameters<typeof checkGuardSession>[0]>,
+      path = "src/utils/url.ts",
+    ) =>
+      (checkGuardSession({ ...input, ...over }).get(path) ?? []).filter(
+        (f) => f.kind === "slow-type",
+      );
+    const flags = slow({ jsrPackage: true });
+    expect(flags).toEqual([
+      expect.objectContaining({ kind: "slow-type", provenance: "measured" }),
+    ]);
+    expect(flags[0]!.detail).toContain('"tryDecodeURI"');
+    expect(slow({ jsrPackage: true }, "src/utils/url.test.ts")).toEqual([]);
+    // Not a JSR package, or HEAD unreadable: no slow-type flag.
+    expect(slow({ jsrPackage: false })).toEqual([]);
+    expect(slow({ jsrPackage: true, headSource: () => undefined })).toEqual([]);
   });
 });

@@ -8,14 +8,13 @@
  * file someone forgot to add to the second list.
  */
 
-export type SkillId =
-  | "prism-review-pr"
-  | "prism-safe-change"
-  | "prism-verify-regression"
-  | "prism-ship"
-  | "prism-onboard";
+/**
+ * One skill. Every skill's description is listed to the model on every call,
+ * so five overlapping skills cost ~1.9k chars of fixed overhead per turn.
+ */
+export type SkillId = "prism";
 
-export type CommandId = "prism-review" | "prism-check" | "prism-onboard";
+export type CommandId = "prism-review" | "prism-check" | "prism-graph";
 
 export type PluginDefinition = {
   readonly name: string;
@@ -42,7 +41,7 @@ export function pluginDefinition(version: string): PluginDefinition {
     name: "prism",
     version,
     description:
-      "Repository intelligence for coding agents. Maps, dependency graphs, blast radius and impact analysis over a local index — composed with the connectors your editor already has.",
+      "Local software intelligence that catches what your coding agent missed. Composed with the connectors your editor already has.",
     author: { name: "Prism", url: "https://www.prismhq.in" },
     homepage: "https://www.prismhq.in",
     repository: "https://github.com/Shailesh200/prism",
@@ -56,14 +55,8 @@ export function pluginDefinition(version: string): PluginDefinition {
       "code-review",
       "mcp",
     ],
-    skills: [
-      "prism-review-pr",
-      "prism-safe-change",
-      "prism-verify-regression",
-      "prism-ship",
-      "prism-onboard",
-    ],
-    commands: ["prism-review", "prism-check", "prism-onboard"],
+    skills: ["prism"],
+    commands: ["prism-review", "prism-check", "prism-graph"],
   };
 }
 
@@ -110,16 +103,126 @@ export function claudeManifest(def: PluginDefinition): Record<string, unknown> {
  * and the documented fix does not match what they have. A test asserts they
  * stay equal.
  */
+/** Claude Code lifecycle hooks (ADR-0058, ADR-0065). One script, five events. */
+export function claudeHooks(): Record<string, unknown> {
+  const command = (name: string, timeout: number) => ({
+    type: "command",
+    command: "node",
+    args: ["${CLAUDE_PLUGIN_ROOT}/hooks/prism-hook.mjs", name],
+    timeout,
+  });
+  return {
+    description:
+      "Prism hands the agent a Prepare pack for change requests, warns before risky edits, and prints a change receipt when the agent stops.",
+    hooks: {
+      SessionStart: [{ hooks: [command("session", 5)] }],
+      UserPromptSubmit: [{ hooks: [command("prompt", 8)] }],
+      PreToolUse: [
+        {
+          matcher: "Write|Edit|NotebookEdit",
+          hooks: [command("before-edit", 5)],
+        },
+      ],
+      PostToolUse: [
+        {
+          matcher: "Write|Edit|NotebookEdit",
+          hooks: [command("after-edit", 5)],
+        },
+      ],
+      // Same plan as `prism install` (shared/hook-config CLAUDE_HOOK_PLAN;
+      // the cli contract test holds them together).
+      Stop: [
+        {
+          hooks: [
+            command("stop", 120),
+            { ...command("stop-wait", 120), asyncRewake: true },
+          ],
+        },
+      ],
+    },
+  };
+}
+
 export function mcpConfig(): Record<string, unknown> {
   return {
     mcpServers: {
       prism: {
-        command: "npx",
-        args: ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
+        command: "prism-mcp",
+        args: [],
         env: {
           NODE_USE_SYSTEM_CA: "1",
         },
       },
+    },
+  };
+}
+
+/**
+ * Dev pack (ADR-0061). Points at this checkout's build. The public pack stays
+ * on `mcpConfig()` so the published install line does not change.
+ */
+export function devMcpConfig(target: {
+  readonly node: string;
+  readonly mcpBin: string;
+}): Record<string, unknown> {
+  return {
+    mcpServers: {
+      prism: {
+        command: target.node,
+        args: ["--enable-source-maps", target.mcpBin],
+        env: {
+          NODE_USE_SYSTEM_CA: "1",
+          PRISM_SKIP_SELF_UPDATE: "1",
+          PRISM_MCP_BIN: target.mcpBin,
+        },
+      },
+    },
+  };
+}
+
+/** Same five events, with the workspace build baked into the command. */
+export function devClaudeHooks(target: {
+  readonly node: string;
+  readonly mcpBin: string;
+}): Record<string, unknown> {
+  const command = (name: string, timeout: number) => ({
+    type: "command",
+    command: target.node,
+    args: ["${CLAUDE_PLUGIN_ROOT}/hooks/prism-hook.mjs", name],
+    timeout,
+    env: {
+      PRISM_MCP_BIN: target.mcpBin,
+      PRISM_SKIP_SELF_UPDATE: "1",
+    },
+  });
+  return {
+    description:
+      "Prism hands the agent a Prepare pack for change requests, warns before risky edits, and prints a change receipt when the agent stops. Dev pack: this checkout.",
+    hooks: {
+      SessionStart: [{ hooks: [command("session", 5)] }],
+      UserPromptSubmit: [{ hooks: [command("prompt", 8)] }],
+      PreToolUse: [
+        {
+          matcher: "Write|Edit|NotebookEdit",
+          hooks: [command("before-edit", 5)],
+        },
+      ],
+      PostToolUse: [
+        {
+          matcher: "Write|Edit|NotebookEdit",
+          hooks: [command("after-edit", 5)],
+        },
+      ],
+      // Same plan as `prism install` (shared/hook-config CLAUDE_HOOK_PLAN;
+      // the cli contract test holds them together).
+      Stop: [
+        {
+          hooks: [
+            command("stop", 120),
+            { ...command("stop-wait", 120), asyncRewake: true },
+          ],
+        },
+      ],
     },
   };
 }

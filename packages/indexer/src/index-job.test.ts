@@ -85,4 +85,26 @@ describe("runIndexJob", () => {
     if (result.ok) return;
     expect(result.error.code).toBe(PrismErrorCode.CANCELLED);
   });
+
+  it("ONB-4 caps code files package-first; other files are kept free", async () => {
+    const result = await runIndexJob(fixtureRoot, {
+      cache: false,
+      maxAnalyzeFiles: 1,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.stats.filesIndexed).toBe(1);
+    expect(result.value.files.map((f) => f.path)).toContain("notes.md");
+    expect(result.value.warnings).toContain(
+      "partial index: analyzed 1 of 2 code files (top packages first)",
+    );
+  });
+
+  it("a partial index keeps the full cache: the next full index reuses it all", async () => {
+    const cacheDbPath = await tempCachePath();
+    await runIndexJob(fixtureRoot, { cacheDbPath });
+    await runIndexJob(fixtureRoot, { cacheDbPath, maxAnalyzeFiles: 1 });
+    const full = await runIndexJob(fixtureRoot, { cacheDbPath });
+    expect(full.ok && full.value.cache).toMatchObject({ filesAnalyzed: 0 });
+  });
 });

@@ -11,6 +11,7 @@ tasks:
       - "scripts/**/*"
       - "skills/**/*"
       - "commands/**/*"
+      - "hooks/**/*"
       - "README.md"
       - "tsconfig.json"
       - "package.json"
@@ -31,4 +32,5 @@ tasks:
       - "src/**/*"
       - "skills/**/*"
       - "commands/**/*"
+      - "hooks/**/*"
       - "vitest.config.ts"

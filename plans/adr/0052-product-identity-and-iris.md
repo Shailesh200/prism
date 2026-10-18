@@ -154,6 +154,8 @@ and do not need rewriting for this ADR.
 
 ### 7. The worker is not named
 
+> **Amended by [ADR-0059](./0059-lenses.md) (2026-10-06).** User-owned review **Lenses** (Architect / QA / Dev, renameable by the user) are allowed. They are not a worker and not Prism's character; the host's model does the thinking. Prism still never names a worker or invents human names.
+
 Dispatch spawns Cursor's agent or Claude Code's agent depending on the host
 (ADR-0044). Those are not ours to name, and naming someone else's agent as a
 Prism persona would be both inaccurate and precisely the "AI assistant

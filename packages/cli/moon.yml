@@ -4,6 +4,12 @@ layer: "library"
 dependsOn:
   - "shared"
   - "core"
+  - "daemon"
+  # The CLI imports the server (`@repo-prism/mcp-server/review`) and ships the
+  # server and the hook pack, so both build before it.
+  - "mcp-server"
+  - "plugin"
+  - "test-support"
 tasks:
   build:
     command: "bun run build"
@@ -30,6 +36,11 @@ tasks:
       - "vitest.config.ts"
   test-integration:
     command: "bun run test:integration"
+    # The cross-surface suite (moved here from mcp-server, round 4) spawns the
+    # built `prism` binary, so this package's own build runs first.
+    deps:
+      - "build"
+      - "test-support:build"
     inputs:
       - "src/**/*"
       - "vitest.integration.config.ts"

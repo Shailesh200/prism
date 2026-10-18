@@ -2,8 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { getAdoptionSnapshot } from "@/lib/adoption";
 import { Sparkline } from "@/components/sparkline";
-import { Counter } from "@/components/motion/Counter";
-import { PageEnter } from "@/components/motion/PageEnter";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -75,7 +73,7 @@ function Instrument({
         ) : null}
       </div>
       <div className="text-2xl font-semibold tabular-nums tracking-tight text-fd-foreground">
-        {value == null ? "—" : <Counter value={value} grouped />}
+        {fmt(value)}
       </div>
       {series && series.length > 1 ? <Sparkline values={series} /> : null}
     </div>
@@ -94,191 +92,185 @@ export default async function AdminPage() {
   ].filter(Boolean);
 
   const cliSeries =
-    snap.npm.find((p) => p.name === "@repo-prism/cli")?.series ?? [];
+    snap.npm.find((p) => p.name === "@prismapp/cli")?.series ?? [];
   const mcpSeries =
-    snap.npm.find((p) => p.name === "@repo-prism/mcp-server")?.series ?? [];
+    snap.npm.find((p) => p.name === "@prismapp/mcp-server")?.series ?? [];
 
   return (
-    <PageEnter>
-      <main className="min-h-screen bg-fd-background text-fd-foreground">
-        <div className="border-b border-fd-border px-6 py-4">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-xs text-fd-primary">ADMIN</span>
-              <h1 className="text-lg font-semibold tracking-tight">
-                Product console
-              </h1>
-            </div>
-            <div className="flex gap-4 text-sm">
-              <Link href="/admin/docs" className="text-fd-primary">
-                Architecture docs
-              </Link>
-              <Link href="/" className="text-fd-muted-foreground">
-                Public site
-              </Link>
-            </div>
+    <main className="min-h-screen bg-fd-background text-fd-foreground">
+      <div className="border-b border-fd-border px-6 py-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-xs text-fd-primary">ADMIN</span>
+            <h1 className="text-lg font-semibold tracking-tight">
+              Product console
+            </h1>
+          </div>
+          <div className="flex gap-4 text-sm">
+            <Link href="/admin/docs" className="text-fd-primary">
+              Architecture docs
+            </Link>
+            <Link href="/" className="text-fd-muted-foreground">
+              Public site
+            </Link>
           </div>
         </div>
+      </div>
 
-        <div className="mx-auto grid max-w-6xl gap-0 lg:grid-cols-[1.4fr_1fr]">
-          {/* Left: mission + instruments */}
-          <div className="space-y-8 border-fd-border px-6 py-10 lg:border-r">
-            {/* Mission brief */}
-            <section className="space-y-3 border border-fd-border bg-fd-card/30 p-5">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge tone="neutral">mission brief</Badge>
-                <Badge tone={docsOk ? "ok" : "warn"}>
-                  docs {docsOk ? "clean" : "needs attention"}
-                </Badge>
-                <Badge tone={feedErrors.length ? "warn" : "ok"}>
-                  feeds {feedErrors.length ? "partial" : "ok"}
-                </Badge>
-              </div>
-              <p className="text-xl font-medium tracking-tight md:text-2xl">
-                <span className="text-fd-primary">
-                  {snap.release.latest ?? "—"}
-                </span>
-                {" · "}
-                {fmt(snap.marketplace.installs)} Marketplace installs
-                {" · "}
-                {fmt(snap.github.stars)} stars
-                {" · "}
-                {snap.docsHealth.pages} public docs pages
-              </p>
-              <p className="text-sm text-fd-muted-foreground">
-                Snapshot {new Date(snap.fetchedAt).toLocaleString("en-GB")} ·
-                ISR 1h · public APIs only · no product telemetry
-              </p>
-            </section>
+      <div className="mx-auto grid max-w-6xl gap-0 lg:grid-cols-[1.4fr_1fr]">
+        {/* Left: mission + instruments */}
+        <div className="space-y-8 border-fd-border px-6 py-10 lg:border-r">
+          {/* Mission brief */}
+          <section className="space-y-3 border border-fd-border bg-fd-card/30 p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="neutral">mission brief</Badge>
+              <Badge tone={docsOk ? "ok" : "warn"}>
+                docs {docsOk ? "clean" : "needs attention"}
+              </Badge>
+              <Badge tone={feedErrors.length ? "warn" : "ok"}>
+                feeds {feedErrors.length ? "partial" : "ok"}
+              </Badge>
+            </div>
+            <p className="text-xl font-medium tracking-tight md:text-2xl">
+              <span className="text-fd-primary">
+                {snap.release.latest ?? "—"}
+              </span>
+              {" · "}
+              {fmt(snap.marketplace.installs)} Marketplace installs
+              {" · "}
+              {fmt(snap.github.stars)} stars
+              {" · "}
+              {snap.docsHealth.pages} public docs pages
+            </p>
+            <p className="text-sm text-fd-muted-foreground">
+              Snapshot {new Date(snap.fetchedAt).toLocaleString("en-GB")} · ISR
+              1h · public APIs only · no product telemetry
+            </p>
+          </section>
 
-            {/* Instrument panel */}
-            <section className="space-y-3">
-              <h2 className="font-mono text-xs uppercase tracking-wider text-fd-muted-foreground">
-                Instruments
-              </h2>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                <Instrument
-                  label="Marketplace"
-                  value={snap.marketplace.installs}
-                  hint={
-                    snap.marketplace.rating != null
-                      ? `★ ${snap.marketplace.rating.toFixed(1)}`
-                      : undefined
-                  }
-                />
-                <Instrument label="Open VSX" value={snap.openVsx.downloads} />
-                <Instrument label="GitHub stars" value={snap.github.stars} />
-                <Instrument
-                  label="Open issues"
-                  value={snap.github.openIssues}
-                />
-                <Instrument
-                  label="CLI npm / 30d"
-                  value={
-                    snap.npm.find((p) => p.name === "@repo-prism/cli")
-                      ?.downloads
-                  }
-                  series={cliSeries}
-                  hint="daily"
-                />
-                <Instrument
-                  label="MCP npm / 30d"
-                  value={
-                    snap.npm.find((p) => p.name === "@repo-prism/mcp-server")
-                      ?.downloads
-                  }
-                  series={mcpSeries}
-                  hint="daily"
-                />
-                <Instrument
-                  label="CLI commands"
-                  value={snap.surfaces.cliCommands}
-                />
-                <Instrument label="MCP tools" value={snap.surfaces.mcpTools} />
-                <Instrument
-                  label="Changelog entries"
-                  value={snap.release.entries}
-                />
-              </div>
-            </section>
+          {/* Instrument panel */}
+          <section className="space-y-3">
+            <h2 className="font-mono text-xs uppercase tracking-wider text-fd-muted-foreground">
+              Instruments
+            </h2>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <Instrument
+                label="Marketplace"
+                value={snap.marketplace.installs}
+                hint={
+                  snap.marketplace.rating != null
+                    ? `★ ${snap.marketplace.rating.toFixed(1)}`
+                    : undefined
+                }
+              />
+              <Instrument label="Open VSX" value={snap.openVsx.downloads} />
+              <Instrument label="GitHub stars" value={snap.github.stars} />
+              <Instrument label="Open issues" value={snap.github.openIssues} />
+              <Instrument
+                label="CLI npm / 30d"
+                value={
+                  snap.npm.find((p) => p.name === "@prismapp/cli")?.downloads
+                }
+                series={cliSeries}
+                hint="daily"
+              />
+              <Instrument
+                label="MCP npm / 30d"
+                value={
+                  snap.npm.find((p) => p.name === "@prismapp/mcp-server")
+                    ?.downloads
+                }
+                series={mcpSeries}
+                hint="daily"
+              />
+              <Instrument
+                label="CLI commands"
+                value={snap.surfaces.cliCommands}
+              />
+              <Instrument label="MCP tools" value={snap.surfaces.mcpTools} />
+              <Instrument
+                label="Changelog entries"
+                value={snap.release.entries}
+              />
+            </div>
+          </section>
 
-            <section className="space-y-3">
-              <h2 className="font-mono text-xs uppercase tracking-wider text-fd-muted-foreground">
-                Docs health
-              </h2>
-              <div className="grid gap-2 sm:grid-cols-3">
-                <Instrument label="Pages" value={snap.docsHealth.pages} />
+          <section className="space-y-3">
+            <h2 className="font-mono text-xs uppercase tracking-wider text-fd-muted-foreground">
+              Docs health
+            </h2>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <Instrument label="Pages" value={snap.docsHealth.pages} />
+              <Instrument
+                label="Missing description"
+                value={snap.docsHealth.missingDescription}
+              />
+              <Instrument
+                label="Over word budget"
+                value={snap.docsHealth.overBudget}
+              />
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="font-mono text-xs uppercase tracking-wider text-fd-muted-foreground">
+              npm packages / 30d
+            </h2>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {snap.npm.map((pkg) => (
                 <Instrument
-                  label="Missing description"
-                  value={snap.docsHealth.missingDescription}
+                  key={pkg.name}
+                  label={pkg.name}
+                  value={pkg.downloads}
+                  series={pkg.series}
                 />
-                <Instrument
-                  label="Over word budget"
-                  value={snap.docsHealth.overBudget}
-                />
-              </div>
-            </section>
+              ))}
+            </div>
+          </section>
 
-            <section className="space-y-3">
-              <h2 className="font-mono text-xs uppercase tracking-wider text-fd-muted-foreground">
-                npm packages / 30d
-              </h2>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {snap.npm.map((pkg) => (
-                  <Instrument
-                    key={pkg.name}
-                    label={pkg.name}
-                    value={pkg.downloads}
-                    series={pkg.series}
-                  />
-                ))}
-              </div>
-            </section>
+          {feedErrors.length > 0 ? (
+            <p className="font-mono text-xs text-amber-400">
+              Feed warnings: {feedErrors.join(" · ")}
+            </p>
+          ) : null}
 
-            {feedErrors.length > 0 ? (
-              <p className="font-mono text-xs text-amber-400">
-                Feed warnings: {feedErrors.join(" · ")}
-              </p>
-            ) : null}
+          <p className="text-xs text-fd-muted-foreground">
+            Website traffic: enable Vercel Web Analytics on the project (not
+            duplicated here).
+          </p>
+        </div>
 
-            <p className="text-xs text-fd-muted-foreground">
-              Website traffic: enable Vercel Web Analytics on the project (not
-              duplicated here).
+        {/* Right: architecture console */}
+        <aside className="space-y-6 bg-fd-card/40 px-6 py-10">
+          <div className="space-y-2">
+            <h2 className="font-mono text-xs uppercase tracking-wider text-fd-primary">
+              Architecture
+            </h2>
+            <p className="text-sm text-fd-muted-foreground">
+              Internal docs — same markdown as the repo, served only under
+              /admin/docs.
             </p>
           </div>
-
-          {/* Right: architecture console */}
-          <aside className="space-y-6 bg-[color-mix(in_oklab,var(--prism-panel)_40%,transparent)] px-6 py-10">
-            <div className="space-y-2">
-              <h2 className="font-mono text-xs uppercase tracking-wider text-fd-primary">
-                Architecture
-              </h2>
-              <p className="text-sm text-fd-muted-foreground">
-                Internal docs — same markdown as the repo, served only under
-                /admin/docs.
-              </p>
-            </div>
-            <ul className="space-y-1">
-              {ARCH_LINKS.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="block border-b border-fd-border py-3 text-sm text-fd-foreground transition hover:text-fd-primary"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <Link
-              href="/admin/docs"
-              className="inline-flex rounded-md border border-fd-border px-3 py-2 text-sm text-fd-primary"
-            >
-              Open docs index →
-            </Link>
-          </aside>
-        </div>
-      </main>
-    </PageEnter>
+          <ul className="space-y-1">
+            {ARCH_LINKS.map((link) => (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  className="block border-b border-fd-border py-3 text-sm text-fd-foreground transition hover:text-fd-primary"
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/admin/docs"
+            className="inline-flex rounded-md border border-fd-border px-3 py-2 text-sm text-fd-primary"
+          >
+            Open docs index →
+          </Link>
+        </aside>
+      </div>
+    </main>
   );
 }

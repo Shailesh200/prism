@@ -19,46 +19,42 @@ Prism parses source into a local index and derives views from that one store:
 
 | View | Question |
 |---|---|
-| **Repository map** | What is in here, and how is it shaped? |
 | **Dependency / knowledge / feature graphs** | What imports what, what symbols mean, which files implement one capability? |
 | **Repository DNA** | What is this built from, and which domains does it span? |
-| **Health score** | Where is risk concentrated, and why? |
 | **Blast radius** | If I change this file, what else is affected? |
 | **Prepare** | What should I open for this task, and what already exists? |
-| **Envelope** | How much did agents take from the index, without dumping source? |
-| **Guard** | Of everything I just dirtied, what should I read first? |
-| **Findings** | What unused or duplicated code can become a job? |
+| **Review** | What is Critical, High, Low, or Nit in this change, and what is the Receipt? |
+| **Lens review** | Did Dev, QA, or Architect find a caller left behind, or code no test covers? |
+| **Findings** | What unused or duplicated code is worth fixing? |
+| **Receipt** | Which checks did this change reach, and did they pass? |
 
 ## Where you use it
 
 | Surface | For |
 |---|---|
-| **VS Code / Cursor** | Day-to-day visual reading |
+| **MCP server and hooks** | Any coding agent: nine tools, a prompt-time pack and a stop-time receipt |
 | **CLI** | Scripts, CI, terminal workflows |
-| **MCP server** | Giving an AI agent real structural knowledge |
-| **Spectrum** | Trying Prism in a browser without an extension |
-| **Console Iris** | Index facts plus the Envelope ledger for the selected repo |
 
 ## Is it for you?
 
-**Probably yes** if you work in a TypeScript or JavaScript codebase too large to
-hold in your head.
+**Probably yes** if you work in a codebase too large to hold in your head.
 
 **Probably not** if the project is small enough to read in an afternoon, or is
-written in a language Prism does not parse deeply. See
+written in a language Prism does not analyse yet. See
 [known limitations](/docs/help/known-limitations).
 
-Prism itself never writes code — the analysis has no model behind it. When you
-do want a change made, [Dispatch](/docs/guides/dispatch) hands it to your editor's
-own agent (Cursor or Claude Code, under your sign-in) and Prism runs the
-checks afterwards. Before that edit, [Prepare a change](/docs/guides/prepare-a-change)
-returns the files to open — never the file bodies.
+Prism writes no code, and its analysis uses no model. Your agent makes the
+edit, in your chat. Before the edit,
+[Prepare](/docs/guides/prepare-a-change) returns the files to open, never the
+file bodies. When the agent stops, the receipt runs the checks the change
+reaches and gives a verdict: SHIP, NOT PROVEN or NO-SHIP.
 
 ## Cost
 
-Disk: an index in `.prism/` (tens of megabytes on a large monorepo). Time:
+Disk: an index under `~/.prism/workspaces/` (tens of megabytes on a large
+monorepo). Time:
 seconds for the first index of a few thousand files, then incremental. Privacy:
-nothing by default — see [consent and privacy](/docs/concepts/consent-and-privacy).
+nothing leaves your machine. See [privacy](/privacy).
 
 ## Next
 

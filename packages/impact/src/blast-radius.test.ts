@@ -506,3 +506,130 @@ describe("computeBlastRadius — M-049 depth fields", () => {
     expect(del.value.risk).toBe(Math.min(100, editUtil.value.risk + 5));
   });
 });
+
+describe("symbol-level blast through barrels (plan §4.2, BLAST-SYM)", () => {
+  const named = (
+    from: string,
+    to: string,
+    imported: string[] | undefined,
+  ): GraphEdgeDto => ({
+    ...edge(from, to),
+    attrs: imported ? { imported } : {},
+  });
+  const reexport = (
+    from: string,
+    to: string,
+    reexports: { from: string; as: string }[],
+  ): GraphEdgeDto => ({
+    ...edge(from, to, "re-export"),
+    attrs: { reexports },
+  });
+  // debounce.ts ◀─ index.ts (export *) ◀─ throttle-user (imports debounce)
+  //                                    ◀─ nth-user (imports nth)
+  // nth.ts      ◀─ index.ts (export *)
+  const graph = graphOf([
+    reexport("index.ts", "debounce.ts", [{ from: "*", as: "*" }]),
+    reexport("index.ts", "nth.ts", [{ from: "*", as: "*" }]),
+    named("throttle.ts", "index.ts", ["debounce"]),
+    named("nth-user.ts", "index.ts", ["nth"]),
+    named("ns-user.ts", "index.ts", ["*"]),
+    named("ns-nth-user.ts", "index.ts", ["nth"]),
+    named("dyn-user.ts", "index.ts", undefined),
+    reexport("renamed.ts", "debounce.ts", [{ from: "debounce", as: "deb" }]),
+    named("deb-user.ts", "renamed.ts", ["deb"]),
+    named("other-user.ts", "renamed.ts", ["somethingElse"]),
+  ]);
+  const analyzed = [
+    "debounce.ts",
+    "nth.ts",
+    "index.ts",
+    "throttle.ts",
+    "nth-user.ts",
+    "ns-user.ts",
+    "ns-nth-user.ts",
+    "dyn-user.ts",
+    "renamed.ts",
+    "deb-user.ts",
+    "other-user.ts",
+  ];
+  const paths = () => {
+    const res = computeBlastRadius(
+      { kind: "file", id: "debounce.ts" },
+      {
+        dependencyGraph: graph,
+        analyzedPaths: analyzed,
+        fileExports: new Map([
+          ["debounce.ts", ["debounce"]],
+          ["nth.ts", ["nth"]],
+        ]),
+      },
+    );
+    if (!res.ok) throw new Error(res.error.message);
+    return res.value.affectedFiles.map((f) => f.path).sort();
+  };
+
+  it("BLAST-SYM-1 a barrel import of a different export does not count", () => {
+    expect(paths()).not.toContain("nth-user.ts");
+    expect(paths()).not.toContain("other-user.ts");
+    // P8: namespace narrowed to nth only — not debounce's blast.
+    expect(paths()).not.toContain("ns-nth-user.ts");
+  });
+
+  it("BLAST-SYM-2 named, namespace, unknown and renamed bindings do count", () => {
+    expect(paths()).toEqual(
+      expect.arrayContaining([
+        "index.ts",
+        "throttle.ts",
+        "ns-user.ts",
+        "dyn-user.ts",
+        "renamed.ts",
+        "deb-user.ts",
+      ]),
+    );
+  });
+
+  it("BLAST-SYM-3 re-export hops are free; the hop limit counts dependencies", () => {
+    const chain = graphOf([
+      reexport("b1.ts", "a.ts", [{ from: "*", as: "*" }]),
+      reexport("b2.ts", "b1.ts", [{ from: "*", as: "*" }]),
+      named("c.ts", "b2.ts", ["x"]),
+      named("d.ts", "c.ts", undefined),
+      named("e.ts", "d.ts", undefined),
+      named("f.ts", "e.ts", undefined),
+    ]);
+    const res = computeBlastRadius(
+      { kind: "file", id: "a.ts" },
+      {
+        dependencyGraph: chain,
+        analyzedPaths: [
+          "a.ts",
+          "b1.ts",
+          "b2.ts",
+          "c.ts",
+          "d.ts",
+          "e.ts",
+          "f.ts",
+        ],
+      },
+    );
+    if (!res.ok) throw new Error(res.error.message);
+    const got = res.value.affectedFiles.map((f) => f.path).sort();
+    expect(got).toEqual(["b1.ts", "b2.ts", "c.ts", "d.ts", "e.ts"]);
+    expect(res.value.truncated).toBe(true);
+  });
+});
+
+describe("P9 WHY-1 blast / test impact reasons", () => {
+  it("every affected file has a non-empty reason", () => {
+    const res = computeBlastRadius(
+      { kind: "file", id: "util.ts" },
+      { dependencyGraph: GRAPH, analyzedPaths: ANALYZED },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.affectedFiles.length).toBeGreaterThan(0);
+    for (const f of res.value.affectedFiles) {
+      expect(f.reason.trim().length).toBeGreaterThan(0);
+    }
+  });
+});

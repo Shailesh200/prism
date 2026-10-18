@@ -6,7 +6,6 @@ declare const FileIdBrand: unique symbol;
 declare const SymbolIdBrand: unique symbol;
 declare const NodeIdBrand: unique symbol;
 declare const EdgeIdBrand: unique symbol;
-declare const FeatureIdBrand: unique symbol;
 
 export type RepoId = string & { readonly [RepoIdBrand]: typeof RepoIdBrand };
 export type FileId = string & { readonly [FileIdBrand]: typeof FileIdBrand };
@@ -15,9 +14,6 @@ export type SymbolId = string & {
 };
 export type NodeId = string & { readonly [NodeIdBrand]: typeof NodeIdBrand };
 export type EdgeId = string & { readonly [EdgeIdBrand]: typeof EdgeIdBrand };
-export type FeatureId = string & {
-  readonly [FeatureIdBrand]: typeof FeatureIdBrand;
-};
 
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_./:@-]{0,255}$/;
 
@@ -67,12 +63,6 @@ export function asEdgeId(
   return parseBrandedId("EdgeId", raw, (s) => s as EdgeId);
 }
 
-export function asFeatureId(
-  raw: string,
-): Result<FeatureId, ReturnType<typeof prismError>> {
-  return parseBrandedId("FeatureId", raw, (s) => s as FeatureId);
-}
-
 /** Unsafe cast for trusted internal construction after validation. */
 export function unsafeRepoId(raw: string): RepoId {
   return raw as RepoId;
@@ -88,7 +78,4 @@ export function unsafeNodeId(raw: string): NodeId {
 }
 export function unsafeEdgeId(raw: string): EdgeId {
   return raw as EdgeId;
-}
-export function unsafeFeatureId(raw: string): FeatureId {
-  return raw as FeatureId;
 }

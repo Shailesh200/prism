@@ -37,7 +37,9 @@ export function toWorkspaceRelative(
   const absolute = isAbsolute(trimmed)
     ? resolve(trimmed)
     : resolve(workspaceRoot, trimmed);
-  const rel = relative(resolve(workspaceRoot), absolute);
+  // The index and every agent path use forward slashes. `relative()` on
+  // Windows returns backslashes.
+  const rel = relative(resolve(workspaceRoot), absolute).replaceAll("\\", "/");
 
   if (rel.startsWith("..") || isAbsolute(rel)) {
     return err(

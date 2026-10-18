@@ -1,323 +1,109 @@
-<!-- smoke-test: dispatch token telemetry -->
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/readme-hero-dark-1280x320.png">
+    <source media="(prefers-color-scheme: light)" srcset="./assets/readme-hero-light-1280x320.png">
+    <img alt="Prism: your agent’s second pair of eyes. Know before you ship." src="./assets/readme-hero-light-1280x320.png" width="100%">
+  </picture>
+</p>
+
 # Prism
 
-[![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org)
 [![Website](https://img.shields.io/badge/website-prismhq.in-00c2c2)](https://www.prismhq.in)
-[![npm @repo-prism/cli](https://img.shields.io/npm/v/@repo-prism/cli.svg?label=@repo-prism/cli)](https://www.npmjs.com/package/@repo-prism/cli)
-[![npm @repo-prism/mcp-server](https://img.shields.io/npm/v/@repo-prism/mcp-server.svg?label=@repo-prism/mcp-server)](https://www.npmjs.com/package/@repo-prism/mcp-server)
-[![VS Marketplace](https://vsmarketplacebadges.dev/version/prismhq.repo-prism.svg)](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism)
-[![Open VSX](https://img.shields.io/open-vsx/v/prismhq/repo-prism)](https://open-vsx.org/extension/prismhq/repo-prism)
+[![npm @prismapp/cli](https://img.shields.io/npm/v/@prismapp/cli.svg?label=@prismapp/cli)](https://www.npmjs.com/package/@prismapp/cli)
 [![License: MIT](https://img.shields.io/github/license/Shailesh200/prism)](./LICENSE)
 
-**Local-first Software Intelligence Engine** for humans and AI agents.
+**Your agent's second pair of eyes.** Know before you ship.
 
-**Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs](https://www.prismhq.in/docs) · **Get started:** [https://www.prismhq.in/docs/start/get-started](https://www.prismhq.in/docs/start/get-started)
+Local software intelligence that catches what the agent missed. Prism gives
+your coding agent the right files before it edits, then flags the code it
+skipped and the code no test covers. Free, MIT, and it runs on your machine:
+no account, and your code never leaves it.
 
-Maps, graphs, blast radius, health — on your machine. No account. Nothing uploaded for core analysis.
-
-Prism is **not** an AI coding assistant. It is the intelligence layer behind an IDE extension, a CLI, and an MCP server that agents can call.
-
----
-
-## Table of contents
-
-1. [Get started in 60 seconds](#get-started-in-60-seconds)
-2. [Install — step by step](#install--step-by-step)
-   - [A. CLI](#a-cli--repo-prismcli)
-   - [B. MCP (agents)](#b-mcp--repo-prismmcp-server)
-   - [C. IDE extension](#c-ide-extension-prism)
-3. [CLI — commands](#cli--commands)
-4. [MCP — tools & how agents use them](#mcp--tools--how-agents-use-them)
-5. [Docs](#docs)
-6. [Privacy](#privacy)
-7. [Build from source](#build-from-source)
-8. [License](#license)
+**Website:** [prismhq.in](https://www.prismhq.in) · **Docs:** [prismhq.in/docs](https://www.prismhq.in/docs)
 
 ---
 
-## Get started in 60 seconds
-
-**Needs Node.js 22+.** No need to clone this repository.
+## Get started
 
 ```bash
-# 1) Go to your project
-cd /path/to/your/project
-
-# 2) CLI — no --workspace; uses git root from where you run
-npx -y @repo-prism/cli doctor
-npx -y @repo-prism/cli dna
-npx -y @repo-prism/cli health
-
-# 3) MCP once (Claude Code), then ask in plain English — no tool names:
-#    claude mcp add prism -- npx -y @repo-prism/mcp-server
-#    “How healthy is this repo?” / “What breaks if I change src/index.ts?”
+npm install -g @prismapp/cli && prism install all
 ```
 
-| You want… | Follow |
-|---|---|
-| Terminal / CI | [A. CLI](#a-cli--repo-prismcli) |
-| Cursor / Claude / Codex agents | [B. MCP](#b-mcp--repo-prismmcp-server) |
-| Visual map & dashboards | [C. IDE extension](#c-ide-extension-prism) |
-| Embed in code | [`@repo-prism/core`](https://www.npmjs.com/package/@repo-prism/core) |
+Run the second command inside your repository. `prism install all` connects
+every agent it finds. Quit the agent and open it again. The first use builds
+the index under `~/.prism/`. One agent only: pass its name to `prism install`.
+The install records what it wrote in `~/.prism/install.json`, and
+`prism uninstall` removes exactly that. A new version is
+`npm install -g @prismapp/cli` then `prism upgrade`. Memories, receipts, and
+habits stay.
 
-All surfaces call the same Core SDK. None re-implements analysis.
-
----
-
-## Install — step by step
-
-### A. CLI — `@repo-prism/cli`
-
-1. `cd` into your project.
-2. Run doctor:
-   ```bash
-   npx -y @repo-prism/cli doctor
-   ```
-3. Confirm **Workspace** points at your repo (`from git root` is normal). A
-   **warn** on Index cache on first run is expected.
-4. Analyse:
-   ```bash
-   npx -y @repo-prism/cli dna
-   npx -y @repo-prism/cli health
-   npx -y @repo-prism/cli blast src/index.ts --fail-on high
-   ```
-5. Optional global install:
-   ```bash
-   npm install -g @repo-prism/cli
-   prism doctor
-   prism health --verbose   # shows workspace + index timing
-   ```
-
-Package: [npmjs.com/package/@repo-prism/cli](https://www.npmjs.com/package/@repo-prism/cli) · Guide: [CLI docs](https://www.prismhq.in/docs/usage)
-
-### B. MCP — `@repo-prism/mcp-server`
-
-**Set up once. Then ask the agent in plain language — never type tool names
-like `repository_health`.** The server tells the agent which tools to call.
-
-#### One-click (Cursor)
-
-[Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIi0tcHJlZmVyLW9ubGluZSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXJAbGF0ZXN0Il0sImVudiI6eyJOT0RFX1VTRV9TWVNURU1fQ0EiOiIxIn19) · [Install guide](https://www.prismhq.in/docs/start/install) · [Benchmarks](https://www.prismhq.in/benchmarks)
-
-#### Copy-paste config (Cursor / Claude Desktop)
+Wiring another MCP host by hand? Use this server entry:
 
 ```json
-{
-  "mcpServers": {
-    "prism": {
-      "command": "npx",
-      "args": ["-y", "@repo-prism/mcp-server"]
-    }
-  }
-}
+{ "mcpServers": { "prism": { "command": "npx", "args": ["-y", "@prismapp/mcp-server@2"] } } }
 ```
 
-Save as `.cursor/mcp.json` (project) or add to Claude Desktop config. Enable in **Settings → MCP** (~40 tools).
+Then ask your agent in plain language, for example "what breaks if I change
+`src/index.ts`?" or "review my changes". You never type tool names.
 
-#### Claude Code
+## What it does
 
-1. `cd /path/to/your/project`
-2. `claude mcp add prism -- npx -y @repo-prism/mcp-server`
-3. Restart Claude Code if it was already running.
-4. Ask: “What is this repository?” or “How healthy is this codebase?”
+- **Prepare, before the agent edits.** The files and tests that matter for
+  the task, the helpers to reuse instead of rewriting, and your house style.
+- **Lens review, after.** Dev, Architect and QA lenses flag the callers the
+  change left behind and the code no test covers. Add your own with `prism lens`.
+- **The receipt, when the agent stops.** Prism runs the checks the change
+  reaches and gives one verdict: `SHIP`, `NOT PROVEN` (with the cheapest check
+  to prove it) or `NO-SHIP`.
 
-#### Cursor (manual)
+Nine default MCP tools; more are opt-in through `extraTools` in
+`~/.prism/config.json`. Full list: [MCP tools](https://www.prismhq.in/docs/reference/mcp-tools).
 
-If the one-click link above does not work:
-
-1. Open the project folder in Cursor.
-2. Create `.cursor/mcp.json`:
-   ```json
-   {
-     "mcpServers": {
-       "prism": {
-         "command": "npx",
-         "args": ["-y", "@repo-prism/mcp-server"]
-       }
-     }
-   }
-   ```
-3. **Settings → MCP** → enable **prism** → wait for ~40 tools.
-4. In Agent chat, ask normally (no tool names).
-
-#### Claude Desktop / Codex
-
-Same `npx` / `@repo-prism/mcp-server` config — no `--workspace`. Full numbered
-steps for every client: [MCP install](https://www.prismhq.in/docs/start/install).
-
-Only add `--workspace` / `PRISM_WORKSPACE` if auto-detection picks the wrong folder.
-
-Package: [npmjs.com/package/@repo-prism/mcp-server](https://www.npmjs.com/package/@repo-prism/mcp-server)
-
-### C. IDE extension (Prism)
-
-1. Install **Prism** (Marketplace / Open VSX id `prismhq.repo-prism`):
-   - **VS Code** — [Marketplace](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) or search `Prism`
-   - **Cursor** — [Open VSX](https://open-vsx.org/extension/prismhq/repo-prism) or Install from VSIX
-2. **Open Folder** on your project.
-3. Command Palette → **Prism: Open Prism**.
-4. Wait for indexing; use the UI.
-5. (Cursor) Also complete [B. MCP](#b-mcp--repo-prismmcp-server) so the agent
-   shares the same analysis — [IDE install](https://www.prismhq.in/docs/start/install).
-
----
-
-## CLI — commands
-
-Global flags: `-w/--workspace`, `--json`, `--no-color`, `-q/--quiet`, `--verbose`, `-y/--yes`.
-
-Exit codes: **0** ok · **1** gated finding (`--fail-on`) · **2** usage error · **3** Prism failed.
-
-### Diagnostics
-
-| Command | Purpose |
+| You say | The agent calls |
 |---|---|
-| `prism doctor` | Environment, workspace chosen, index |
-| `prism index` | Build / refresh the index |
+| "What is this repo?" | `repository_overview` |
+| "I want to change X" | `prepare_change` |
+| "What breaks if I edit this file?" | `blast_radius`, `test_impact` |
+| "Where is this symbol, who uses it?" | `graph` |
+| "Review my changes" | `guard_session` (`review: true`) |
+| "Start my day" (a saved routine) | `habits` |
+| "Did I break anything?" | the stop receipt, run by the hook |
 
-### Understand
+## CLI
 
-| Command | Purpose |
+Every command answers from the same local index. Highlights:
+
+| Command | What it answers |
 |---|---|
-| `prism dna` | Languages, frameworks, domains, stack |
-| `prism health` | Health score + factors |
-| `prism map [--zoom repo\|package\|feature\|file\|symbol]` | Repository map |
-| `prism explain <path>` | What a path is for / ownership |
-| `prism explore <target>` | Usages, ownership, similar code |
-| `prism stack` | Stack signals |
-| `prism features` | Inferred features |
-| `prism landmarks` | Entrypoints & anchors |
-| `prism packages` | Workspace packages |
+| `prism prepare <task>` | The files to open and the helpers to reuse |
+| `prism review [paths] --lens qa` | A lens review of a change |
+| `prism blast <target>` | What depends on a file or symbol |
+| `prism test-impact <target>` | Which tests reach a file |
+| `prism receipts` | The last stop receipts |
+| `prism lens`, `prism habit` | Your review lenses and saved routines |
+| `prism doctor` | What is wired, and whether it works |
 
-### Assess a change
-
-| Command | Purpose |
-|---|---|
-| `prism blast <target> [--fail-on low\|mid\|high]` | Blast radius |
-| `prism review [paths…] [--base <ref>]` | Change review |
-| `prism safe-delete <target>` | Safe to delete? |
-| `prism rename <target> <newName>` | Rename edit sites |
-| `prism test-impact <target>` | Related tests |
-
-### Structure
-
-| Command | Purpose |
-|---|---|
-| `prism deps` | Graph size / hubs |
-| `prism cycles [--fail-on any]` | Import cycles |
-| `prism symbol <name>` | Find declaration |
-| `prism refs <name>` | Find references |
-| `prism route <from> <to>` | Dependency path |
-
-### Reports
-
-| Command | Purpose |
-|---|---|
-| `prism engineering` | Entropy, drift, debt, hotspots |
-| `prism testing` | Suites + on-disk coverage |
-| `prism security` | Left-shift checklist |
-| `prism backend` | Routes, data, env, jobs |
-| `prism bundle` | Bundle weight (ingested stats) |
-
-**CI sketch:**
-
-```yaml
-- uses: actions/setup-node@v4
-  with:
-    node-version: "26.5.0"
-- run: npx -y @repo-prism/cli review --base origin/main --fail-on high
-- run: npx -y @repo-prism/cli cycles --fail-on any
-```
-
----
-
-## MCP — tools & how agents use them
-
-**28 read-only tools** + **3 optional prompts** (`orient`, `before_edit`, `review_diff`).
-No network. No consent APIs for agents.
-
-**You do not type tool names.** After MCP is connected, ask in plain language —
-the server’s instructions tell the agent when to call which tool.
-
-| You say | Agent should call |
-|---|---|
-| “What is this repo?” | `repository_dna` / landmarks |
-| “Is it healthy?” | `repository_health` |
-| “What breaks if I edit `src/…`?” | `blast_radius`, `test_impact` |
-| “Can I delete this?” | `safe_delete` |
-| “Review my changes” | `review_changes` |
-
-| Group | Tools |
-|---|---|
-| **Orientation** | `repository_dna`, `repository_health`, `repository_map`, `repository_overview`, `list_packages`, `stack_profile`, `landmarks`, `explain_area` |
-| **Graphs** | `dependency_graph`, `dependency_cycles`, `knowledge_graph`, `feature_graph`, `list_features`, `find_symbol`, `find_references`, `dependency_route` |
-| **Impact** | `blast_radius`, `safe_delete`, `rename_impact`, `test_impact`, `breaking_change_hints`, `review_changes`, `explore_code` |
-| **Reports** | `engineering_health`, `health_history`, `backend_report`, `testing_report`, `security_report` |
-
-Setup steps: [MCP install](https://www.prismhq.in/docs/start/install) · Full tool list: [MCP tools](https://www.prismhq.in/docs/reference/mcp-tools).
-
----
-
-## Demo — with vs without Prism
-
-Side-by-side script: [`plans/notes/M-063-demo.md`](./plans/notes/M-063-demo.md) · measured savings: [prismhq.in/benchmarks](https://www.prismhq.in/benchmarks)
-
-1. Ask **“What is this repository?”** — Prism returns DNA + landmarks in 2–3 calls; a naive agent walks directories.
-2. Ask **“Is this edit safe?”** on a file — `blast_radius` replaces scanning the tree for imports.
-
-Reproduce numbers: `bun run bench:orientation` (after `bun run build`).
-
----
-
-## Docs
-
-**Site:** [https://www.prismhq.in/docs](https://www.prismhq.in/docs)
-
-| Topic | Link |
-|---|---|
-| What Prism is | [docs/what-is-prism](https://www.prismhq.in/docs/what-is-prism) |
-| Install (CLI / IDE / MCP) | [docs/start/install](https://www.prismhq.in/docs/start/install) |
-| Quickstart | [docs/start/quickstart](https://www.prismhq.in/docs/start/quickstart) |
-| Capabilities | [docs/reference/capabilities](https://www.prismhq.in/docs/reference/capabilities) |
-| Task guides | [docs/guides](https://www.prismhq.in/docs/guides/understand-a-repo) |
-| Usage (CLI / IDE / MCP) | [docs/usage](https://www.prismhq.in/docs/usage) |
-| Dispatch | [docs/guides/dispatch](https://www.prismhq.in/docs/guides/dispatch) |
-| CLI reference | [docs/reference/cli-commands](https://www.prismhq.in/docs/reference/cli-commands) |
-| MCP tools | [docs/reference/mcp-tools](https://www.prismhq.in/docs/reference/mcp-tools) |
-| Known limitations | [docs/help/known-limitations](https://www.prismhq.in/docs/help/known-limitations) |
-| FAQ | [docs/help/faq](https://www.prismhq.in/docs/help/faq) |
-| Changelog | [`CHANGELOG.md`](./CHANGELOG.md) |
-
-Markdown sources also live in [`docs/`](./docs/) in this repo. Local preview: `bun run docs:dev`
-
----
+Full list: [CLI reference](https://www.prismhq.in/docs/reference/cli-commands).
 
 ## Privacy
 
-Core analysis makes **no network requests** (proven by a trap test suite). Optional features (GitHub, PageSpeed, Gravatar, …) are **off by default** and gated per purpose in `~/.prism/workspaces/<key>/consent.json`. Agents cannot grant consent.
-
-→ [`PRIVACY.md`](./PRIVACY.md) · [`SECURITY.md`](./SECURITY.md)
-
----
+Analysis makes **no network requests**; a trap test suite fails the build if
+one appears. The only request Prism makes is a once-a-day update check against
+the npm registry, which never relaunches anything and is off with
+`PRISM_SKIP_SELF_UPDATE=1`. → [`PRIVACY.md`](./PRIVACY.md) · [`SECURITY.md`](./SECURITY.md)
 
 ## Build from source
-
-For contributors (not required to use CLI/MCP):
 
 ```bash
 git clone https://github.com/Shailesh200/prism
 cd prism
-nvm use          # Node 26.5.0
+nvm use          # the version in .nvmrc
 bun install
 bun run build
 bun run verify:milestone
 ```
 
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md).
-
-Published npm packages under this org: **[`@repo-prism`](https://www.npmjs.com/org/repo-prism)** (`cli`, `mcp-server`, `core`, and engine libraries).
-
----
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) and the [changelog](./CHANGELOG.md).
 
 ## License
 

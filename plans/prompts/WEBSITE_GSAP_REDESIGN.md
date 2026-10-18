@@ -1,7 +1,7 @@
 # Agent prompt — Prism marketing site GSAP redesign
 
 Copy everything below the line into a new agent chat with workspace root
-`/Users/shaileshjha/Prism` (or the Prism repo clone).
+`~/Prism` (or the Prism repo clone).
 
 ---
 
@@ -9,7 +9,7 @@ Copy everything below the line into a new agent chat with workspace root
 
 Redesign and implement GSAP-driven motion for the Prism **public marketing
 site** at `apps/website`, using the same **mechanism** as the portfolio at
-`/Users/shaileshjha/portfolio` (central `ensureGsap`, `@gsap/react` `useGSAP`,
+`~/portfolio` (central `ensureGsap`, `@gsap/react` `useGSAP`,
 `data-*` targets, `Reveal` / `PageEnter`, DrawSVG map scenes, reduced-motion
 safety). Keep Prism’s locked brand — do **not** copy the portfolio’s lime /
 Syne / instrument-HUD look.

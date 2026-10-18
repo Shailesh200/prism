@@ -1,6 +1,6 @@
 ---
 title: DNA and stack
-description: "What a repository is built from — detectors, domains, and confidence."
+description: "What a repository is built from: detectors, domains and confidence."
 ---
 
 **Repository DNA** is what the project is built out of: frameworks, tooling, and
@@ -31,8 +31,7 @@ Combining manifest + imports + config, and listing evidence, is what makes the
 answer actionable.
 
 ```bash
-prism dna
-prism stack
+prism overview
 prism packages
 ```
 
@@ -45,7 +44,7 @@ prism packages
 | **Data** | ORMs, migrations, schemas, query builders |
 | **Infrastructure** | Containers, CI, deployment manifests |
 
-Domains drive which extension screens appear.
+Domains feed `repository_overview` and lens routing.
 
 ## When detection is wrong
 
