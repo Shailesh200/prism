@@ -1,15 +1,12 @@
 import { notFound } from "next/navigation";
-import {
-  CHANGELOG_REVALIDATE_SECONDS,
-  changelogEntries,
-  pageCount,
-} from "@/lib/changelog-pages";
+import { changelogEntries, pageCount } from "@/lib/changelog-pages";
 import { pageMetadata } from "@/lib/seo";
 import { ChangelogView } from "../../changelog-view";
 
 type Props = { params: Promise<{ n: string }> };
 
-export const revalidate = CHANGELOG_REVALIDATE_SECONDS;
+/** Literal: Next reads this at build time. Same interval as CHANGELOG_REVALIDATE_SECONDS. */
+export const revalidate = 300;
 export const dynamicParams = true;
 
 /** Page 1 is /changelog; this route serves pages 2 and up. */

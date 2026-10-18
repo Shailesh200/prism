@@ -38,13 +38,15 @@ function Hero() {
           <h1 className="d1 hero-h mt-[22px] sm:mt-7">
             Software intelligence <em>for your agent.</em>
           </h1>
-          <p className="hero-sub mt-4 mb-5 sm:mb-6">
-            It names the files to open, then checks the change.
+          <p className="hero-sub mt-3 mb-4">
+            Prepare the change, make it, then review and ship.
           </p>
-          <p className="lede hero-lede mb-7">
-            Ask for a change in plain words. Prism tells your agent which files
-            to open, which tests to run, and whether the change is ready to
-            ship. It runs on your machine.
+          <p className="lede hero-lede mb-6">
+            Prism is a one-stop software intelligence system that helps your AI
+            agents write better code. It prepares the files that need to be
+            edited. House style helps the agent make the smallest change that
+            matches this repo. Prism then reviews the code, finds bugs, and
+            gives you a ship or no-ship result.
           </p>
           <Command cmd={INSTALL_COMMAND} />
           <div className="hero-acts mt-5">
@@ -66,16 +68,23 @@ function Hero() {
               <Window title="Your agent" kind="chat">
                 <Bubble who="you">Add VAT to invoice totals</Bubble>
                 <Bubble who="prism">
-                  Open these files first.
+                  <span className="stage">Prepare</span>
+                  src/billing/invoice.ts
                   <br />
-                  1. src/billing/invoice.ts — the total is calculated here
+                  src/billing/totals.ts
+                  <span className="stage">Edit</span>
+                  Follow invoiceTotal in this repo.
                   <br />
-                  2. src/billing/totals.ts
-                  <br />
-                  Tests: test/invoice.test.ts, test/totals.test.ts
+                  Also used in src/checkout/summary.ts.
                 </Bubble>
                 <Bubble who="agent" name="Agent">
-                  I’ll start in those files, then run the tests.
+                  I’ll edit those files and update the code that calls them.
+                </Bubble>
+                <Bubble who="prism">
+                  <span className="stage">Review</span>
+                  No blocked files. The tests have not been run yet.
+                  <br />
+                  Receipt: NOT PROVEN
                 </Bubble>
               </Window>
             }
@@ -135,9 +144,8 @@ function Hero() {
             }
           />
           <p className="cap">
-            Prepare, before the first edit. After the edit,{" "}
-            <Link href="/product/review">Review</Link> reads the change and a{" "}
-            <Link href="/product/receipts">Receipt</Link> says whether to ship.
+            One conversation: the files to open, the edit, and a{" "}
+            <Link href="/product/receipts">receipt</Link>.
           </p>
         </div>
       </Container>
@@ -242,12 +250,12 @@ export default function HomePage() {
                   ),
                 },
                 {
-                  title: "Work with a lens",
-                  body: "Dev keeps the edit small and in your house style. QA and Architect check proof and structure.",
+                  title: "Dev",
+                  body: "House style and blast radius, so the edit stays with the callers.",
                 },
                 {
-                  title: "Review, then a Receipt",
-                  body: "Review reads the change and lists Critical, High, Low, and Nit findings. The Receipt says SHIP, NOT PROVEN, or NO-SHIP.",
+                  title: "Review",
+                  body: "Guardrails, QA, and Architect. The receipt says SHIP, NOT PROVEN, or NO-SHIP.",
                 },
               ]}
             />
@@ -256,14 +264,14 @@ export default function HomePage() {
 
         <FeatureBlock
           title="Prepare, before the edit"
-          lede="Ask for a change and Prism adds the files to open, a signature for the top one, the tests and the command to run them."
+          lede="Names the files to open, the tests to run, and code already in the repo to reuse."
         >
           <PrepareDemo />
         </FeatureBlock>
 
         <FeatureBlock
           title="Review, after the edit"
-          lede="Review reads the change with your guardrails and the QA and Architect lenses. Findings are Critical, High, Low, or Nit. The Receipt says SHIP, NOT PROVEN, or NO-SHIP."
+          lede="Guardrails, QA, and Architect. Findings are Critical, High, Low, or Nit. The receipt says whether to ship."
         >
           <ChatTerminalPair
             chat={
@@ -275,8 +283,8 @@ export default function HomePage() {
                 <Bubble who="prism">
                   <span className="r">Prism · NO-SHIP (1 check failed)</span>
                   <br />
-                  Prism receipt: changed 1 file, 5 dependents, 2 tests reach it
-                  — NO-SHIP
+                  Prism receipt: changed 1 file, 5 dependents, 2 tests reach it.
+                  NO-SHIP
                   <br />
                   <Proven />
                   <br />
@@ -295,8 +303,8 @@ export default function HomePage() {
                   <span className="w">Prism · NO-SHIP (1 check failed)</span>
                 </Ln>
                 <Ln>
-                  Prism receipt: changed 1 file, 5 dependents, 2 tests reach it
-                  — NO-SHIP
+                  Prism receipt: changed 1 file, 5 dependents, 2 tests reach it.
+                  NO-SHIP
                 </Ln>
                 <Ln>
                   <Proven />

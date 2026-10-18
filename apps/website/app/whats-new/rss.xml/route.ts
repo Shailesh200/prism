@@ -1,13 +1,13 @@
 import { feedReleases } from "@/lib/changelog";
 import {
-  CHANGELOG_REVALIDATE_SECONDS,
   changelogEntries,
   readChangelogMarkdown,
   versionHref,
 } from "@/lib/changelog-pages";
 import { siteOrigin } from "@/lib/seo";
 
-export const revalidate = CHANGELOG_REVALIDATE_SECONDS;
+/** Literal: Next reads this at build time. Same interval as CHANGELOG_REVALIDATE_SECONDS. */
+export const revalidate = 300;
 
 export async function GET() {
   const site = siteOrigin();

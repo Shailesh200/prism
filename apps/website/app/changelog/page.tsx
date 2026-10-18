@@ -1,8 +1,8 @@
-import { CHANGELOG_REVALIDATE_SECONDS } from "@/lib/changelog-pages";
 import { pageMetadata } from "@/lib/seo";
 import { ChangelogView } from "./changelog-view";
 
-export const revalidate = CHANGELOG_REVALIDATE_SECONDS;
+/** Literal: Next reads this at build time. Same interval as CHANGELOG_REVALIDATE_SECONDS. */
+export const revalidate = 300;
 
 export const metadata = pageMetadata({
   title: "Changelog",

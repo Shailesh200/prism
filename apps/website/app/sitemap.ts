@@ -1,14 +1,11 @@
 import { posts } from "@/.source/server";
 import { source } from "@/lib/source";
-import {
-  CHANGELOG_REVALIDATE_SECONDS,
-  changelogEntries,
-  pageCount,
-} from "@/lib/changelog-pages";
+import { changelogEntries, pageCount } from "@/lib/changelog-pages";
 import { buildSitemap } from "@/lib/seo";
 import type { MetadataRoute } from "next";
 
-export const revalidate = CHANGELOG_REVALIDATE_SECONDS;
+/** Literal: Next reads this at build time. Same interval as CHANGELOG_REVALIDATE_SECONDS. */
+export const revalidate = 300;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return buildSitemap({

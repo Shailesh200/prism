@@ -234,16 +234,16 @@ figure pre,
   }
 
   .hero-h {
-    max-width: 20ch;
-    font-size: clamp(46px, 5.4vw, 76px);
-    line-height: 1.05;
-    text-wrap: balance;
+    max-width: none;
+    font-size: clamp(30px, 7.2vw, 40px);
+    line-height: 1.2;
+    padding-bottom: 2px;
   }
 
   .hero-sub {
-    font: 500 22px/1.35 var(--sans);
+    font: 500 16.5px/1.45 var(--sans);
     letter-spacing: -0.01em;
-    color: var(--ink);
+    color: var(--ink2);
   }
 
   .hero-lede {
@@ -275,6 +275,12 @@ figure pre,
     color: var(--ink2);
     max-width: 600px;
     margin: 0;
+  }
+
+  .hero .lede {
+    font-size: 16.5px;
+    line-height: 1.6;
+    max-width: 46ch;
   }
 
   .muted {
@@ -326,9 +332,9 @@ figure pre,
   }
 
   .hero-agents {
-    margin: 20px 0 0;
-    color: var(--ink2);
-    font-size: 15.5px;
+    margin: 16px 0 0;
+    color: var(--ink3);
+    font-size: 13.5px;
   }
 
   .grid2 > *,
@@ -760,6 +766,19 @@ figure pre,
   .vis .bub .f2 {
     display: block;
     padding-left: 3ch;
+  }
+
+  .bub .stage {
+    display: block;
+    margin: 8px 0 3px;
+    font: 600 11px var(--sans);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--cok);
+  }
+
+  .bub .stage:first-child {
+    margin-top: 0;
   }
 
   .tl {
@@ -2984,14 +3003,19 @@ body:has(.pnav) [id] {
   }
 
   .hero-grid.hero-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 48px;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    gap: 40px;
   }
 
+  .hero-grid > :first-child {
+    container-type: inline-size;
+  }
 
   .hero .hero-h {
     margin-top: 16px;
-    font-size: clamp(44px, min(5.2vw, 8.6vh), 72px);
+    font-size: clamp(34px, 7.1cqi, 46px);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
   }
 
   .hero .hero-sub {
@@ -3005,12 +3029,12 @@ body:has(.pnav) [id] {
   .hero .pair .bub {
     padding: 9px 14px;
     margin-bottom: 9px;
-    font-size: 14.5px;
+    font-size: 13px;
     line-height: 1.5;
   }
 
   .hero .pair .bub.prism {
-    font-size: 12.5px;
+    font-size: 12px;
   }
 
   .hero .pair .bub .who {
@@ -3066,7 +3090,7 @@ body:has(.pnav) [id] {
   }
 
   .hero .hero-h {
-    font-size: clamp(42px, 7.6vh, 60px);
+    font-size: clamp(34px, 7.1cqi, 46px);
   }
 
   .hero .lede {
@@ -3100,16 +3124,16 @@ body:has(.pnav) [id] {
 
   .hero .hero-h {
     margin-top: 12px;
-    font-size: 42px;
+    font-size: clamp(34px, 7.1cqi, 46px);
   }
 
   .hero .hero-sub {
-    font-size: 19px;
+    font-size: 16px;
     margin-bottom: 14px;
   }
 
   .hero .lede {
-    font-size: 16px;
+    font-size: 15px;
     margin-bottom: 18px;
   }
 
