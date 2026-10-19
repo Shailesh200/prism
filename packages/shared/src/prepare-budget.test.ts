@@ -16,8 +16,10 @@ function big(): PrepareChange {
       files: Array.from({ length: 40 }, (_, i) => ({
         path: path(i),
         symbols: ["fetchUser", "loadUser", "cacheKey"],
+        signatures: [],
         why: ["name matches task", "import distance 1"],
         tokenWeight: 30,
+        confidence: "medium" as const,
         provenance: "measured" as const,
       })),
       tokenEstimate: 1200,
@@ -31,6 +33,7 @@ function big(): PrepareChange {
       kind: "function",
       score: 0.5,
       evidence: "same name stem as the task",
+      confidence: "medium" as const,
       provenance: "heuristic" as const,
     })),
     conventions: Array.from({ length: 3 }, (_, i) => ({
@@ -140,6 +143,28 @@ describe("fitPrepareToBudget", () => {
       );
     }
   }, 30_000); // 200 property cases; ~4 s alone, slower when every package tests in parallel
+
+  it("caps a single barrel file whose signatures alone exceed the budget", () => {
+    const b = big();
+    const names = Array.from({ length: 400 }, (_, i) => `export${i}`);
+    const barrel = {
+      ...b.pack.files[0]!,
+      symbols: names,
+      signatures: names.map((name, line) => ({
+        name,
+        kind: "export",
+        signature: `export { ${name} } from "./${name}"`,
+        line,
+      })),
+      body: { name: "export0", line: 1, endLine: 1, text: "export0" },
+    };
+    const prep = { ...b, pack: { ...b.pack, files: [barrel] } };
+    expect(prepareResponseTokens(prep)).toBeGreaterThan(5000);
+    const fitted = fitPrepareToBudget(prep, 2000);
+    expect(prepareResponseTokens(fitted)).toBeLessThanOrEqual(2000);
+    expect(fitted.pack.files).toHaveLength(1);
+    expect(fitted.pack.files[0]!.signatures[0]?.name).toBe("export0");
+  });
 
   it("clamps the budget to the ceiling", () => {
     expect(clampPrepareBudget(undefined)).toBe(2000);

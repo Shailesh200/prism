@@ -533,6 +533,7 @@ describe("symbol-level blast through barrels (plan §4.2, BLAST-SYM)", () => {
     named("throttle.ts", "index.ts", ["debounce"]),
     named("nth-user.ts", "index.ts", ["nth"]),
     named("ns-user.ts", "index.ts", ["*"]),
+    named("ns-nth-user.ts", "index.ts", ["nth"]),
     named("dyn-user.ts", "index.ts", undefined),
     reexport("renamed.ts", "debounce.ts", [{ from: "debounce", as: "deb" }]),
     named("deb-user.ts", "renamed.ts", ["deb"]),
@@ -545,6 +546,7 @@ describe("symbol-level blast through barrels (plan §4.2, BLAST-SYM)", () => {
     "throttle.ts",
     "nth-user.ts",
     "ns-user.ts",
+    "ns-nth-user.ts",
     "dyn-user.ts",
     "renamed.ts",
     "deb-user.ts",
@@ -569,6 +571,8 @@ describe("symbol-level blast through barrels (plan §4.2, BLAST-SYM)", () => {
   it("BLAST-SYM-1 a barrel import of a different export does not count", () => {
     expect(paths()).not.toContain("nth-user.ts");
     expect(paths()).not.toContain("other-user.ts");
+    // P8: namespace narrowed to nth only — not debounce's blast.
+    expect(paths()).not.toContain("ns-nth-user.ts");
   });
 
   it("BLAST-SYM-2 named, namespace, unknown and renamed bindings do count", () => {
@@ -612,5 +616,20 @@ describe("symbol-level blast through barrels (plan §4.2, BLAST-SYM)", () => {
     const got = res.value.affectedFiles.map((f) => f.path).sort();
     expect(got).toEqual(["b1.ts", "b2.ts", "c.ts", "d.ts", "e.ts"]);
     expect(res.value.truncated).toBe(true);
+  });
+});
+
+describe("P9 WHY-1 blast / test impact reasons", () => {
+  it("every affected file has a non-empty reason", () => {
+    const res = computeBlastRadius(
+      { kind: "file", id: "util.ts" },
+      { dependencyGraph: GRAPH, analyzedPaths: ANALYZED },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.affectedFiles.length).toBeGreaterThan(0);
+    for (const f of res.value.affectedFiles) {
+      expect(f.reason.trim().length).toBeGreaterThan(0);
+    }
   });
 });

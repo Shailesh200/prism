@@ -2,12 +2,12 @@
 
 | Field | Value |
 |---|---|
-| Status | **Approved** (owner, 2026-10-10) |
+| Status | **Approved** (owner, 2026-10-10). Built on this branch; partly superseded (see Status) |
 | Date | 2026-10-10 |
 | Planning milestone | [M-087 Focus Reset Plan](./M-087_focus-reset-plan.md) (this document, docs only) |
 | Implementation milestones | [M-088](./M-088_identity-hero-copy.md) → [M-100](./M-100_relaunch.md) (§12) |
 | ADRs (Accepted) | [0060](../adr/0060-prism-keeps-its-name.md) · [0061](../adr/0061-workspace-build-everywhere.md) · [0062](../adr/0062-prism-graph-replaces-repository-map.md) · [0063](../adr/0063-prism-daemon-is-a-process.md) · [0064](../adr/0064-dispatch-removed.md) · [0065](../adr/0065-auto-prepare.md) · [0066](../adr/0066-envelope-product-surface.md) |
-| Supersedes on approval | [PROGRAM_prism-2.0.md](./PROGRAM_prism-2.0.md) §0 identity, hero copy and sequence; M-080 → M-086 as planned rows (§12.1) |
+| Supersedes on approval | [PROGRAM_prism-2.0.md](../archive/milestones/PROGRAM_prism-2.0.md) §0 identity, hero copy and sequence; M-080 → M-086 as planned rows (§12.1) |
 | Rule | Approved 2026-10-10. The owner directed M-088 → M-100 to be built on `milestone/M-087-focus-reset-plan` in one pass. No commits and no push until the owner asks. |
 
 This program does six things, in this order:
@@ -20,6 +20,23 @@ This program does six things, in this order:
 6. **First run, proof, and scope cuts.** The receipt stays as the closing line of every change and is fixed and explained (§3).
 
 ---
+
+
+## Status (17 Oct 2026)
+
+Per-milestone status is in [PROGRESS.md](../PROGRESS.md). The decisions below were changed after approval:
+
+| Was | Now | Evidence |
+|---|---|---|
+| D5 hero = Prepare + Envelope | Hero = **Prepare + Lens Review**. Envelope was **removed entirely** on 17 Oct 2026 (code, CLI, docs, site). M-094 is obsolete and ADR-0066 is superseded by [ADR-0068](../adr/0068-envelope-removed.md) | `core/src/envelope` gone; `notes/prism-2-implementation-log.md` 17 Oct |
+| D8 / Q-5 Envelope in Core | Dropped with Envelope. `prepare-last` stays in Core | as above |
+| D2 / Q-7 "Faster agent sessions. Fewer broken builds." | "Your agent's second pair of eyes. Know before you ship." (website, SEO, README). ADR-0060 amended | `apps/website/lib/seo.ts` |
+| §10 slim IDE | The VS Code and Cursor extensions were **deleted** in 2.0. There is no IDE surface | commit `f45ccb7` |
+| §7.3 `graph.html`, `GRAPH_REPORT.md` | Deleted in 2.0; `graph.json` export kept | unified plan §0.4 #35 |
+| §8 report card + 20-repo precision gate | Replaced by `prism start` and the B2/B4 golden sets | unified plan C-10 |
+| §12 sequence | Replaced by the 2.0 unified plan (`notes/prism-unified-plan.md`, ADR-0067), then next plan P1–P24 and rounds 2–4 | `08e4d3c`, `notes/prism-2-next-change-report.md` |
+| Habits (new, not in this plan) | Habits are skills: `~/.prism/skills/<slug>/SKILL.md`, served by the `habits` tool | `mcp-server/src/tools/habits.ts` |
+| Release | Only **Prism 2.0.0** is released, once, after the reliability work. Nothing is pushed or published yet. The deploy is planned after the owner's review on 18 Oct | [RELEASE_RUNBOOK.md](../RELEASE_RUNBOOK.md) |
 
 ## 0. Owner decisions (2026-10-10)
 
@@ -347,7 +364,7 @@ Ordered by blast radius: what cannot break the build goes first; what deletes co
 
 ---
 
-## 6. Phase 2b — Envelope v2 (M-094)
+## 6. Phase 2b — Envelope v2 (M-094) — obsolete: Envelope removed 17 Oct 2026
 
 **Goal:** every session ends with one honest number: what Prism put into context, what it cost, and what it probably saved.
 
@@ -489,7 +506,7 @@ Each milestone has a one-page doc, its own branch from latest `main`, owner appr
 | M-091 | [Surface cut](./M-091_surface-cut.md) | M | M-090 | §4.3 + §10 surface: 6 default tools, short instructions, skills trimmed, Dispatch off MCP, Envelope / prepare-last / remember moved out of Dispatch. |
 | M-092 | [Receipt v2](./M-092_receipt-v2.md) | S/M | M-091 | §3.6: baseline-aware verdict, session scope, verdict line, count fix, markdown / image renderers, `prism receipts`. |
 | M-093 | [Prepare v2](./M-093_prepare-v2.md) | M/L | M-092 | §5: response budget, replay eval, auto-Prepare hook, ranking gated by the eval. |
-| M-094 | [Envelope v2](./M-094_envelope-v2.md) | M | M-093 | §6: sessions, hook entries, budgets, receipt footer, `prism envelope`, Iris screen. |
+| ~~M-094~~ | [Envelope v2](../archive/milestones/M-094_envelope-v2.md) (**obsolete**: Envelope removed 17 Oct 2026) | M | M-093 | §6: sessions, hook entries, budgets, receipt footer, `prism envelope`, Iris screen. |
 | M-095 | [Graph daemon](./M-095_graph-daemon.md) | L | M-094 | §7.1: daemon from the `dispatch-hub` server and watcher, attach-first MCP / CLI, git hooks, snapshot freshness. |
 | M-096 | [Graph model, artifact, `graph` tool](./M-096_graph-artifact-tool.md) | L | M-095 | §7.2–7.4, plus the remaining M-059 precision work. |
 | M-097 | [First run in 60s](./M-097_first-run.md) | M | M-096 | §8, including the precision gate. |

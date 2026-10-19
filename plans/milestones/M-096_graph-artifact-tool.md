@@ -2,13 +2,23 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **Done** (re-scoped by 2.0), not owner-verified |
 | Branch | `milestone/M-096-graph-artifact-tool` (from latest `main`) |
 | Depends on | M-095 Verified |
 | Unlocks | M-097 |
 | Packages | `intelligence` (doc / ADR / git / memory nodes), `analyzer` (remaining M-059 precision), `graph-engine`, `core` (`graph()` API), `mcp-server` (`graph` tool), `ui` (graph renderer, static export), `cli` (`prism graph open`, `export`), `plugin` (`/prism-graph`) |
 | ADR | [ADR-0062](../adr/0062-prism-graph-replaces-repository-map.md) |
 | Absorbs | M-059 remaining scope |
+
+
+## Status (17 Oct 2026)
+
+- **Built:**
+  - The `graph` tool, which stands in for the find/search/refs/route tools.
+  - `graph {mode:"map"}`, a compact repo map (next plan P1).
+  - `prism graph export` (`graph.json`).
+- **Deleted on purpose in 2.0:** `graph.html`, `GRAPH_REPORT.md` and `prism graph open` (unified plan §0.4 #35; `cli/src/commands/graph.ts` header).
+- **M-059 precision:** covered by the resolver work and member-level usage (P8). It is measured by B4, not by hand labels. NS-4/NS-5 on es-toolkit have not been run.
 
 ## 1. Goal
 
@@ -20,7 +30,7 @@ A graphify-style graph of code, tests, docs, ADRs, git history and memories that
 |---|---|
 | Node and edge kinds | Program §7.2 table; provenance on every edge |
 | Precision | M-059 remainder: member calls, barrels, tsconfig paths, `require()`, homonyms. Precision measured on `m011-refs` and the R0 repos |
-| Core API | `graph({ mode, … })` with `find`, `neighbors`, `path`, `explain`, `query`; bounded results, Envelope `truncated`, token budget |
+| Core API | `graph({ mode, … })` with `find`, `neighbors`, `path`, `explain`, `query`; bounded results, `truncated` flag, token budget |
 | MCP `graph` | Replaces `find_symbol` / `explain_area` stand-ins in the default set. The seven old tools stay behind `PRISM_MCP_FULL` for one milestone, then are removed |
 | `graph.html` | Self-contained, offline, from `@repo-prism/ui`. Package → file → symbol drill. Layers: communities, hotspots, cycles, test reach, blast overlay. Search. Copy-as-prompt |
 | `GRAPH_REPORT.md` | Program §7.3 contents; every entry links to a node |

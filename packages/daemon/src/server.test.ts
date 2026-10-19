@@ -1,4 +1,15 @@
-import { cp, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -111,7 +122,8 @@ async function start(buildId = "test-build") {
 
 beforeEach(async () => {
   home = await mkdtemp(join(tmpdir(), "prism-daemon-home-"));
-  repo = await mkdtemp(join(tmpdir(), "prism-daemon-repo-"));
+  // The daemon reports canonical roots (macOS tmpdir is a symlink).
+  repo = await realpath(await mkdtemp(join(tmpdir(), "prism-daemon-repo-")));
   await cp(FIXTURE, repo, {
     recursive: true,
     filter: (source) => !source.includes(`${"/"}.prism`),
@@ -193,6 +205,41 @@ describe("prism daemon (M-095)", () => {
       log: () => undefined,
     });
     expect(second.kind).toBe("already-running");
+  });
+
+  it("does not start a second daemon beside one too busy to answer", async () => {
+    // A live process that holds an old lock and wrote the record, but whose
+    // port does not answer: a daemon blocked by a first index.
+    const busy = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"]);
+    try {
+      const pid = busy.pid ?? 0;
+      const lock = join(dirname(daemonRecordPath(env)), "daemon.lock");
+      await mkdir(dirname(lock), { recursive: true });
+      await writeFile(lock, String(pid));
+      const old = new Date(Date.now() - 120_000);
+      await utimes(lock, old, old);
+      await writeDaemonRecord(
+        {
+          pid,
+          port: 9,
+          token: "t",
+          buildId: "test-build",
+          startedAt: old.toISOString(),
+        },
+        env,
+      );
+      const second = await startDaemon({
+        buildId: "test-build",
+        tools: TOOLS,
+        env,
+        timers: false,
+        log: () => undefined,
+      });
+      expect(second.kind).toBe("already-running");
+      expect((await readDaemonRecord(env))?.pid).toBe(pid);
+    } finally {
+      busy.kill();
+    }
   });
 
   it("treats another build, a bad token and a browser origin as unavailable", async () => {
@@ -305,7 +352,7 @@ describe("prism daemon (M-095)", () => {
       kind: "ok",
       value: expect.objectContaining({ ready: true, state: "fresh" }),
     });
-    expect(MAX_READY_WAIT_MS).toBe(3_000);
+    expect(MAX_READY_WAIT_MS).toBe(900);
   });
 
   it("readiness answers not-ready, never an error, when the index is still building", async () => {

@@ -1,8 +1,8 @@
 /**
- * Update notice (plan §2.3). A background check, cached for 24 h in
- * `~/.prism/update.json`. It never blocks startup, never re-launches the
- * server and never installs anything: it only reports
- * "update available: run `prism upgrade`".
+ * Update check (plan §2.3). Cached for 3 days in `~/.prism/update.json`.
+ * The stdio server uses the result to install a newer CLI before it starts.
+ * A failed install is remembered until the next check, so a broken registry
+ * does not delay every session.
  *
  * A local checkout (the development build) is never checked: it is not an
  * installed release, so "newer on npm" means nothing for it.
@@ -12,9 +12,25 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { prismHomeDir } from "@repo-prism/shared/prism-home";
 
-const REGISTRY_URL = "https://registry.npmjs.org/@repo-prism/mcp-server/latest";
 const FETCH_MS = 2000;
-export const UPDATE_CHECK_TTL_MS = 24 * 60 * 60 * 1000;
+/** Recheck npm at most this often: about 3 days. */
+export const UPDATE_CHECK_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+
+/** Which published server this process is, from its install path. */
+export function registryLatestUrl(entry: string | undefined): string {
+  const name = (entry ?? "").replaceAll("\\", "/").includes("/@prismapp/")
+    ? "@prismapp/mcp-server"
+    : "@repo-prism/mcp-server";
+  return `https://registry.npmjs.org/${name}/latest`;
+}
+
+/** The CLI package that ships the server found at `entry`. */
+export function cliPackageName(entry: string | undefined): string | undefined {
+  const path = (entry ?? "").replaceAll("\\", "/");
+  if (path.includes("/node_modules/@prismapp/")) return "@prismapp/cli";
+  if (path.includes("/node_modules/@repo-prism/")) return "@repo-prism/cli";
+  return undefined;
+}
 
 type Semver = {
   readonly major: number;
@@ -87,6 +103,8 @@ export function isLocalCheckout(entry: string | undefined): boolean {
 export type UpdateCache = {
   readonly checkedAt: string;
   readonly latest: string;
+  /** A version we already tried to install and could not. */
+  readonly installAttempted?: string;
 };
 
 export function updateCachePath(env: NodeJS.ProcessEnv = process.env): string {
@@ -104,6 +122,7 @@ export type UpdateCheckOutcome =
       readonly kind: "available";
       readonly latest: string;
       readonly cached: boolean;
+      readonly installAttempted?: string;
     }
   | { readonly kind: "unknown"; readonly reason: string };
 
@@ -130,14 +149,23 @@ async function readCache(path: string): Promise<UpdateCache | undefined> {
   ) {
     return undefined;
   }
-  return { checkedAt: parsed.checkedAt, latest: parsed.latest };
+  return {
+    checkedAt: parsed.checkedAt,
+    latest: parsed.latest,
+    ...(typeof parsed.installAttempted === "string"
+      ? { installAttempted: parsed.installAttempted }
+      : {}),
+  };
 }
 
-async function fetchLatest(fetchImpl: typeof fetch): Promise<string> {
+async function fetchLatest(
+  fetchImpl: typeof fetch,
+  entry: string | undefined,
+): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_MS);
   try {
-    const response = await fetchImpl(REGISTRY_URL, {
+    const response = await fetchImpl(registryLatestUrl(entry), {
       signal: controller.signal,
       headers: { accept: "application/json" },
     });
@@ -154,8 +182,8 @@ async function fetchLatest(fetchImpl: typeof fetch): Promise<string> {
 
 /**
  * Decide whether a newer release exists. Uses the cached answer when it is
- * younger than 24 h. Errors are returned as `unknown` with the reason, never
- * thrown, so the caller can log them.
+ * younger than 3 days. Errors are returned as `unknown` with the reason,
+ * never thrown, so the caller can log them.
  */
 export async function checkForUpdate(
   input: UpdateCheckInput,
@@ -168,16 +196,25 @@ export async function checkForUpdate(
   }
   const now = input.now ?? Date.now;
   const path = updateCachePath(input.env);
-  const verdict = (latest: string, cached: boolean): UpdateCheckOutcome =>
+  const verdict = (
+    latest: string,
+    cached: boolean,
+    installAttempted?: string,
+  ): UpdateCheckOutcome =>
     isNewerVersion(latest, input.currentVersion)
-      ? { kind: "available", latest, cached }
+      ? {
+          kind: "available",
+          latest,
+          cached,
+          ...(installAttempted ? { installAttempted } : {}),
+        }
       : { kind: "current", latest, cached };
   try {
     const cache = await readCache(path);
     if (cache && now() - Date.parse(cache.checkedAt) < UPDATE_CHECK_TTL_MS) {
-      return verdict(cache.latest, true);
+      return verdict(cache.latest, true, cache.installAttempted);
     }
-    const latest = await fetchLatest(input.fetchImpl ?? fetch);
+    const latest = await fetchLatest(input.fetchImpl ?? fetch, input.entry);
     await mkdir(dirname(path), { recursive: true });
     const record: UpdateCache = {
       checkedAt: new Date(now()).toISOString(),
@@ -197,4 +234,16 @@ export function updateNotice(outcome: UpdateCheckOutcome): string | undefined {
   return outcome.kind === "available"
     ? `prism-mcp: update available (${outcome.latest}): run \`prism upgrade\`\n`
     : undefined;
+}
+
+/** Remember that installing `version` failed, until the next registry check. */
+export async function markInstallAttempt(
+  env: NodeJS.ProcessEnv,
+  version: string,
+): Promise<void> {
+  const path = updateCachePath(env);
+  const cache = await readCache(path);
+  if (!cache) return;
+  const record: UpdateCache = { ...cache, installAttempted: version };
+  await writeFile(path, `${JSON.stringify(record)}\n`, "utf8");
 }

@@ -12,6 +12,8 @@ export const GRAPH_MODES = [
   "path",
   "explain",
   "query",
+  "symbol",
+  "map",
 ] as const;
 export type GraphMode = (typeof GRAPH_MODES)[number];
 
@@ -58,6 +60,18 @@ export type GraphQuery =
       readonly target: string;
       /** `files_in_importing`: the folder to look in. */
       readonly within?: string;
+    }
+  | {
+      /** One symbol's signature and optional body (P2 lazy body). */
+      readonly mode: "symbol";
+      readonly path: string;
+      readonly name: string;
+      readonly body?: boolean;
+    }
+  | {
+      /** Compact cached repo map (P1). */
+      readonly mode: "map";
+      readonly scope?: string;
     };
 
 export type GraphProvenance = "measured" | "heuristic" | "inferred";
@@ -87,12 +101,26 @@ export type GraphEdge = {
   readonly provenance: GraphProvenance;
 };
 
+/** Signature (+ optional body) for `graph` mode `symbol` (P2). */
+export type GraphSymbolDetail = {
+  readonly path: string;
+  readonly name: string;
+  readonly kind: string;
+  readonly line: number;
+  readonly endLine: number;
+  readonly signature: string;
+  readonly body?: string;
+};
+
 export type GraphAnswer = {
   readonly mode: GraphMode;
   readonly nodes: readonly GraphNode[];
   readonly edges: readonly GraphEdge[];
   readonly routes?: readonly NavigationRoute[];
   readonly explain?: ExplainAreaSummary;
+  readonly symbol?: GraphSymbolDetail;
+  /** Rendered repo map text (mode `map`). */
+  readonly map?: string;
   /** Several declarations share the name: pick one and ask again with `path`. */
   readonly ambiguous?: boolean;
   /** Nodes plus edges before the budget cut. */

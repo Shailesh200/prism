@@ -8,7 +8,16 @@ export default function AdminDocsLayout({ children }: { children: ReactNode }) {
     <DocsLayout
       tree={adminSource.getPageTree()}
       nav={{
-        title: "Prism Admin Docs",
+        title: (
+          <span className="inline-flex items-center gap-2">
+            <span
+              className="mk"
+              style={{ width: 22, height: 22 }}
+              aria-hidden="true"
+            />
+            Prism Admin Docs
+          </span>
+        ),
         url: "/admin",
       }}
       githubUrl={GITHUB}

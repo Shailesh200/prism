@@ -7,15 +7,15 @@ please read the workflow section before opening a pull request.
 ## Setup
 
 ```bash
-nvm use          # Node 26, pinned in .nvmrc
+nvm use          # Node 24.18.1, pinned in .nvmrc
 bun install
 bun run verify:milestone
 ```
 
 | Tool | Why |
 |---|---|
-| **Node ≥ 26** | Pinned in `.nvmrc`; CI uses the same file |
-| **Bun ≥ 1.3** | Package manager and script runner |
+| **Node 24.18.1** | Pinned in `.nvmrc`, `engines` and `.moon/toolchain.yml`; CI uses the same file |
+| **Bun 1.3.11** | Package manager and script runner (pinned in `.moon/toolchain.yml`) |
 | **moonrepo** | Task graph across the workspace (installed as a dependency) |
 
 If `verify:milestone` is green on a fresh clone, your environment is correct.

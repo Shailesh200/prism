@@ -6,6 +6,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -22,7 +23,9 @@ import {
   writeBlock,
   type InstallHost,
 } from "./hosts.js";
+import { moveInto } from "./backups.js";
 import { wipe1x } from "./wipe.js";
+import { stillOnDisk } from "../commands/install.js";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -60,7 +63,7 @@ function dirty1x(): { env: NodeJS.ProcessEnv; home: string } {
 }
 
 describe("wipe1x (plan §3.1a)", () => {
-  it("WIPE-1: clears 1.x, stops the daemon, writes version.json, one line + event", async () => {
+  it("WIPE-1: moves 1.x out (not deleted), stops the daemon, writes version.json, one line + event", async () => {
     const { env, home } = dirty1x();
     let stopped = false;
     const out = await wipe1x({
@@ -74,11 +77,14 @@ describe("wipe1x (plan §3.1a)", () => {
     expect(out.kind).toBe("wiped");
     if (out.kind !== "wiped") return;
     expect(out.line.split("\n")).toHaveLength(1);
-    expect(out.line).toMatch(
-      /^Prism 2\.0: cleared 1\.x data \(3 workspace indexes, daemon, hub\)/,
-    );
+    expect(out.line).toContain(".prism-backups/");
     expect(existsSync(join(home, "workspaces"))).toBe(false);
     expect(existsSync(join(home, "hub"))).toBe(false);
+    // Moved, not deleted (round 5 consent): all of it is in the backup.
+    expect(out.backupDir).toMatch(/\.prism-backups\/\d{8}T\d{6}\/1x$/);
+    expect(readdirSync(join(out.backupDir, "workspaces"))).toHaveLength(3);
+    expect(existsSync(join(out.backupDir, "hub"))).toBe(true);
+    expect(out.backupDir.startsWith(home + "/")).toBe(false);
     expect(
       JSON.parse(readFileSync(join(home, "version.json"), "utf8")).major,
     ).toBe(2);
@@ -123,12 +129,16 @@ describe("wipe1x (plan §3.1a)", () => {
     expect(kept[1].overrules).toHaveLength(1);
     expect(kept[2].name).toBe("Prism Architect");
     expect(out.removedDir).toBeDefined();
+    // Invalid lens files stay in the backup only.
+    expect(out.removedDir?.startsWith(out.backupDir)).toBe(true);
     const removed = readFileSync(
       join(out.removedDir as string, "REMOVED.txt"),
       "utf8",
     );
     expect(removed).toContain("bad");
-    expect(out.line).toContain(".removed-1x-");
+    // The original lenses folder is kept whole in the backup too.
+    expect(existsSync(join(out.backupDir, "lenses", "bad.json"))).toBe(false);
+    expect(existsSync(join(out.backupDir, "lenses", "lenses.json"))).toBe(true);
   });
 
   it("WIPE-3: keeps 2.0 config keys, drops old ones and names them", async () => {
@@ -147,7 +157,11 @@ describe("wipe1x (plan §3.1a)", () => {
       { extraTools: ["lens"] },
     );
     expect(out.droppedConfigKeys).toEqual(["hubUrl", "legacyMode"]);
-    expect(out.line).toContain("dropped config keys hubUrl, legacyMode");
+    expect(out.line).toContain("hubUrl, legacyMode");
+    // The 1.x config file itself is kept in the backup.
+    expect(
+      JSON.parse(readFileSync(join(out.backupDir, "config.json"), "utf8")),
+    ).toHaveProperty("legacyMode", 1);
   });
 
   it("WIPE-4: a second run is a no-op", async () => {
@@ -218,7 +232,7 @@ describe("host writers (plan §2.1, §5.10)", () => {
     const root = temp();
     const pack = temp();
     put(join(pack, "hooks", "prism-hook.mjs"), "");
-    put(join(pack, "skills", "prism-review-pr", "SKILL.md"), "# skill");
+    put(join(pack, "skills", "prism", "SKILL.md"), "# skill");
     return {
       host,
       scope,
@@ -243,6 +257,13 @@ describe("host writers (plan §2.1, §5.10)", () => {
     const result = installHost(t);
     const written = JSON.parse(readFileSync(settings, "utf8"));
     expect(written.hooks.Stop).toHaveLength(2);
+    // Round 4: the session-end verdict rides a background Stop hook.
+    const stops = written.hooks.Stop[1].hooks;
+    expect(
+      stops.map((h: { command: string }) => h.command.split(" ").pop()),
+    ).toEqual(["stop", "stop-wait"]);
+    expect(stops[0].asyncRewake).toBeUndefined();
+    expect(stops[1]).toMatchObject({ asyncRewake: true, timeout: 120 });
     expect(written.hooks.UserPromptSubmit[0].hooks[0].command).toContain(
       "prism-hook.mjs",
     );
@@ -250,12 +271,18 @@ describe("host writers (plan §2.1, §5.10)", () => {
       JSON.parse(readFileSync(join(t.home, ".claude.json"), "utf8")).mcpServers
         .prism.args,
     ).toEqual([t.bin]);
+    // Its prompt hook shows the Prism line and lens; prepare_change must not.
     expect(
-      existsSync(
-        join(t.home, ".claude", "skills", "prism-review-pr", "SKILL.md"),
-      ),
+      JSON.parse(readFileSync(join(t.home, ".claude.json"), "utf8")).mcpServers
+        .prism.env.PRISM_PROMPT_HOOK,
+    ).toBe("1");
+    expect(
+      existsSync(join(t.home, ".claude", "skills", "prism", "SKILL.md")),
     ).toBe(true);
+    const retired = join(t.home, ".claude", "skills", "prism-onboard");
+    put(join(retired, "SKILL.md"), "# old");
     installHost(t); // idempotent: no duplicate hooks
+    expect(existsSync(retired)).toBe(false);
     expect(JSON.parse(readFileSync(settings, "utf8")).hooks.Stop).toHaveLength(
       2,
     );
@@ -264,9 +291,71 @@ describe("host writers (plan §2.1, §5.10)", () => {
       theme: "dark",
       hooks: { Stop: [{ hooks: [{ type: "command", command: "mine" }] }] },
     });
-    expect(
-      JSON.parse(readFileSync(join(t.home, ".claude.json"), "utf8")).mcpServers,
-    ).toEqual({});
+    // Prism created ~/.claude.json: nothing of the user's was in it, so it goes.
+    expect(existsSync(join(t.home, ".claude.json"))).toBe(false);
+  });
+
+  it("uninstall keeps the user's other keys and leaves no empty files or folders", () => {
+    const t = target("cursor", "project");
+    const mcp = join(t.root, ".cursor", "mcp.json");
+    const result = installHost(t);
+    for (const file of result.files) removeInstallFile(file);
+    expect(existsSync(join(t.root, ".cursor"))).toBe(false);
+
+    put(mcp, JSON.stringify({ mcpServers: { other: { command: "x" } } }));
+    const again = installHost(t);
+    for (const file of again.files) removeInstallFile(file);
+    expect(JSON.parse(readFileSync(mcp, "utf8"))).toEqual({
+      mcpServers: { other: { command: "x" } },
+    });
+    expect(existsSync(join(t.root, ".cursor", "rules"))).toBe(false);
+  });
+
+  it("a second install writes nothing; a changed skill is copied again", () => {
+    const t = target("claude");
+    const o = { ...t, host: "opencode" as const };
+    const files = [...installHost(t).files, ...installHost(o).files];
+    const skill = join(t.home, ".claude", "skills", "prism", "SKILL.md");
+    const paths = [
+      ...files.map((f) => f.path).filter((p) => !p.endsWith("prism")),
+      skill,
+    ];
+    const inode = (p: string) => statSync(p).ino;
+    const before = paths.map(inode);
+    installHost(t);
+    installHost(o);
+    // atomicWrite renames a temp file in, so a rewrite gets a new inode.
+    expect(paths.map(inode)).toEqual(before);
+    put(join(t.pack, "skills", "prism", "SKILL.md"), "# skill v2");
+    installHost(t);
+    expect(readFileSync(skill, "utf8")).toBe("# skill v2");
+  });
+
+  it("cursor writes the rule once, for every project", () => {
+    const t = target("cursor");
+    const result = installHost(t);
+    const rule = readFileSync(
+      join(t.home, ".cursor", "rules", "prism.mdc"),
+      "utf8",
+    );
+    expect(rule).toBe(cursorRule());
+    expect(result.notes).toEqual([]);
+    expect(existsSync(join(t.root, ".cursor", "rules", "prism.mdc"))).toBe(
+      false,
+    );
+  });
+
+  it("moves a non-empty dispatch folder when the backup path already exists", () => {
+    const root = temp();
+    const src = join(root, "dispatch");
+    put(join(src, "jobs.json"), "{}");
+    put(join(src, "notes", "a.md"), "hi");
+    const dest = join(root, "backup", "dispatch");
+    put(join(dest, "old.txt"), "old");
+    moveInto(src, dest);
+    expect(existsSync(src)).toBe(false);
+    expect(readFileSync(join(dest, "jobs.json"), "utf8")).toBe("{}");
+    expect(readFileSync(join(dest, "notes", "a.md"), "utf8")).toBe("hi");
   });
 
   it("cursor --project writes the always-apply rule with the receipt line", () => {
@@ -289,6 +378,9 @@ describe("host writers (plan §2.1, §5.10)", () => {
     expect(
       readFileSync(join(t.home, ".codex", "config.toml"), "utf8"),
     ).toContain("[mcp_servers.prism]");
+    expect(
+      readFileSync(join(t.home, ".codex", "config.toml"), "utf8"),
+    ).not.toContain("PRISM_PROMPT_HOOK");
     expect(readBlock(agents, "md")).toBe(RULE_TEXT);
     for (const file of result.files) removeInstallFile(file);
     expect(readFileSync(agents, "utf8")).toBe("# My rules\n");
@@ -323,5 +415,23 @@ describe("host writers (plan §2.1, §5.10)", () => {
     writeBlock(path, "md", "two");
     expect(readFileSync(path, "utf8").match(/prism:begin/g)).toHaveLength(1);
     expect(readBlock(path, "md")).toBe("two");
+  });
+});
+
+describe("install record", () => {
+  it("drops a recorded file an install has since removed, keeps the rest", () => {
+    const dir = temp();
+    const kept = join(dir, "skills", "prism");
+    put(join(kept, "SKILL.md"), "x");
+    const files = stillOnDisk([
+      { kind: "file", path: kept },
+      { kind: "file", path: join(dir, "skills", "prism-lens") },
+      {
+        kind: "json-key",
+        path: join(dir, "absent.json"),
+        key: ["mcpServers", "prism"],
+      },
+    ]);
+    expect(files.map((f) => f.path)).toEqual([kept, join(dir, "absent.json")]);
   });
 });

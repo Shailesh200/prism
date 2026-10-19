@@ -55,12 +55,22 @@ describe("openIndexCache", () => {
     opened.value.close();
   });
 
-  it("opens the playground workspace cache via bun:sqlite", async () => {
-    const opened = await openIndexCache("/Users/shaileshjha/Prism");
+  // Was a hard-coded checkout path, which failed in any other copy and wrote
+  // into the repo's own cache (round 4 fresh-copy QA). A temp workspace is
+  // created, closed and opened again, which is the case that test covered.
+  it("reopens an existing workspace cache", async () => {
+    const root = await mkdtemp(join(tmpdir(), "prism-cache-"));
+    temps.push(root);
+    const first = await openIndexCache(root);
+    if (!first.ok) throw new Error(first.error.message);
+    first.value.close();
+
+    const opened = await openIndexCache(root);
     expect(opened.ok).toBe(true);
     if (!opened.ok) {
       throw new Error(opened.error.message);
     }
+    expect(opened.value.schemaVersion).toBe(SCHEMA_VERSION);
     opened.value.close();
   });
 });

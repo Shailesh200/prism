@@ -37,7 +37,7 @@ Every tool is read-only and makes no network call.
 | `prepare_change` | The pack for a task: files to read, reuse candidates, house style, notes, and the work order (in scope, off-limits, needs sign-off). Never file bodies | `task`, `budget` |
 | `blast_radius` | What depends on this, and how risky is changing it | `kind`, `id`, `path`, `intent`, `limit` |
 | `test_impact` | Which tests reach this change target | `kind`, `id`, `path`, `limit` |
-| `review_changes` | Rolled-up review of the working tree; omit `paths` to auto-discover | `paths?`, `base` |
+| `habits` | The user's saved routines; with a name, the ordered steps and output format | `name?` |
 | `safe_delete` | Can this be deleted? Blockers and files left orphaned | `kind`, `id`, `path` |
 | `rename_impact` | Every edit site a rename would touch | `kind`, `id`, `path`, `newName` |
 | `guard_session` | The current dirty session ranked by blast risk | `preExistingChanges` |
@@ -66,7 +66,7 @@ An unknown name is reported on stderr and by `prism doctor`.
 | `agents_md` | Generate or verify the Living AGENTS.md (cycles, tests); writes only under `~/.prism` | `action` |
 | `workspace_status` | Index readiness, freshness, git and cache presence | — |
 | `capabilities` | Core capabilities with availability reasons | — |
-| `receipt` | What this session changed and its verdict: proven, not_proven(reason) or failed; checks run in the background, same edits give the same receipt id | `sessionId` |
+| `receipt` | What this session changed and its verdict: SHIP, NOT PROVEN (reason + cheapest proof) or NO-SHIP; checks run in the background, same edits give the same receipt id | `sessionId` |
 | `review_with` | Lens briefs and recorded verdicts. Prism does not call a model | `action`, `lenses`, `task`, `verdicts` |
 
 MCP **resources**: `prism://dna`, `prism://landmarks`, `prism://agents-md`.

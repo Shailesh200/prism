@@ -1,6 +1,6 @@
 ---
 title: FAQ
-description: "Privacy, languages, git, CI, agents, and what Prism will not do."
+description: "Privacy, git, CI, agents, and what Prism will not do."
 ---
 
 ## Does my code leave my machine?
@@ -17,14 +17,6 @@ No. The analysis engine has no model in it and generates nothing. It answers
 structural questions and gives your coding agent real knowledge of your
 repository (see [using MCP](/docs/usage)). Your agent makes the edit, in your
 chat. When it stops, the receipt runs the checks the change reaches.
-
-## Which languages?
-
-TypeScript and JavaScript are fully analysed — imports, symbols, references,
-graphs, the lot.
-
-Other languages are indexed for structure, size and churn, so file-level and
-git-derived signals work everywhere. Symbol-level analysis does not.
 
 ## Does it need my repository to be a git repository?
 
@@ -45,7 +37,7 @@ If it is slow, something generated is probably being indexed. See
 ## What is stored, and where?
 
 `~/.prism/` (or `PRISM_HOME`): one folder per workspace with the index
-(SQLite), memories, receipts and the Envelope ledger; your lenses in
+(SQLite), memories and receipts; your lenses in
 `~/.prism/lenses/`; `install.json` and `events.jsonl`. No credential is ever
 written there.
 
@@ -79,11 +71,11 @@ agreed; low confidence means it is a guess. See [graphs](/docs/concepts/graphs).
 
 ## Can I use it in CI?
 
-Yes — see [Wire into CI](/docs/guides/wire-into-ci):
+Yes. The CLI exits `1` when a check fails, so any CI job can run it:
 
 ```bash
-npx -y @repo-prism/cli review --base origin/main --fail-on high
-npx -y @repo-prism/cli cycles --fail-on any
+prism blast src/some/file.ts --fail-on high
+prism cycles --fail-on any
 ```
 
 Exit `1` means the gate fired. Exit `3` means Prism failed.
@@ -95,10 +87,10 @@ absent. An agent cannot give informed consent on your behalf.
 
 ## What is the receipt?
 
-When your agent stops, the Prism stop hook runs the checks the change reaches —
-this repository’s own lint, test, and typecheck scripts, or **—** if none
-exist — and prints whether the change is proven, unproven, or failed. It comes
-with the Prism plugin pack. Prism never commits or pushes.
+When your agent stops, the Prism stop hook runs the checks the change reaches:
+this repository’s own typecheck and lint scripts and the tests that reach the
+change. It prints a receipt with a verdict: SHIP, NOT PROVEN or NO-SHIP. It
+comes with the Prism plugin pack. Prism never commits or pushes.
 
 ## Where did the background jobs go?
 
@@ -112,13 +104,6 @@ No. The tools — `rename`, `safe-delete`, blast radius, review — report
 what a change would touch; they never write. Your agent makes edits.
 
 The only thing Prism writes on its own is its data under `~/.prism/`.
-
-## What is Envelope?
-
-A local receipt for every Prism tool call — tool name, item counts,
-whether the list was cut short, and JSON bytes. No prompts, no paths, no
-source. `prism envelope` prints it. See
-[Envelope](/docs/guides/envelope).
 
 ## What is prepare_change?
 

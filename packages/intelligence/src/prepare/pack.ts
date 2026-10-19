@@ -1,13 +1,15 @@
 /**
- * Context pack + reuse-by-intent + House Style for `prepare_change` (M-070).
+ * Context pack + reuse-by-intent + House Style for `prepare_change` (M-070, P2).
  *
- * Ranker scores files, not bodies. Serializer callers must pass the DTO
- * through MCP/CLI as-is — never attach file contents.
+ * Ranker scores files. Pack emits signatures + line anchors; a body only for
+ * the top-1 symbol when it spans ≤ 40 lines. House style is one pointer.
  */
 
 import {
+  isFixturePath,
   isTestPath,
   offLimitReason,
+  partialIndexOf,
   prepareMapTokenWeight,
   type FeatureInfo,
   type GitFileSignal,
@@ -23,9 +25,17 @@ import {
   type SignalProvenance,
   clampPrepareBudget,
   fitPrepareToBudget,
+  prepareResponseTokens,
+  stripNegatedClauses,
 } from "@repo-prism/shared";
 import { buildWorkOrder } from "./work-order.js";
-import { rankFiles } from "./rank.js";
+import {
+  fileSourceReader,
+  signaturesForFile,
+  topBodyForFile,
+  type SourceReader,
+} from "./signatures.js";
+import { isRankableSource, rankFiles, type RankInput } from "./rank.js";
 import {
   cachedDependencyGraph,
   cachedFeatureGraph,
@@ -93,15 +103,73 @@ const HTTP_HANDLER =
 const REUSE_THRESHOLD = 0.25;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
+/**
+ * Files that carry signatures (like the body: the top-ranked one). The rest
+ * go in by path, symbols and why, so signatures do not crowd lower-ranked
+ * files out of the budget (PREP-S4: B4 top-3 and recall@pack, 2026-10-15).
+ */
+const FULL_SIGNATURE_FILES = 1;
+
+/**
+ * Share of the file budget the top file may take with its signatures. A
+ * file with dozens of exports otherwise filled the budget alone and pushed
+ * every other file out (B4 recall@pack, 2026-10-15); past this share its
+ * signatures are cut from the end, as fitPrepareToBudget does.
+ */
+const TOP_FILE_SHARE = 0.25;
+
+/**
+ * Symbols a slim entry (no signatures) keeps. A barrel or types file listed
+ * 40+ names and cost as much as three other files; the agent asks graph for
+ * the rest (B4 recall@pack 51.9 → 63.1 at 8, 64.1 at 4; round 2).
+ */
+const SLIM_SYMBOLS = 8;
+
+/**
+ * A top pick this many times the next one's score is a lead the prompt block
+ * may list without the task naming it (round 4). On port-pilot a clear pick
+ * scored 2.5–4× the next; a guess among look-alikes 1.0–1.2×.
+ */
+export const LEAD_RATIO = 1.5;
+
+/** `entry` with signatures cut from the end until it fits `share` tokens. */
+function withinShare(entry: ContextFile, share: number): ContextFile {
+  let out = entry;
+  while (out.signatures.length > 0 && prepareResponseTokens(out) > share) {
+    out = { ...out, signatures: out.signatures.slice(0, -1) };
+  }
+  return out;
+}
+
 export type BuildPrepareChangeInput = {
   readonly snapshot: IndexSnapshot;
   readonly task: string;
   readonly budget?: number;
   readonly gitFiles?: readonly GitFileSignal[];
+  /** Git co-change partners of a path (P7); absent without git history. */
+  readonly coChange?: RankInput["coChange"];
+  /** Past edit feedback scores (P6); absent with no history. */
+  readonly feedback?: RankInput["feedback"];
+  /** Paths with unresolved imports (P9 CONF-2). */
+  readonly unresolvedFrom?: ReadonlySet<string>;
+  /** Index known stale (P9 CONF-3). */
+  readonly indexStale?: boolean;
   readonly frameworks?: readonly string[];
   readonly now?: Date;
   /** Dispatch memories to attach when they match a pack file (M-075). */
   readonly memories?: readonly PrepareMemory[];
+  /**
+   * Optional in-memory sources (tests). Production reads from
+   * `snapshot.rootPath` via the filesystem.
+   */
+  readonly sources?: ReadonlyMap<string, string> | Record<string, string>;
+  /**
+   * Commands that run the pack's tests (token fix 1). Attached before the
+   * budget is enforced, so they count toward the hard cap.
+   */
+  readonly testRuns?: (
+    tests: readonly string[],
+  ) => readonly { readonly cwd: string; readonly command: string }[];
 };
 
 function stemWord(token: string): string {
@@ -350,31 +418,81 @@ function stemsCover(impl: string, test: string): boolean {
   ) {
     return true;
   }
-  const implTok = new Set(pathTokens(impl));
-  const overlap = pathTokens(test).filter(
+  // Words the two paths share only because they sit under the same folders
+  // (`services/api/src/modules`) say nothing: count words below that.
+  const implSegs = impl.split("/");
+  const testSegs = test.split("/");
+  let common = 0;
+  while (
+    common < implSegs.length - 1 &&
+    common < testSegs.length - 1 &&
+    implSegs[common] === testSegs[common]
+  ) {
+    common += 1;
+  }
+  const implTok = new Set(pathTokens(implSegs.slice(common).join("/")));
+  const overlap = pathTokens(testSegs.slice(common).join("/")).filter(
     (t) => implTok.has(t) && t.length >= 3,
   );
   return overlap.length >= 2;
 }
 
-function testsFor(snapshot: IndexSnapshot, paths: readonly string[]): string[] {
+/** Folders between a test and the file it covers (0: same folder). */
+function folderDistance(impl: string, test: string): number {
+  const a = dirname(impl).split("/");
+  const b = dirname(test).split("/");
+  let common = 0;
+  while (common < a.length && common < b.length && a[common] === b[common])
+    common += 1;
+  return a.length - common + (b.length - common);
+}
+
+/**
+ * Tests for the packed files, ordered by the rank of the best file each one
+ * covers: the budget cuts this list, so alphabetical order would keep
+ * `infrastructure/…` tests and drop the ones for the top-ranked file. For the
+ * same file, real test files come before helpers in a test folder, and the
+ * test next to the file before one in another module.
+ */
+export function testsFor(
+  snapshot: IndexSnapshot,
+  paths: readonly string[],
+): string[] {
   const kg = cachedKnowledgeGraph(snapshot);
-  const out = new Set<string>();
-  for (const path of paths) {
-    if (isTestPath(path)) out.add(path);
-  }
+  const rankOf = new Map<string, readonly [number, number, number]>();
+  const add = (test: string, index: number) => {
+    if (index < 0) return;
+    const impl = paths[index] ?? test;
+    const key = [
+      index,
+      /\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(test) ? 0 : 1,
+      folderDistance(impl, test),
+    ] as const;
+    const prev = rankOf.get(test);
+    if (
+      prev === undefined ||
+      key[0] < prev[0] ||
+      (key[0] === prev[0] &&
+        (key[1] < prev[1] || (key[1] === prev[1] && key[2] < prev[2])))
+    ) {
+      rankOf.set(test, key);
+    }
+  };
+  paths.forEach((path, i) => {
+    if (isTestPath(path)) add(path, i);
+  });
   for (const file of snapshot.files) {
     if (!isTestPath(file.path)) continue;
-    if (paths.some((p) => file.path.startsWith(p.replace(/\/[^/]+$/, "/")))) {
-      out.add(file.path);
-    }
-    const covers = paths.some(
-      (p) =>
+    paths.forEach((p, i) => {
+      if (
+        file.path.startsWith(p.replace(/\/[^/]+$/, "/")) ||
         file.imports.some((imp) => importCovers(imp.source, p)) ||
         ((nearbyTestDir(p, file.path) || samePackagePrefix(p, file.path)) &&
-          stemsCover(p, file.path)),
-    );
-    if (covers) out.add(file.path);
+          stemsCover(p, file.path))
+      ) {
+        add(file.path, i);
+      }
+    });
   }
   for (const edge of kg.graph.edges) {
     if (edge.kind !== "tests") continue;
@@ -382,10 +500,18 @@ function testsFor(snapshot: IndexSnapshot, paths: readonly string[]): string[] {
       ? edge.from.slice("file:".length)
       : "";
     const to = edge.to.startsWith("file:") ? edge.to.slice("file:".length) : "";
-    if (paths.includes(to) && from) out.add(from);
-    if (paths.includes(from) && to && isTestPath(to)) out.add(to);
+    if (from) add(from, paths.indexOf(to));
+    if (to && isTestPath(to)) add(to, paths.indexOf(from));
   }
-  return [...out].sort((a, b) => a.localeCompare(b));
+  return [...rankOf.entries()]
+    .sort(
+      (a, b) =>
+        a[1][0] - b[1][0] ||
+        a[1][1] - b[1][1] ||
+        a[1][2] - b[1][2] ||
+        a[0].localeCompare(b[0]),
+    )
+    .map(([path]) => path);
 }
 
 function identifiers(task: string): string[] {
@@ -396,6 +522,13 @@ function identifiers(task: string): string[] {
     const raw = match[0]!;
     if (STOP.has(raw.toLowerCase())) continue;
     if (raw[0] === raw[0]!.toLowerCase() && !/[A-Z]/.test(raw)) continue;
+    // "Next: the tests below…": a capital that only starts a sentence says
+    // nothing about code; `Next` mid-sentence or `NextFn` still counts.
+    if (
+      /^[A-Z][a-z]+$/.test(raw) &&
+      /(?:^|[.!?:\n])\s*$/.test(task.slice(0, match.index))
+    )
+      continue;
     out.push(raw);
   }
   return [...new Set(out)];
@@ -454,6 +587,62 @@ function exactSymbolFiles(snapshot: IndexSnapshot, token: string): string[] {
   return [...files];
 }
 
+/**
+ * The source files a named test exercises (token fix 1): its direct imports
+ * Prepare may rank, narrowed to the one named like the test when there is one
+ * (`intersectionBy.spec.ts` → `intersectionBy.ts`, `index.test.ts` →
+ * `index.ts`). A failing-test prompt names the test; the change is in these.
+ *
+ * Round 2: with no same-name import, shared test helpers (imported by many
+ * test files, like `stubFour.ts` or a bundle-size measuring script) are not
+ * subjects, and a test that still imports more than MAX_TEST_SUBJECTS files
+ * names none of them: guessing three of them put noise first in the pack.
+ */
+export function subjectsOfTest(
+  snapshot: IndexSnapshot,
+  testPath: string,
+): string[] {
+  const from = `file:${testPath}`;
+  const imported = [
+    ...new Set(
+      cachedDependencyGraph(snapshot)
+        .graph.edges.filter((e) => e.from === from && e.to.startsWith("file:"))
+        .map((e) => e.to.slice("file:".length)),
+    ),
+  ].filter(isRankableSource);
+  const key = fileStemKey(testPath);
+  const named = imported.filter((p) => fileStemKey(p) === key);
+  if (named.length > 0) return named.slice(0, MAX_TEST_SUBJECTS);
+  const subjects = imported.filter(
+    (p) => testImporters(snapshot, p) < TEST_HELPER_IMPORTERS,
+  );
+  return subjects.length <= MAX_TEST_SUBJECTS ? subjects : [];
+}
+
+/** A named test with no same-name subject seeds at most this many imports. */
+const MAX_TEST_SUBJECTS = 3;
+
+/** A source file this many test files import is a test helper, not a subject. */
+const TEST_HELPER_IMPORTERS = 5;
+
+const testImportersCache = new WeakMap<IndexSnapshot, Map<string, number>>();
+
+/** How many test files import `path`, counted once per snapshot. */
+function testImporters(snapshot: IndexSnapshot, path: string): number {
+  let counts = testImportersCache.get(snapshot);
+  if (!counts) {
+    counts = new Map();
+    for (const e of cachedDependencyGraph(snapshot).graph.edges) {
+      if (!e.from.startsWith("file:") || !e.to.startsWith("file:")) continue;
+      if (!isTestPath(e.from.slice("file:".length))) continue;
+      const to = e.to.slice("file:".length);
+      counts.set(to, (counts.get(to) ?? 0) + 1);
+    }
+    testImportersCache.set(snapshot, counts);
+  }
+  return counts.get(path) ?? 0;
+}
+
 function resolveSeeds(
   snapshot: IndexSnapshot,
   task: string,
@@ -462,18 +651,27 @@ function resolveSeeds(
   seeds: string[];
   /** Seeds the task named outright: a pasted path or a declared identifier. */
   strong: Set<string>;
+  /** Test files the task named outright (a failing-test prompt). */
+  namedTests: string[];
   ambiguous: PrepareAmbiguous | null;
 } {
   const kg = cachedKnowledgeGraph(snapshot);
   let ambiguous: PrepareAmbiguous | null = null;
   const seeds = new Set<string>();
   const strong = new Set<string>();
+  const namedTests: string[] = [];
 
   for (const pasted of pastedPaths(task)) {
     const hit = resolvePastedPath(snapshot, pasted);
-    if (hit) {
-      seeds.add(hit);
-      strong.add(hit);
+    if (!hit) continue;
+    seeds.add(hit);
+    strong.add(hit);
+    if (isTestPath(hit)) {
+      namedTests.push(hit);
+      for (const subject of subjectsOfTest(snapshot, hit)) {
+        seeds.add(subject);
+        strong.add(subject);
+      }
     }
   }
 
@@ -483,6 +681,8 @@ function resolveSeeds(
     const declared = named.filter((s) => s.kind !== "export");
     const hits = declared.length > 0 ? declared : named;
     const files = [...new Set(hits.map((h) => h.path))];
+    // A named test already said which of several same-named files it means.
+    if (files.length > 1 && files.some((f) => strong.has(f))) continue;
     if (files.length > 1) {
       ambiguous = {
         query: name,
@@ -501,7 +701,12 @@ function resolveSeeds(
   }
 
   const blocked = new Set(ambiguous?.candidates.map((c) => c.path) ?? []);
-  for (const token of tokens) {
+  // A failing test the task named, resolved to its subject, already says
+  // where to look; a lone word ("file", "skip", "request") would only add a
+  // guess beside it (round 2).
+  const decided =
+    namedTests.length > 0 && [...strong].some((p) => !isTestPath(p));
+  for (const token of decided ? [] : tokens) {
     if (WEAK_SEED.has(token) || STOP.has(token)) continue;
     const files = exactSymbolFiles(snapshot, token).filter(
       (p) => !blocked.has(p),
@@ -509,7 +714,7 @@ function resolveSeeds(
     if (files.length === 1 && files[0]) seeds.add(files[0]);
   }
 
-  for (const token of tokens) {
+  for (const token of decided ? [] : tokens) {
     if (WEAK_SEED.has(token) || STOP.has(token)) continue;
     const files = snapshot.files
       .filter((f) => !blocked.has(f.path) && exactFilenameToken(f.path, token))
@@ -531,7 +736,7 @@ function resolveSeeds(
     if (strongPath.length === 1 && strongPath[0]) seeds.add(strongPath[0]);
   }
 
-  return { seeds: [...seeds], strong, ambiguous };
+  return { seeds: [...seeds], strong, namedTests, ambiguous };
 }
 
 export function scoreReuse(
@@ -614,11 +819,21 @@ function looksLikeExpress(
   );
 }
 
+const inboundCache = new WeakMap<IndexSnapshot, Map<string, number>>();
+
+/** File-to-file import edges into each path, counted once per snapshot. */
 function inboundCount(snapshot: IndexSnapshot, path: string): number {
-  const graph = cachedDependencyGraph(snapshot).graph;
-  return graph.edges.filter(
-    (e) => e.to === `file:${path}` && e.from.startsWith("file:"),
-  ).length;
+  let counts = inboundCache.get(snapshot);
+  if (!counts) {
+    counts = new Map();
+    for (const e of cachedDependencyGraph(snapshot).graph.edges) {
+      if (!e.from.startsWith("file:") || !e.to.startsWith("file:")) continue;
+      const to = e.to.slice("file:".length);
+      counts.set(to, (counts.get(to) ?? 0) + 1);
+    }
+    inboundCache.set(snapshot, counts);
+  }
+  return counts.get(path) ?? 0;
 }
 
 function pickSymbol(snapshot: IndexSnapshot, path: string): string {
@@ -678,28 +893,29 @@ function isScreenFile(file: IndexedFile): boolean {
   return file.symbols.some((s) => /(?:Screen|View|Page)$/.test(s.name));
 }
 
-function implBesideTest(impl: string, test: string): boolean {
-  if (dirname(impl) !== dirname(test)) return false;
-  const implBase = basename(impl)
-    .replace(/\.[^.]+$/, "")
-    .toLowerCase();
-  const testBase = basename(test)
-    .replace(/\.(test|spec)\.[^.]+$/i, "")
-    .toLowerCase();
-  return implBase === testBase;
+/** `dir/base` (lowercase, extension dropped) of every non-test file. */
+function implKeys(snapshot: IndexSnapshot): Set<string> {
+  const keys = new Set<string>();
+  for (const other of snapshot.files) {
+    if (isTestPath(other.path)) continue;
+    const base = basename(other.path)
+      .replace(/\.[^.]+$/, "")
+      .toLowerCase();
+    keys.add(`${dirname(other.path)}/${base}`);
+  }
+  return keys;
 }
 
+/** A test with its implementation beside it: same folder, same base name. */
 function isColocatedTestFile(
   file: IndexedFile,
-  snapshot: IndexSnapshot,
+  impls: ReadonlySet<string>,
 ): boolean {
   if (!isTestPath(file.path)) return false;
-  return snapshot.files.some(
-    (other) =>
-      other.path !== file.path &&
-      !isTestPath(other.path) &&
-      implBesideTest(other.path, file.path),
-  );
+  const base = basename(file.path)
+    .replace(/\.(test|spec)\.[^.]+$/i, "")
+    .toLowerCase();
+  return impls.has(`${dirname(file.path)}/${base}`);
 }
 
 function isWorkerFile(file: IndexedFile): boolean {
@@ -742,11 +958,12 @@ function rankPatternFiles(
     if (local !== 0) return local;
     return a.path.localeCompare(b.path);
   });
-  const byGit = [...files].sort((a, b) => {
-    const da = gitFiles?.find((g) => g.path === a.path)?.lastCommit.date ?? "";
-    const db = gitFiles?.find((g) => g.path === b.path)?.lastCommit.date ?? "";
-    return db.localeCompare(da);
-  });
+  const lastDate = new Map(
+    (gitFiles ?? []).map((g) => [g.path, g.lastCommit.date] as const),
+  );
+  const byGit = [...files].sort((a, b) =>
+    (lastDate.get(b.path) ?? "").localeCompare(lastDate.get(a.path) ?? ""),
+  );
   const canonical = ranked[0]!;
   const recent = byGit[0] ?? ranked[0]!;
   const older = byGit[byGit.length - 1] ?? ranked[ranked.length - 1]!;
@@ -815,14 +1032,15 @@ function houseStyle(
   frameworks: readonly string[] | undefined,
   gitFiles: readonly GitFileSignal[] | undefined,
 ): { exemplars: Exemplar[]; provenance: SignalProvenance } {
-  const handlers = snapshot.files.filter((f) =>
-    isRouteHandlerFile(f, frameworks),
+  // Fixtures, generated and vendored code are not this repo's house style.
+  const own = snapshot.files.filter(
+    (f) => !isFixturePath(f.path) && offLimit(f.path) === undefined,
   );
-  const screens = snapshot.files.filter((f) => isScreenFile(f));
-  const colocated = snapshot.files.filter((f) =>
-    isColocatedTestFile(f, snapshot),
-  );
-  const workers = snapshot.files.filter((f) => isWorkerFile(f));
+  const handlers = own.filter((f) => isRouteHandlerFile(f, frameworks));
+  const screens = own.filter((f) => isScreenFile(f));
+  const impls = implKeys(snapshot);
+  const colocated = own.filter((f) => isColocatedTestFile(f, impls));
+  const workers = own.filter((f) => isWorkerFile(f));
 
   const express = looksLikeExpress(snapshot, frameworks);
   const exemplars: Exemplar[] = [
@@ -917,21 +1135,47 @@ export function buildPrepareChange(
   const task = input.task.trim() || "change";
   const budget = clampPrepareBudget(input.budget);
   const now = input.now ?? new Date();
-  const tokens = tokenizeTask(task);
+  // "Do not edit test files or open a pull request" is not about tests or
+  // pull requests: only what the task asks for seeds and ranks (round 2).
+  const focus = stripNegatedClauses(task);
+  const tokens = tokenizeTask(focus);
   const features = cachedFeatureGraph(snapshot).features;
   // Named seeds (pasted path, declared identifier, unique exact name) anchor
   // reuse; the ranker adds IDF seeds of its own for the file list.
-  const { seeds, strong, ambiguous } = resolveSeeds(snapshot, task, tokens);
+  const { seeds, strong, namedTests, ambiguous } = resolveSeeds(
+    snapshot,
+    focus,
+    tokens,
+  );
   const adj = importNeighbors(snapshot);
   const git = input.gitFiles;
 
   // Plan §5.1: IDF seeds + import distance; tests and off-limits excluded;
   // recency/ownership only break ties.
+  // Unresolved-from paths from the dependency graph when the caller did not
+  // pass an explicit set (CONF-2).
+  // A capped index is missing files, so nothing it ranks is a sure pick.
+  const partial = partialIndexOf(snapshot.warnings);
+  let unresolvedFrom = input.unresolvedFrom;
+  if (!unresolvedFrom) {
+    const dep = cachedDependencyGraph(snapshot);
+    // An import of an installed package (`@nestjs/common`) is not a gap in
+    // the local graph; counting it capped almost every file at "medium".
+    const gaps = dep.unresolved.filter((u) => !u.external);
+    if (gaps.length > 0) {
+      unresolvedFrom = new Set(gaps.map((u) => u.from));
+    }
+  }
   const { ranked } = rankFiles({
     snapshot,
-    task,
+    task: focus,
     strong,
     neighbors: adj,
+    ...(input.coChange ? { coChange: input.coChange } : {}),
+    ...(input.feedback ? { feedback: input.feedback } : {}),
+    ...(unresolvedFrom ? { unresolvedFrom } : {}),
+    ...(input.indexStale ? { indexStale: true } : {}),
+    ...(partial ? { partialIndex: true } : {}),
     tieBreak: (path) =>
       Math.max(ownershipHot(path, git), recentChurn(path, git, now)),
   });
@@ -939,25 +1183,85 @@ export function buildPrepareChange(
   // Files and tests share what the reserves (reuse 15%, house style 10%,
   // work order 10%) leave; fitPrepareToBudget enforces the hard cap.
   const fileBudget = Math.floor(budget * 0.65);
+  const readSource: SourceReader = fileSourceReader(
+    snapshot.rootPath,
+    input.sources,
+  );
+  // The top pick is a lead when it beats the next by a clear margin (round 4).
+  const leadPath =
+    !partial &&
+    ranked[0] &&
+    ranked[0].score >= LEAD_RATIO * (ranked[1]?.score ?? 0)
+      ? ranked[0].path
+      : null;
   const packed: ContextFile[] = [];
   let tokenEstimate = 0;
   for (const row of ranked) {
+    const file = snapshot.files.find((f) => f.path === row.path);
     const symbols = exportedSymbols(snapshot, row.path);
-    const tokenWeight = prepareMapTokenWeight(row.path, symbols, row.why);
-    if (packed.length > 0 && tokenEstimate + tokenWeight > fileBudget) break;
-    packed.push({
+    const source = readSource(row.path);
+    const signatures = file
+      ? signaturesForFile(file, source)
+      : symbols.map((name) => ({
+          name,
+          kind: "unknown",
+          signature: name,
+          line: 1,
+        }));
+    // Body only for the top-ranked file, and only when ≤ 40 lines.
+    const body =
+      packed.length === 0 && file ? topBodyForFile(file, source) : undefined;
+    const tokenWeight = prepareMapTokenWeight(
+      row.path,
+      symbols,
+      row.why,
+      signatures,
+      body?.text,
+    );
+    const entry: ContextFile = {
       path: row.path,
       symbols,
-      why: row.why,
+      signatures,
+      why: row.why.slice(0, 2),
+      confidence: row.confidence,
+      ...(row.path === leadPath ? { lead: true as const } : {}),
       tokenWeight,
       provenance: row.provenance,
-    });
-    tokenEstimate += tokenWeight;
+      ...(body ? { body } : {}),
+    };
+    // Budget on what the response carries (its JSON), the measure
+    // fitPrepareToBudget caps; tokenWeight alone undercounts signatures, so
+    // the cap would later drop whole files the budget seemed to hold.
+    // Below the top file, or when its signatures no longer fit, a file goes
+    // in by path, symbols and why: the agent can ask graph for the rest.
+    const { body: _body, ...bare } = entry;
+    const slim: ContextFile = {
+      ...bare,
+      symbols: bare.symbols.slice(0, SLIM_SYMBOLS),
+      signatures: [],
+    };
+    const fits = (f: ContextFile) =>
+      packed.length === 0 ||
+      tokenEstimate + prepareResponseTokens(f) <= fileBudget;
+    const full =
+      packed.length < FULL_SIGNATURE_FILES
+        ? withinShare(entry, Math.floor(fileBudget * TOP_FILE_SHARE))
+        : null;
+    const pick = full && fits(full) ? full : fits(slim) ? slim : null;
+    if (!pick) break;
+    packed.push(pick);
+    tokenEstimate += prepareResponseTokens(pick);
   }
-  const tests = testsFor(
-    snapshot,
-    packed.map((f) => f.path),
-  );
+  // Tests the task named come first: they are the ones to turn green.
+  const tests = [
+    ...new Set([
+      ...namedTests,
+      ...testsFor(
+        snapshot,
+        packed.map((f) => f.path),
+      ),
+    ]),
+  ];
   let testsWeight = 0;
   const testsInBudget: string[] = [];
   for (const path of tests) {
@@ -982,6 +1286,9 @@ export function buildPrepareChange(
     ...(git && git.length > 0 ? { gitFiles: git } : {}),
   });
 
+  // A failing-test task runs the tests it named; the rest are listed.
+  const run =
+    input.testRuns?.(namedTests.length > 0 ? namedTests : testsInBudget) ?? [];
   return fitPrepareToBudget(
     {
       pack: {
@@ -991,9 +1298,19 @@ export function buildPrepareChange(
         tests: testsInBudget,
         truncated,
         totalCount: ranked.length,
+        ...(run.length > 0 ? { run: run.map((r) => ({ ...r })) } : {}),
       },
       reuse,
-      conventions: style.exemplars.length > 0 ? style.exemplars : [],
+      // P2: one house-style pointer, not a list of exemplars/excerpts.
+      conventions:
+        style.exemplars.length > 0
+          ? [
+              {
+                ...style.exemplars[0]!,
+                whyCanonical: `house style pointer: ${style.exemplars[0]!.whyCanonical}`,
+              },
+            ]
+          : [],
       notes,
       order,
       workingSet: null,
@@ -1002,6 +1319,7 @@ export function buildPrepareChange(
       reuseProvenance: reuse.length > 0 ? "heuristic" : "unavailable",
       conventionsProvenance: style.provenance,
       ambiguous,
+      ...(partial ? { partialIndex: partial } : {}),
     },
     budget,
   );

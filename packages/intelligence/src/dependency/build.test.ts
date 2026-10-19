@@ -85,6 +85,23 @@ describe("buildDependencyGraph", () => {
     expect(result.cycles).toEqual([["file:a.ts", "file:b.ts", "file:c.ts"]]);
   });
 
+  it("marks installed packages external, not a local gap (round 4)", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-r4-ext-"));
+    const snap = snapshot(root, [
+      analyzed("src/a.ts", [
+        { source: "@nestjs/common" },
+        { source: "./missing" },
+      ]),
+    ]);
+    const { unresolved } = buildDependencyGraph(snap);
+    const nest = unresolved.find((u) => u.source === "@nestjs/common");
+    const gap = unresolved.find((u) => u.source === "./missing");
+    expect(nest?.reason).toBe("bare_specifier");
+    expect(nest?.external).toBe(true);
+    expect(gap?.reason).toBe("unresolved_relative");
+    expect(gap?.external).toBeUndefined();
+  });
+
   it("emits require edges for CommonJS require() (P-E4)", () => {
     const root = mkdtempSync(join(tmpdir(), "prism-m059-cjs-"));
     const snap = snapshot(root, [

@@ -11,6 +11,7 @@ import {
   listFindings as queryFindings,
   findingStillOpen,
   checkGuardSession,
+  publishesToJsr,
   type DependencyGraphOptions,
   type FindReferencesQuery,
   type FindReferencesResult,
@@ -31,9 +32,13 @@ import {
   computeSafeDelete,
   computeTestImpact,
   detectTestRunner,
+  testRunPlan,
+  typecheckPlan,
+  type PackageManager,
   type PackageManifest,
+  type TestPackage,
+  type TypecheckRun,
 } from "@repo-prism/impact";
-import { languageGate, type TestRunner } from "@repo-prism/shared";
 import {
   findPaths,
   listLandmarks as collectLandmarks,
@@ -42,6 +47,10 @@ import {
 } from "@repo-prism/navigation";
 import {
   PrismErrorCode,
+  partialIndexOf,
+  partialIndexWarning,
+  findingsFromGuardFiles,
+  languageGate,
   CodeExplorerTargetSchema,
   classifyFileRole,
   fileRoleLabel,
@@ -78,6 +87,7 @@ import {
   type Result,
   type SafeDeleteReport,
   type TestImpactReport,
+  type TestRun,
   type StackPackageProfile,
   type StackProfile,
   err,
@@ -90,6 +100,7 @@ import {
   type GraphAnswer,
   type GraphQuery,
 } from "@repo-prism/shared";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join as joinPath } from "node:path";
@@ -99,6 +110,7 @@ import {
   type GraphExportResult,
 } from "./graph-export.js";
 import { runGraphQuery } from "./graph-query.js";
+import { buildCachedRepoMap, type RepoMapResult } from "./repo-map.js";
 import { buildAgentsMdContent, parseAgentsMdClaims } from "./agents-md.js";
 import {
   agentsMdPath,
@@ -114,8 +126,15 @@ import {
   checkPrismGitignore,
   type PrismGitignoreStatus,
 } from "./git/prism-gitignore.js";
-import { readGitSignals, type GitSignals } from "./git/git-signals.js";
+import { readGitHead } from "@repo-prism/shared/git-head";
+import {
+  readGitSignals,
+  readGitSignalsAsync,
+  type GitSignals,
+} from "./git/git-signals.js";
+import type { CoChangePartner } from "./git/co-change.js";
 import type { IndexWorkspaceOptions, PrismEnginePorts } from "./ports.js";
+import { feedbackScores } from "@repo-prism/shared/feedback-store";
 
 /**
  * Coarse path → domain keyword heuristics for `explainArea` (M-048 Phase 5).
@@ -385,6 +404,23 @@ export type PrismWorkspace = {
     path?: string;
   }): Promise<Result<TestImpactReport, PrismError>>;
   /**
+   * Ready commands that would check a change (plan P10/P11): the runs for
+   * these test files, grouped by the package that runs them, and the
+   * cheapest type-check for `typecheck` files. Never executed. Requires
+   * `index()`.
+   */
+  checkRunPlan(input: {
+    readonly tests: readonly string[];
+    readonly typecheck: readonly string[];
+  }): Result<
+    {
+      readonly runs: readonly TestRun[];
+      readonly typecheck: readonly TypecheckRun[];
+      readonly packageManager: PackageManager;
+    },
+    PrismError
+  >;
+  /**
    * Multi-path aggregate review (M-048 Phase 4): `blastRadius` + `testImpact`
    * + `breakingChangeHints` per path, rolled up into one report for SCM /
    * editor "Review Changes". Requires `index()`.
@@ -403,6 +439,11 @@ export type PrismWorkspace = {
    * `explain` or `query`. Every edge carries provenance; the answer fits
    * `budget` tokens (default 1,500) and says when it was cut.
    */
+  repoMap(opts?: {
+    readonly scope?: string;
+    readonly maxTokens?: number;
+    readonly refresh?: boolean;
+  }): Result<RepoMapResult, PrismError>;
   graph(
     query: GraphQuery,
     budget?: number,
@@ -416,10 +457,18 @@ export type PrismWorkspace = {
    * Prism Guard (M-072): the current session — working-tree dirty files
    * minus `preExistingChanges` (ADR-0045 §3 / ADR-0055 G1) — ranked by blast
    * risk, each flagged for a likely duplicate, an orphaned new file, or a
-   * package/domain boundary crossing. Requires `index()`.
+   * package/domain boundary crossing. `paths` narrows the session to those
+   * files or folders. Requires `index()`.
    */
   guardSession(input?: {
     readonly preExistingChanges?: readonly string[];
+    readonly paths?: readonly string[];
+    /**
+     * Use these paths as the change set. A pull-request review passes the
+     * PR's files so the receipt is about that change, not the local dirty
+     * tree. Omit it to use the working tree.
+     */
+    readonly changedPaths?: readonly string[];
   }): Promise<Result<GuardSession, PrismError>>;
   /**
    * Living AGENTS.md (M-073 C1/C3): composes features, import cycles, test
@@ -487,23 +536,65 @@ function entryPointsFor(snapshot: IndexSnapshot): EntryPoints {
   return value;
 }
 
-/**
- * Test runner from the workspace root package.json (plan §4.3). A missing or
- * unparseable manifest means "unknown runner" — the report says so via
- * `unknownRunner`; it is an answer, not a failure.
- */
-function workspaceTestRunner(rootPath: string): TestRunner | undefined {
-  const manifestPath = joinPath(rootPath, "package.json");
-  if (!existsSync(manifestPath)) return undefined;
+function readManifest(path: string): PackageManifest | undefined {
   let manifest: unknown;
   try {
-    manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    manifest = JSON.parse(readFileSync(path, "utf8"));
   } catch (error) {
+    // A torn package.json is an answer ("no runner here"), not a failure.
     if (error instanceof SyntaxError) return undefined;
     throw error;
   }
-  if (typeof manifest !== "object" || manifest === null) return undefined;
-  return detectTestRunner(manifest as PackageManifest);
+  return typeof manifest === "object" && manifest !== null
+    ? (manifest as PackageManifest)
+    : undefined;
+}
+
+const testPackagesCache = new WeakMap<IndexSnapshot, readonly TestPackage[]>();
+
+/**
+ * Every indexed package.json as a place tests can run from (plan P10): its
+ * directory, runner and whether it has a `test` script.
+ */
+function workspaceTestPackages(
+  snapshot: IndexSnapshot,
+): readonly TestPackage[] {
+  const cached = testPackagesCache.get(snapshot);
+  if (cached) return cached;
+  const packages: TestPackage[] = [];
+  for (const file of snapshot.files) {
+    if (file.path !== "package.json" && !file.path.endsWith("/package.json"))
+      continue;
+    const manifest = readManifest(joinPath(snapshot.rootPath, file.path));
+    if (!manifest) continue;
+    const runner = detectTestRunner(manifest);
+    packages.push({
+      dir:
+        file.path === "package.json"
+          ? ""
+          : file.path.slice(0, -"/package.json".length),
+      ...(runner ? { runner } : {}),
+      hasTestScript: typeof manifest.scripts?.test === "string",
+      hasTypecheckScript: typeof manifest.scripts?.typecheck === "string",
+      hasTsconfig: existsSync(
+        joinPath(snapshot.rootPath, dirname(file.path), "tsconfig.json"),
+      ),
+    });
+  }
+  testPackagesCache.set(snapshot, packages);
+  return packages;
+}
+
+/** The repository's package manager, from the lockfile at its root (npm when none). */
+function workspacePackageManager(rootPath: string): PackageManager {
+  if (
+    existsSync(joinPath(rootPath, "bun.lock")) ||
+    existsSync(joinPath(rootPath, "bun.lockb"))
+  )
+    return "bun";
+  if (existsSync(joinPath(rootPath, "pnpm-lock.yaml"))) return "pnpm";
+  if (existsSync(joinPath(rootPath, "yarn.lock"))) return "yarn";
+  return "npm";
 }
 
 /**
@@ -527,15 +618,51 @@ function impactContextFor(
   // Export names per analyzed file: lets blast forward only real names
   // through `export *` barrels and importers (plan §4.2 symbol-level blast).
   const fileExports = new Map<string, readonly string[]>();
+  const filesByPath = new Map(snapshot.files.map((f) => [f.path, f]));
+  const knownPaths = new Set(filesByPath.keys());
+  // `export *` is stored as a default export named "*". Without the target's
+  // names, importers of those names never count as reaching the barrel.
+  const resolveRelative = (
+    from: string,
+    source: string,
+  ): string | undefined => {
+    const base = joinPath(dirname(from), source).split("\\").join("/");
+    const candidates = [
+      base,
+      base.replace(/\.js$/, ".ts"),
+      base.replace(/\.js$/, ".tsx"),
+      base.replace(/\.js$/, ".mts"),
+      `${base}.ts`,
+      `${base}/index.ts`,
+    ];
+    return candidates.find((candidate) => knownPaths.has(candidate));
+  };
+  const namesFrom = (path: string, seen: Set<string>): string[] => {
+    if (seen.has(path)) return [];
+    seen.add(path);
+    const file = filesByPath.get(path);
+    if (!file?.exports) return [];
+    const names: string[] = [];
+    for (const exp of file.exports) {
+      if (exp.importedName === "*" && exp.source) {
+        const target = resolveRelative(path, exp.source);
+        if (!target) continue;
+        for (const name of namesFrom(target, seen)) {
+          if (name !== "default") names.push(name);
+        }
+        continue;
+      }
+      if (exp.name) names.push(exp.name);
+    }
+    return names;
+  };
   for (const f of snapshot.files) {
     if (f.status !== "analyzed" || !f.exports) continue;
-    fileExports.set(
-      f.path,
-      f.exports.map((e) => e.name),
-    );
+    fileExports.set(f.path, [...new Set(namesFrom(f.path, new Set()))]);
   }
   const dependencyGraph = buildDependencyGraph(snapshot).graph;
-  const testRunner = workspaceTestRunner(snapshot.rootPath);
+  const testPackages = workspaceTestPackages(snapshot);
+  const packageManager = workspacePackageManager(snapshot.rootPath);
   const softKey = `${snapshot.rootPath}\0${snapshot.indexedAt}\0${inventoryPaths.length}`;
   if (softCache.key !== softKey || !softCache.value) {
     softCache.key = softKey;
@@ -551,7 +678,8 @@ function impactContextFor(
     analyzedPaths,
     inventoryPaths,
     fileExports,
-    ...(testRunner ? { testRunner } : {}),
+    testPackages,
+    packageManager,
     entryRoles: entryPointsFor(snapshot).roles,
     isOrphanEligible: isOrphanEligibleSource,
     softEdges,
@@ -565,6 +693,30 @@ function impactContextFor(
     ...base,
     symbols: kg.symbols,
     references: kg.references,
+  };
+}
+
+/** Tests the pack's run commands cover: the first few, the named ones lead. */
+const PACK_RUN_TESTS = 5;
+
+/**
+ * The exact command for the pack's first tests (token fix 1), so an agent
+ * handed the pack does not have to work out how this repository runs one
+ * test file. Same plan as `test_impact`; never executed here.
+ */
+function packTestRuns(
+  snapshot: IndexSnapshot,
+): (tests: readonly string[]) => { cwd: string; command: string }[] {
+  return (all) => {
+    const tests = all.slice(0, PACK_RUN_TESTS);
+    if (tests.length === 0) return [];
+    return testRunPlan(
+      tests,
+      workspaceTestPackages(snapshot),
+      workspacePackageManager(snapshot.rootPath),
+    )
+      .runs.slice(0, 2)
+      .map((r) => ({ cwd: r.cwd, command: r.command }));
   };
 }
 
@@ -586,11 +738,58 @@ export function createWorkspace(options: {
   let lastIndexedAt: string | null = null;
   let lastSnapshot: IndexSnapshot | null = null;
   let selectedPackageId: string | null = null;
-  let gitCache: { at: string | null; value: GitSignals | null } | null = null;
+  let gitCache: { key: string; value: GitSignals | null } | null = null;
   let gitFilesCache: {
     from: GitSignals;
     files: GitSignals["signals"] extends Map<string, infer V> ? V[] : never;
   } | null = null;
+  let gitReading: string | null = null;
+  /**
+   * Git signals, read once per HEAD: history changes with a commit or a
+   * checkout, not with a saved file. The first read is synchronous. After a
+   * HEAD change the history read for the previous HEAD keeps answering while
+   * the new one is read in the background (token fix 2): history only ranks
+   * ties and co-change partners, and a second of blocked event loop after
+   * every checkout is what kept the daemon from answering hooks. A question
+   * about history itself (`fresh`) always reads the current HEAD.
+   */
+  const gitSignalsFor = (
+    snapshot: IndexSnapshot,
+    { fresh = false }: { readonly fresh?: boolean } = {},
+  ): GitSignals | null => {
+    const key = readGitHead(snapshot.rootPath)?.sha ?? "";
+    if (gitCache?.key === key) return gitCache.value;
+    const keepPaths = new Set(snapshot.files.map((f) => f.path));
+    if (!gitCache || fresh) {
+      gitReading = null;
+      gitCache = {
+        key,
+        value: readGitSignals(snapshot.rootPath, { keepPaths }),
+      };
+      return gitCache.value;
+    }
+    if (gitReading !== key) {
+      gitReading = key;
+      void readGitSignalsAsync(snapshot.rootPath, { keepPaths }).then(
+        (value) => {
+          if (gitReading !== key) return; // HEAD moved again meanwhile
+          gitCache = { key, value };
+          gitReading = null;
+        },
+        () => {
+          gitReading = null; // fail soft: the next call tries again
+        },
+      );
+    }
+    return gitCache.value;
+  };
+  /** Co-change partners for Prepare ranking and test_impact (P7). */
+  const coChangeFor = (
+    snapshot: IndexSnapshot,
+  ): { coChange?: (path: string) => readonly CoChangePartner[] } => {
+    const index = gitSignalsFor(snapshot)?.coChange;
+    return index ? { coChange: (path) => index.partners(path) } : {};
+  };
   let frameworksCache: {
     at: string | null;
     value: readonly string[];
@@ -897,10 +1096,25 @@ export function createWorkspace(options: {
       ...(!isFullRun && lastSnapshot ? { priorFiles: lastSnapshot.files } : {}),
     };
 
-    const result = await options.ports.indexer.indexWorkspace(
+    const indexed = await options.ports.indexer.indexWorkspace(
       rootPath,
       mergedOptions,
     );
+    // A dirty run only re-reads the paths it was given, so it is as partial as
+    // the snapshot it merged into. Its own warnings start empty, which made a
+    // capped index look whole after the first edit (round 4).
+    const was =
+      !isFullRun && lastSnapshot ? partialIndexOf(lastSnapshot.warnings) : null;
+    const result =
+      indexed.ok && was && partialIndexOf(indexed.value.warnings) === null
+        ? ok({
+            ...indexed.value,
+            warnings: [
+              ...indexed.value.warnings,
+              partialIndexWarning(was.analyzed, was.total),
+            ],
+          })
+        : indexed;
     if (result.ok) {
       lastSnapshot = result.value;
       lastIndexedAt = result.value.indexedAt;
@@ -1227,14 +1441,7 @@ export function createWorkspace(options: {
           ),
         );
       }
-      if (!gitCache || gitCache.at !== lastIndexedAt) {
-        const keepPaths = new Set(lastSnapshot.files.map((f) => f.path));
-        gitCache = {
-          at: lastIndexedAt,
-          value: readGitSignals(lastSnapshot.rootPath, { keepPaths }),
-        };
-      }
-      const git = gitCache.value;
+      const git = gitSignalsFor(lastSnapshot);
       const gitFiles = git ? [...git.signals.values()] : undefined;
       const report = buildCodeExplorerReport({
         snapshot: lastSnapshot,
@@ -1275,14 +1482,7 @@ export function createWorkspace(options: {
           ),
         );
       }
-      if (!gitCache || gitCache.at !== lastIndexedAt) {
-        const keepPaths = new Set(lastSnapshot.files.map((f) => f.path));
-        gitCache = {
-          at: lastIndexedAt,
-          value: readGitSignals(lastSnapshot.rootPath, { keepPaths }),
-        };
-      }
-      const git = gitCache.value;
+      const git = gitSignalsFor(lastSnapshot);
       if (git && gitFilesCache?.from !== git) {
         gitFilesCache = { from: git, files: [...git.signals.values()] };
       }
@@ -1298,16 +1498,25 @@ export function createWorkspace(options: {
       }
       const frameworks = frameworksCache.value;
       const memories = await loadWorkspaceMemories(lastSnapshot.rootPath);
-      return ok(
-        buildPrepareChange({
-          snapshot: lastSnapshot,
-          task,
-          ...(input.budget !== undefined ? { budget: input.budget } : {}),
-          ...(gitFiles && gitFiles.length > 0 ? { gitFiles } : {}),
-          ...(frameworks.length > 0 ? { frameworks } : {}),
-          ...(memories.length > 0 ? { memories } : {}),
-        }),
-      );
+      const prepared = buildPrepareChange({
+        snapshot: lastSnapshot,
+        task,
+        ...(input.budget !== undefined ? { budget: input.budget } : {}),
+        ...(gitFiles && gitFiles.length > 0 ? { gitFiles } : {}),
+        ...coChangeFor(lastSnapshot),
+        ...(frameworks.length > 0 ? { frameworks } : {}),
+        ...(memories.length > 0 ? { memories } : {}),
+        ...(watchStatus !== "fresh" ? { indexStale: true } : {}),
+        testRuns: packTestRuns(lastSnapshot),
+        ...(() => {
+          const scores = feedbackScores(lastSnapshot.rootPath, task);
+          if (scores.size === 0) return {};
+          return {
+            feedback: (path: string) => scores.get(path) ?? 0,
+          };
+        })(),
+      });
+      return ok(prepared);
     },
     listFindings() {
       const gate = ensureOpen();
@@ -1460,18 +1669,7 @@ export function createWorkspace(options: {
           ),
         );
       }
-      if (!gitCache || gitCache.at !== lastIndexedAt) {
-        const keepPaths = new Set(
-          lastSnapshot.files
-            .filter((f) => f.status === "analyzed")
-            .map((f) => f.path),
-        );
-        gitCache = {
-          at: lastIndexedAt,
-          value: readGitSignals(lastSnapshot.rootPath, { keepPaths }),
-        };
-      }
-      const git = gitCache.value;
+      const git = gitSignalsFor(lastSnapshot, { fresh: true });
       const generatedAt = new Date().toISOString();
       if (git === null) {
         return ok({
@@ -1556,15 +1754,35 @@ export function createWorkspace(options: {
     async testImpact(input) {
       const gate = ensureSupported(input);
       if (!gate.ok) return gate;
-      return computeTestImpact(
-        input,
-        impactContextFor(gate.value, input.kind === "symbol", softImpactCache),
-      );
+      return computeTestImpact(input, {
+        ...impactContextFor(
+          gate.value,
+          input.kind === "symbol",
+          softImpactCache,
+        ),
+        ...coChangeFor(gate.value),
+      });
+    },
+    checkRunPlan(input) {
+      const gate = ensureImpact();
+      if (!gate.ok) return gate;
+      const packages = workspaceTestPackages(gate.value);
+      const packageManager = workspacePackageManager(gate.value.rootPath);
+      return ok({
+        runs: testRunPlan(input.tests, packages, packageManager).runs.map(
+          (r) => ({ ...r, argv: [...r.argv], tests: [...r.tests] }),
+        ),
+        typecheck: typecheckPlan(input.typecheck, packages, packageManager),
+        packageManager,
+      });
     },
     async reviewChanges(input) {
       const gate = ensureSupported();
       if (!gate.ok) return gate;
-      const context = impactContextFor(gate.value, false, softImpactCache);
+      const context = {
+        ...impactContextFor(gate.value, false, softImpactCache),
+        ...coChangeFor(gate.value),
+      };
       const inventory = gate.value.files.map((f) => f.path);
       const unsupported: { path: string; message: string }[] = [];
       const paths = [
@@ -1645,6 +1863,30 @@ export function createWorkspace(options: {
         ...(input.paths.length === 0 ? { message: "nothing changed" } : {}),
       } satisfies ChangeReviewReport);
     },
+    repoMap(opts = {}) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      const snapshot = lastSnapshot;
+      const head = readGitHead(snapshot.rootPath)?.sha;
+      return buildCachedRepoMap(this, {
+        ...opts,
+        ...(head ? { gitHead: head } : {}),
+        gitFiles: () => {
+          const git = gitSignalsFor(snapshot);
+          return git && git.signals.size > 0
+            ? [...git.signals.values()]
+            : undefined;
+        },
+      });
+    },
     graph(query, budget) {
       return runGraphQuery(this, query, budget);
     },
@@ -1669,6 +1911,20 @@ export function createWorkspace(options: {
         prefix.length > 0 &&
         folderFiles.length > 0 &&
         !snapshot.files.some((f) => f.path === prefix);
+      // A typo must not get a confident-looking summary of nothing.
+      if (
+        prefix.length > 0 &&
+        !isFolder &&
+        !snapshot.files.some((f) => f.path === prefix) &&
+        !existsSync(joinPath(snapshot.rootPath, prefix))
+      ) {
+        return err(
+          prismError(
+            PrismErrorCode.NOT_FOUND,
+            `No file or folder at ${prefix} in this workspace`,
+          ),
+        );
+      }
       const members = new Set(
         (isFolder ? folderFiles : [norm]).map((p) => `file:${p}`),
       );
@@ -1706,16 +1962,10 @@ export function createWorkspace(options: {
         dna?.rankedDomains.map((d) => d.id) ?? [],
       );
 
-      if (!gitCache || gitCache.at !== lastIndexedAt) {
-        const keepPaths = new Set(snapshot.files.map((f) => f.path));
-        gitCache = {
-          at: lastIndexedAt,
-          value: readGitSignals(snapshot.rootPath, { keepPaths }),
-        };
-      }
+      const git = gitSignalsFor(snapshot);
       const ownerCounts = new Map<string, number>();
       for (const p of isFolder ? folderFiles : [norm]) {
-        const signal = gitCache.value?.signals.get(p);
+        const signal = git?.signals.get(p);
         for (const c of signal?.contributors ?? [])
           ownerCounts.set(
             c.author,
@@ -1765,7 +2015,12 @@ export function createWorkspace(options: {
       const gate = ensureImpact();
       if (!gate.ok) return gate;
       const snapshot = gate.value;
-      const changed = readChangedPaths(rootPath, {});
+      const explicit = input?.changedPaths?.map((p) =>
+        p.replace(/\\/g, "/").replace(/^\.\//, ""),
+      );
+      const changed = explicit
+        ? { paths: explicit }
+        : readChangedPaths(rootPath, {});
       if (changed === null) {
         return err(
           prismError(
@@ -1775,17 +2030,40 @@ export function createWorkspace(options: {
         );
       }
       const preExisting = new Set(input?.preExistingChanges ?? []);
-      const sessionPaths = changed.paths.filter((p) => !preExisting.has(p));
+      const wanted = input?.paths?.map((p) => p.replace(/^\.\/|\/$/g, ""));
+      const named = (p: string) =>
+        !wanted || wanted.some((w) => p === w || p.startsWith(`${w}/`));
+      const sessionPaths = changed.paths.filter(
+        (p) => !preExisting.has(p) && named(p),
+      );
       const excludedPreExisting = changed.paths.filter((p) =>
         preExisting.has(p),
       );
 
       const dependencyGraph = buildDependencyGraph(snapshot).graph;
+      // Read each session file at HEAD once; undefined when there is no HEAD.
+      const hasHead = gitHasHead(rootPath);
+      const atHead = new Map<string, string | null>();
+      const headSource = (path: string): string | null | undefined => {
+        if (!hasHead) return undefined;
+        if (!atHead.has(path)) atHead.set(path, readHeadFile(rootPath, path));
+        return atHead.get(path);
+      };
+      const readAt = (path: string): string | null => {
+        try {
+          return readFileSync(joinPath(rootPath, path), "utf8");
+        } catch {
+          return null;
+        }
+      };
       const flagsByPath = checkGuardSession({
         snapshot,
         sessionPaths,
         dependencyGraph,
         entryRoles: entryPointsFor(snapshot).roles,
+        headSource,
+        readSource: readAt,
+        jsrPackage: publishesToJsr(readAt),
       });
       const context = impactContextFor(snapshot, false, softImpactCache);
       const files: GuardSession["files"] = [];
@@ -1807,13 +2085,15 @@ export function createWorkspace(options: {
       }
       files.sort((a, b) => b.risk - a.risk);
       const cap = 50;
+      const top = files.slice(0, cap);
       return ok({
         generatedAt: new Date().toISOString(),
-        files: files.slice(0, cap),
+        files: top,
         excludedPreExisting,
         sessionPaths,
         totalDirty: changed.paths.length,
         truncated: files.length > cap,
+        findings: findingsFromGuardFiles(top),
       } satisfies GuardSession);
     },
     async generateAgentsMd() {
@@ -1912,3 +2192,34 @@ export function createWorkspace(options: {
 
 /** Re-export for tests that assert progress typing. */
 export type { IndexProgressEvent };
+
+/** True when the repo has a HEAD commit to compare a session with. */
+function gitHasHead(rootPath: string): boolean {
+  try {
+    execFileSync(
+      "git",
+      ["-C", rootPath, "rev-parse", "--verify", "-q", "HEAD"],
+      {
+        stdio: "ignore",
+        timeout: 5_000,
+      },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** A file as committed at HEAD (round 5); null when HEAD has no such file. */
+function readHeadFile(rootPath: string, path: string): string | null {
+  try {
+    return execFileSync("git", ["-C", rootPath, "show", `HEAD:${path}`], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      maxBuffer: 16 * 1024 * 1024,
+      timeout: 5_000,
+    });
+  } catch {
+    return null;
+  }
+}

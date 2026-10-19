@@ -39,13 +39,13 @@ The action:
 
 1. Deepens a shallow clone (`git fetch --deepen=200` plus the base ref) and fails with `PRISM_SHALLOW` only if the base is still unreachable; `fetch-depth: 0` avoids the fetch
 2. Sets `PRISM_HOME` to `$RUNNER_TEMP/prism` and caches it (the index), plus `~/.npm`, so cold starts stay short. It does not force a package manager: no `setup-node` npm cache
-3. Installs `@repo-prism/cli` at the Action's major (`@v2` → `@repo-prism/cli@2`, input `version`) on Node 24 (input `node-version`)
+3. Installs the CLI for the Action's major (input `version`, default `2`), setting up Node for you (input `node-version` to choose one), or uses `prism-command` when you dogfood a workspace build
 4. Runs `prism review --json --fail-on …`
 5. Uploads the JSON as a workflow artifact
 6. Posts (or updates) a sticky PR comment — risk band, per-file blast, tests to run. On a fork PR (no write token) it skips the comment with a notice; the artifact is still uploaded
 7. Optionally emits `--format sarif` and uploads via `github/codeql-action/upload-sarif`
 
-This repository dogfoods the same action in
+Prism runs the same action on its own repository, in
 [`.github/workflows/prism-review.yml`](https://github.com/Shailesh200/prism/blob/main/.github/workflows/prism-review.yml).
 
 ## Manual CLI steps
@@ -65,7 +65,7 @@ Example GitHub Actions steps without the composite action:
     fetch-depth: 0
 - uses: actions/setup-node@v4
   with:
-    node-version: "24"
+    node-version: "lts/*"
 - run: echo "PRISM_HOME=$RUNNER_TEMP/prism" >> "$GITHUB_ENV"
 - uses: actions/cache@v4
   with:
@@ -74,21 +74,21 @@ Example GitHub Actions steps without the composite action:
       ${{ runner.temp }}/prism
     key: prism-${{ runner.os }}-${{ github.sha }}
     restore-keys: prism-${{ runner.os }}-
-- run: npm install -g @repo-prism/cli@2
+# Prefer the Action (installs the CLI for its major), or run your own build:
+#   prism-command: node packages/cli/dist/cli.js
 - run: prism review --base origin/main --fail-on high --json
 - run: prism cycles --fail-on any
 ```
 
 ### Cold-start caching
 
-Downloading the CLI on every job is slow unless npm's cache is warm.
 Prefer one of:
 
 | Approach | When |
 |---|---|
 | Action defaults | Cache `~/.npm` + `PRISM_HOME` (built into `action/action.yml`) |
-| `npm install -g @repo-prism/cli@2` | Pin the major; reuse the runner's npm cache |
-| Workspace `prism-command` | Dogfood a monorepo build (`node packages/cli/dist/cli.js`) |
+| Action `version` input | Pin the CLI major the Action installs; reuse the runner's npm cache |
+| Workspace `prism-command` | Run a CLI build from your workspace (`node packages/cli/dist/cli.js`) |
 
 `PRISM_HOME` holds the local index. Caching it across runs skips a
 full reindex when sources have not changed.
@@ -111,7 +111,7 @@ Upload with GitHub code scanning:
 ```
 
 `--format sarif` writes a SARIF 2.1.0 root object (not the Prism JSON ok/data
-envelope). `--json` remains the envelope for scripts and the sticky comment.
+wrapper). `--json` remains the wrapper for scripts and the sticky comment.
 
   </Tab>
   <Tab value="AI agent">
@@ -140,8 +140,7 @@ stdout is data (and `--json` / `--format sarif` payloads); progress goes to stde
 
 - Shallow clones (`--depth 1`) starve git-derived signals and the Action fails fast.
 - Do not parse human tables in scripts — use `--json` or `--format sarif`.
-- A gate that passes High while failing Moderate is almost never what you want;
-  at-or-above semantics prevent that.
+- At-or-above: a High gate also fails Moderate.
 
 ## Related
 

@@ -7,10 +7,12 @@
  * command that forgets to land here fails the suite.
  */
 export const CLI_COMMAND_NAMES = [
+  "start",
   "install",
   "uninstall",
   "upgrade",
   "doctor",
+  "strength",
   "stats",
   "data",
   "index",
@@ -33,9 +35,9 @@ export const CLI_COMMAND_NAMES = [
   "route",
   "agents-md",
   "findings",
-  "envelope",
   "receipts",
   "lens",
+  "habit",
   "remember",
   "forget",
   "memories",

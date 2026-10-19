@@ -127,4 +127,40 @@ describe("workspace.graph (M-096)", () => {
       expect(answer.truncated).toBe(true);
     }
   });
+
+  it("PREP-S3 symbol body fetch returns exact source range", async () => {
+    const sigOnly = await ask({
+      mode: "symbol",
+      path: DASHBOARD,
+      name: "renderDashboard",
+    });
+    expect(sigOnly.mode).toBe("symbol");
+    expect(sigOnly.symbol?.name).toBe("renderDashboard");
+    expect(sigOnly.symbol?.signature.length).toBeGreaterThan(0);
+    expect(sigOnly.symbol?.line).toBeGreaterThan(0);
+    expect(sigOnly.symbol?.body).toBeUndefined();
+
+    const withBody = await ask({
+      mode: "symbol",
+      path: DASHBOARD,
+      name: "renderDashboard",
+      body: true,
+    });
+    expect(withBody.symbol?.body).toBeTruthy();
+    const body = withBody.symbol!.body!;
+    // Exact indexed range: body must appear in the file at the declared lines.
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const source = readFileSync(join(root, DASHBOARD), "utf8");
+    expect(source).toContain(body);
+    expect(body).toMatch(/renderDashboard/);
+  });
+
+  it("MAP graph mode returns a signature map", async () => {
+    const answer = await ask({ mode: "map" }, 2000);
+    expect(answer.mode).toBe("map");
+    expect(answer.map).toBeTruthy();
+    expect(answer.map!).toContain("# Prism repo map");
+    expect(answer.map!).toMatch(/## /);
+  });
 });

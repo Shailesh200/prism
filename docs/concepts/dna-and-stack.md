@@ -1,6 +1,6 @@
 ---
 title: DNA and stack
-description: "What a repository is built from — detectors, domains, and confidence."
+description: "What a repository is built from: detectors, domains and confidence."
 ---
 
 **Repository DNA** is what the project is built out of: frameworks, tooling, and

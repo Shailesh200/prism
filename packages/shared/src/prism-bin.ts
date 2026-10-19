@@ -25,7 +25,10 @@ export const InstallRecordSchema = z
     version: z.string().min(1),
     /** Absolute path of the `prism-mcp` launcher this install put down. */
     bin: z.string().min(1),
+    /** First install; kept across re-installs and upgrades. */
     installedAt: z.string().min(1),
+    /** Last install or upgrade. */
+    updatedAt: z.string().min(1).optional(),
     /** Agent hosts `prism install` wrote configs for. */
     hosts: z.array(z.string().min(1)),
     /** `user` or `project` (plan §2.1). */

@@ -1,8 +1,8 @@
 /**
  * One token budget for the whole Prepare response (M-093, program §5.1).
  *
- * Tokens are response bytes ÷ 4, the rule Envelope uses, so what Prepare
- * promises is what Envelope measures. Sections are trimmed from the least to
+ * Tokens are response bytes ÷ 4 (`tokens.ts`), the same estimate every tool
+ * budget uses. Sections are trimmed from the least to
  * the most useful: house style, notes, work order, reuse, then the pack's
  * own files. Whatever was cut is named in `trimmed`, with how to get it.
  */
@@ -146,7 +146,8 @@ function shrink(
  *
  * Order: reserved sections down to their share → pack files (to 1) → tests →
  * notes → reserved sections to one item → everything to its floor of zero
- * (the pack keeps one file) → the last pack file's `why` list.
+ * (the pack keeps one file) → the last pack file's `why`, body, signatures
+ * and symbols.
  */
 export function fitPrepareToBudget(
   prep: PrepareChange,
@@ -219,24 +220,23 @@ export function fitPrepareToBudget(
       out = shrink(out, section);
     }
   }
-  // 3. Last resort: shorten the remaining file's reasons and symbols.
+  // 3. Last resort: shorten the remaining file's reasons, body, signatures
+  //    and symbols (a barrel file can carry hundreds of each).
   while (!fits(out)) {
     const file = out.pack.files[0];
     if (!file) break;
+    let next: typeof file;
     if (file.why.length > 1) {
-      out = {
-        ...out,
-        pack: { ...out.pack, files: [{ ...file, why: file.why.slice(0, -1) }] },
-      };
+      next = { ...file, why: file.why.slice(0, -1) };
+    } else if (file.body) {
+      const { body: _body, ...rest } = file;
+      next = rest;
+    } else if (file.signatures.length > 0) {
+      next = { ...file, signatures: file.signatures.slice(0, -1) };
     } else if (file.symbols.length > 0) {
-      out = {
-        ...out,
-        pack: {
-          ...out.pack,
-          files: [{ ...file, symbols: file.symbols.slice(0, -1) }],
-        },
-      };
+      next = { ...file, symbols: file.symbols.slice(0, -1) };
     } else break;
+    out = { ...out, pack: { ...out.pack, files: [next] } };
   }
   const result = withTrimmed(out);
   if (prepareResponseTokens(result) <= limit) return result;

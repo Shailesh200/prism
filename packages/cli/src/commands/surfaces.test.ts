@@ -12,6 +12,16 @@ describe("surface classification", () => {
     expect(classifyLaunch("npx -y @repo-prism/mcp-server@latest")).toBe(
       "published-npm",
     );
+    expect(
+      classifyLaunch(
+        "node /usr/local/lib/node_modules/@repo-prism/cli/node_modules/@repo-prism/mcp-server/dist/bin.js",
+      ),
+    ).toBe("npm-install");
+    expect(
+      classifyLaunch(
+        "node /p/node_modules/@repo-prism/plugin/dist/pack/hooks/prism-hook.mjs",
+      ),
+    ).toBe("npm-install");
     expect(classifyLaunch("npx eslint")).toBeNull();
   });
 

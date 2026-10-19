@@ -2,16 +2,34 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **Open** — round 4 re-tests and release gate pending |
 | Branch | `milestone/M-098-real-agent-proof` (from latest `main`) |
 | Depends on | M-097 Verified |
 | Unlocks | M-099 |
-| Packages | `scripts/bench` (A/B harness), `envelope` (calibration table), `apps/website` (`/benchmarks`) |
+| Packages | `scripts/bench` (A/B harness), ~~`envelope` (calibration table)~~, `apps/website` (`/benchmarks`) |
 | Absorbs | M-063 proof half |
+
+
+## Status (17 Oct 2026)
+
+- **Done:**
+  - The A/B harness (`scripts/bench/agent-ab.ts`, `ab-quality.ts`).
+  - B6 runs on Claude Code and opencode in rounds 1–3 (`notes/benchmark-real-agents-*.md`).
+  - The published proof page (`docs/benchmarks/2.x.md`, website `/benchmarks`).
+  - The release gate (`scripts/bench/release-gate.mjs`), which `publish-npm` runs.
+- **Round 3:** the gate fails 1 check, Claude cost on small tasks (--.168 → --.185 median), which was not re-measured. B1 passes at 0.92, but only because of a counting fix.
+- **Losses:**
+  - On follow-ups, Prism's code was graded less minimal (3.89 vs 4.44), with 2% more tokens.
+  - With opencode, correctness was lower (4.27 vs 4.64).
+- **Round 4 (running):**
+  - Claude Code re-tests: Sonnet 5.5 for complex tasks, Opus for small tasks.
+  - The follow-up quality gaps.
+  - A full release gate run.
+- **Dropped:** "calibrates Envelope". Envelope was removed on 17 Oct 2026.
 
 ## 1. Goal
 
-Measure Claude Code with and without Prism on real tasks, publish whatever it shows, and calibrate Envelope's "estimated saved". Program §9. Owner decision D3: Claude Code, with the owner's account.
+Measure Claude Code with and without Prism on real tasks, publish whatever it shows. ~~Calibrate Envelope's "estimated saved".~~ *(Envelope removed 17 Oct 2026)*. Program §9. Owner decision D3: Claude Code, with the owner's account.
 
 ## 2. In scope
 
@@ -23,7 +41,7 @@ Measure Claude Code with and without Prism on real tasks, publish whatever it sh
 | Metrics | Success (hidden test plus full suite), broken builds at "done", input / output tokens, wall time, files opened, tool calls, Prism share of context |
 | Analysis | Means, 95% CIs (bootstrap), per-task table, raw JSONL |
 | Publish | `plans/notes/benchmark-real-agents.md`; website `/benchmarks` replaces the simulated numbers |
-| Calibration | Per answer type, median tokens arm A spent to reach the same information become Envelope's baseline table |
+| ~~Calibration~~ | Dropped *(Envelope removed 17 Oct 2026)* |
 
 ## 3. Out of scope
 
@@ -34,7 +52,7 @@ Measure Claude Code with and without Prism on real tasks, publish whatever it sh
 - [ ] The owner approved the cost estimate before the run
 - [ ] All runs complete or are recorded as failed with a reason
 - [ ] Report published with CIs and raw data, including negative or flat results
-- [ ] Envelope "estimated saved" shows calibrated values, with a link to the method
+- ~~Envelope "estimated saved" shows calibrated values~~ (dropped *(Envelope removed 17 Oct 2026)*)
 - [ ] `verify:milestone` green
 - [ ] Owner review → commit → merge → Verified → snippet
 

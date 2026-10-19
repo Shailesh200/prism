@@ -51,6 +51,19 @@ describe("the pack on disk", () => {
     );
   });
 
+  it("keeps the fixed listing small: one skill, commands hidden from the model", () => {
+    // Every model-invocable description is resent on every call.
+    expect(def.skills).toEqual(["prism"]);
+    for (const id of def.commands) {
+      const { fields } = parseFrontmatter(
+        readFileSync(join(root, "commands", `${id}.md`), "utf8"),
+      );
+      expect(fields["disable-model-invocation"], id).toBe("true");
+    }
+    const listed = skills.map((s) => s.description).join("");
+    expect(listed.length).toBeLessThan(300);
+  });
+
   it("gives every skill a description a model can match a request against", () => {
     for (const skill of skills) {
       // Short enough to be a label is too short to route on: the host picks a
@@ -139,10 +152,18 @@ describe("skills-tools contract (plan §10 Phase 1)", () => {
   });
 
   it("every tool the hook tells the agent about is shipped", () => {
-    const told = [...hook.matchAll(/additionalContext: `([^`]*)`/g)].flatMap(
-      ([, text]) =>
-        [...text.matchAll(/\b([a-z]+(?:_[a-z]+)+)\b/g)].map((m) => m[1]),
-    );
+    // Literal context lines, and the exact tool ids the after-edit lines
+    // build with toolId("…") or spell as mcp__prism__… (round 4).
+    const told = [
+      ...[...hook.matchAll(/additionalContext: `([^`]*)`/g)].flatMap(
+        ([, text]) =>
+          [...text!.matchAll(/\b([a-z]+(?:_[a-z]+)+)\b/g)].map((m) => m[1]),
+      ),
+      ...[...hook.matchAll(/toolId\("([a-z_]+)"\)/g)].map((m) => m[1]),
+      ...[...hook.matchAll(/mcp__prism__([a-z]+(?:_[a-z]+)+)/g)].map(
+        (m) => m[1],
+      ),
+    ];
     expect(told.length).toBeGreaterThan(0);
     for (const name of told) {
       expect(shipped.has(name), `hook tells the agent about \`${name}\``).toBe(

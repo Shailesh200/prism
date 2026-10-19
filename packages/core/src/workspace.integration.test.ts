@@ -7,6 +7,7 @@ import {
 import type { Fixture } from "@repo-prism/test-support";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Prism } from "./prism.js";
+import { PrismErrorCode } from "@repo-prism/shared";
 import type { PrismWorkspace } from "./workspace.js";
 
 /**
@@ -172,14 +173,11 @@ describe("reports over a real repository", () => {
     expect(summary.fileRole).toBe("test");
   });
 
-  it("explains a path that does not exist without throwing", async () => {
+  it("a path that does not exist is NOT_FOUND, not an empty summary", async () => {
     const result = await workspace.explainArea("src/does-not-exist.ts");
-    // Either an empty answer or a typed error; a crash is the only wrong result.
-    if (result.ok) {
-      expect(result.value.dependencyDegree).toEqual({ in: 0, out: 0 });
-    } else {
-      expect(result.error.code).toBeTruthy();
-    }
+    expect(result.ok ? undefined : result.error.code).toBe(
+      PrismErrorCode.NOT_FOUND,
+    );
   });
 });
 

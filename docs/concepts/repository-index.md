@@ -1,6 +1,6 @@
 ---
 title: The repository index
-description: "Prism's parsed copy of your repository — every answer derives from it."
+description: "Prism's parsed copy of your repository. Every answer comes from it."
 ---
 
 The index is Prism's parsed copy of your repository. Every other answer is
@@ -19,7 +19,8 @@ your files, parses the ones it understands, and records:
 | **Roles** | Whether a file looks like a test, a config, a type declaration, or source |
 
 It does not store your source code. It stores facts *about* your source code.
-The result lives in `.prism/cache/index.sqlite`.
+The result lives in `~/.prism/workspaces/<key>/cache/index.sqlite`, outside
+your checkout.
 
 ## Why one index matters
 

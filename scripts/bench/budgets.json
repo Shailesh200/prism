@@ -50,7 +50,7 @@
       }
     },
     "large": {
-      "peakRssBytes": 4294967296,
+      "peakRssBytes": 3221225472,
       "operations": {
         "index_cold": 190000,
         "index_warm": 55000,

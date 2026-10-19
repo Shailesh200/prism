@@ -3,6 +3,7 @@
  * in `~/.prism/lenses` (CL-14). The MCP `lens` tool stays opt-in.
  *
  *   prism lens list
+ *   prism lens show <id>
  *   prism lens add <id> [--name …] [--role …] [--focus …] [--checklist …] [--checks …] [--trigger …]
  *                  [--evidence …] [--trigger "<phrase>"]…
  *   prism lens remove <id>
@@ -16,6 +17,7 @@ import {
   ok,
   PrismErrorCode,
   prismError,
+  type LensDefinition,
   type LensEvidence,
 } from "@repo-prism/shared";
 import {
@@ -31,7 +33,7 @@ import { renderHeading } from "../output.js";
 import type { CommandContext, CommandHandler } from "../runtime.js";
 
 const USAGE =
-  'Usage: prism lens list | add <id> [--name "…"] [--role "…"] [--focus "…"] [--checklist "…"] [--checks a,b] [--evidence a,b] [--trigger "phrase"]… | remove <id> | override <id> --check <check> --path <file> --note "…"';
+  'Usage: prism lens list | show <id> | add <id> [--name "…"] [--role "…"] [--focus "…"] [--checklist "…"] [--checks a,b] [--evidence a,b] [--trigger "phrase"]… | remove <id> | override <id> --check <check> --path <file> --note "…"';
 
 const usage = (message = USAGE) =>
   err(prismError(PrismErrorCode.VALIDATION, message));
@@ -50,6 +52,32 @@ async function current(root: string) {
   return applyDefaultProcedures(
     store.lenses.length > 0 ? store.lenses : DEFAULT_LENSES,
   );
+}
+
+function renderLens(lens: LensDefinition): string {
+  const quoted = (items: readonly string[]) =>
+    items.map((item) => `"${item}"`).join(", ");
+  return [
+    `${lens.id} — ${lens.name}${lens.seededDefault ? "" : " (custom)"}${lens.enabled ? "" : " — off"}`,
+    `  role: ${lens.role}`,
+    `  focus: ${lens.focus}`,
+    ...(lens.checklist.length > 0
+      ? [
+          "  checklist:",
+          ...lens.checklist.map((item, i) => `    ${i + 1}. ${item}`),
+        ]
+      : []),
+    ...(lens.evidence.length > 0
+      ? [`  evidence: ${lens.evidence.join(", ")}`]
+      : []),
+    ...(lens.checks.length > 0 ? [`  checks: ${lens.checks.join(", ")}`] : []),
+    ...(lens.triggers.length > 0
+      ? [`  triggers: ${quoted(lens.triggers)}`]
+      : []),
+    ...(lens.overrules.length > 0
+      ? [`  overrules: ${lens.overrules.length}`]
+      : []),
+  ].join("\n");
 }
 
 export const lensCommand: CommandHandler = async (context) => {
@@ -81,6 +109,21 @@ export const lensCommand: CommandHandler = async (context) => {
           `Stored in ${lensDefinitionsPath()}`,
         ].join("\n"),
     });
+  }
+
+  if (action === "show") {
+    if (!target) return usage();
+    const lenses = await current(root);
+    const needle = target.toLowerCase();
+    const lens = lenses.find(
+      (row) => row.id === needle || row.name.toLowerCase() === needle,
+    );
+    if (!lens) {
+      return usage(
+        `No lens named "${target}". Lenses: ${lenses.map((row) => row.id).join(", ")}.`,
+      );
+    }
+    return ok({ data: lens, human: () => renderLens(lens) });
   }
 
   if (action === "add") {

@@ -5,10 +5,14 @@
  *   prism uninstall [--purge]
  *   prism upgrade
  *
- * 2.0 ships local builds only from this command: `--local` (default: the
- * checkout this CLI runs from) must hold built `mcp-server` and `plugin`
- * packages. Install never runs `npx` and never fetches packages.
+ * The server and plugin pack come from one of two places, and install never
+ * runs `npx` or fetches packages:
+ * - a built checkout: `--local <checkout>`, or the checkout this CLI runs
+ *   from (development);
+ * - the `@repo-prism/mcp-server` and `@repo-prism/plugin` packages installed
+ *   with this CLI (`npm i -g @repo-prism/cli`).
  */
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -38,11 +42,23 @@ import {
 } from "../install/hosts.js";
 import { wipe1x } from "../install/wipe.js";
 import type { CommandContext, CommandHandler } from "../runtime.js";
+import { wrap } from "../table.js";
 
 const USAGE =
   "Usage: prism install <claude|cursor|codex|opencode|all> [--project|--user] [--local <checkout>]";
 
-const HOST_NAMES: Record<InstallHost, string> = {
+/** Shown after a successful `prism install`. */
+export function installThanks(): string {
+  return [
+    "",
+    "Prism is installed. Thanks for using it.",
+    "  Star the repo      https://github.com/Shailesh200/prism",
+    "  Watch releases     https://github.com/Shailesh200/prism/releases",
+    "  Website            https://www.prismhq.in",
+  ].join("\n");
+}
+
+export const HOST_NAMES: Record<InstallHost, string> = {
   claude: "Claude Code",
   cursor: "Cursor",
   codex: "Codex",
@@ -55,12 +71,21 @@ function hostAvailable(host: InstallHost, home: string): boolean {
 }
 
 /** Hosts whose official path is the rule line, so `receipt` is on by default (§5.10). */
-const RECEIPT_HOSTS: readonly InstallHost[] = ["cursor", "codex"];
+export const RECEIPT_HOSTS: readonly InstallHost[] = [
+  "cursor",
+  "codex",
+  "opencode",
+];
 
-function packageVersion(source: string): string {
-  const path = join(source, "packages", "mcp-server", "package.json");
+function versionAt(packageDir: string): string {
+  const path = join(packageDir, "package.json");
   return (JSON.parse(readFileSync(path, "utf8")) as { version: string })
     .version;
+}
+
+/** This CLI's package root: `<root>/dist/commands/install.js`. */
+function cliPackageRoot(): string {
+  return resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 }
 
 /** The checkout this CLI runs from: `<repo>/packages/cli/dist/commands/install.js`. */
@@ -75,9 +100,12 @@ export function defaultSource(): string {
 }
 
 export type SourceLayout = {
-  readonly source: string;
+  /** The checkout, for a local build; absent when installed from npm. */
+  readonly source?: string;
   readonly bin: string;
   readonly pack: string;
+  /** The server's version. */
+  readonly version: string;
 };
 
 export function sourceLayout(source: string): SourceLayout | string {
@@ -88,7 +116,68 @@ export function sourceLayout(source: string): SourceLayout | string {
   );
   if (missing.length > 0)
     return `${source} is not a built Prism checkout (missing ${missing.join(", ")}). Run \`bun run build\` there first.`;
-  return { source, bin, pack };
+  return {
+    source,
+    bin,
+    pack,
+    version: versionAt(join(source, "packages", "mcp-server")),
+  };
+}
+
+/**
+ * The server and plugin packages installed with this CLI, found the way Node
+ * resolves a dependency: `node_modules/@repo-prism/<name>` in `from` or a
+ * parent. The server must match the CLI's version (they ship in lockstep).
+ */
+export function packageLayout(from = cliPackageRoot()): SourceLayout | string {
+  const find = (name: string): string | undefined => {
+    for (let dir = from; ; dir = dirname(dir)) {
+      const candidate = join(dir, "node_modules", "@repo-prism", name);
+      if (existsSync(join(candidate, "package.json"))) return candidate;
+      if (dirname(dir) === dir) return undefined;
+    }
+  };
+  const server = find("mcp-server");
+  const plugin = find("plugin");
+  const reinstall =
+    "Reinstall with `npm i -g @repo-prism/cli`, or pass `--local <checkout>`.";
+  if (!server || !plugin)
+    return `The Prism server packages are not installed next to this CLI (missing ${[
+      !server && "@repo-prism/mcp-server",
+      !plugin && "@repo-prism/plugin",
+    ]
+      .filter(Boolean)
+      .join(", ")}). ${reinstall}`;
+  const bin = join(server, "dist", "bin.js");
+  const pack = join(plugin, "dist", "pack");
+  const missing = [bin, join(pack, "hooks", "prism-hook.mjs")].filter(
+    (path) => !existsSync(path),
+  );
+  if (missing.length > 0)
+    return `The installed Prism packages are incomplete (missing ${missing.join(", ")}). ${reinstall}`;
+  const version = versionAt(server);
+  const cli = versionAt(from);
+  if (version !== cli)
+    return `@repo-prism/mcp-server ${version} does not match @repo-prism/cli ${cli}. ${reinstall}`;
+  return { bin, pack, version };
+}
+
+/**
+ * Where install takes the server from when no `--local` is given: the
+ * checkout this CLI runs from when it is one, else the installed packages.
+ */
+export function defaultLayout(): SourceLayout | string {
+  const source = defaultSource();
+  return existsSync(join(source, "packages", "mcp-server", "package.json"))
+    ? sourceLayout(source)
+    : packageLayout();
+}
+
+/** `local build 08e4d3c+dirty`, or `npm package` for an npm install. */
+export function layoutLabel(layout: SourceLayout): string {
+  return layout.source
+    ? `local build ${buildLabel(layout.source)}`
+    : "npm package";
 }
 
 function hostsFrom(arg: string | undefined): InstallHost[] | undefined {
@@ -98,7 +187,7 @@ function hostsFrom(arg: string | undefined): InstallHost[] | undefined {
     : undefined;
 }
 
-function enableReceipt(env: NodeJS.ProcessEnv): boolean {
+export function enableReceipt(env: NodeJS.ProcessEnv): boolean {
   const loaded = loadUserConfigSync(env);
   if (!loaded.ok) throw new Error(loaded.error.message);
   const tools = loaded.value.extraTools ?? [];
@@ -107,17 +196,43 @@ function enableReceipt(env: NodeJS.ProcessEnv): boolean {
   return true;
 }
 
+/**
+ * Files an earlier install recorded, minus any since removed (a retired
+ * skill, say): those are no longer Prism's to list or uninstall.
+ */
+export function stillOnDisk(files: readonly InstallFile[]): InstallFile[] {
+  return files.filter((f) => f.kind !== "file" || existsSync(f.path));
+}
+
 type InstallRun = {
   readonly hosts: readonly InstallHost[];
   readonly scope: InstallScope;
   readonly root: string;
   readonly layout: SourceLayout;
   readonly env: NodeJS.ProcessEnv;
+  /** Stamps the 1.x backup folder; `prism start` passes its plan's time. */
+  readonly now?: Date;
+  /** The home agents read their configs from (default: the OS home). */
+  readonly home?: string;
 };
+
+/** `08e4d3c`, or `08e4d3c+dirty` when the checkout has uncommitted changes. */
+export function buildLabel(source: string): string {
+  const sha = readGitHead(source)?.sha?.slice(0, 7);
+  if (!sha) return "unknown";
+  const status = spawnSync("git", ["status", "--porcelain"], {
+    cwd: source,
+    encoding: "utf8",
+  });
+  return status.status === 0 && status.stdout.trim() !== ""
+    ? `${sha}+dirty`
+    : sha;
+}
 
 export async function runInstall(run: InstallRun) {
   const wipe = await wipe1x({
     env: run.env,
+    ...(run.now ? { now: run.now } : {}),
     stopDaemon: async () =>
       (await stopDaemon({ env: run.env })).kind === "ok"
         ? "stopped"
@@ -129,11 +244,10 @@ export async function runInstall(run: InstallRun) {
     previous.kind === "ok" ? [...(previous.record.files ?? [])] : [];
   const files: InstallFile[] = [];
   const notes: string[] = [];
-  const installed = run.hosts.filter((host) => hostAvailable(host, homedir()));
-  const skipped = run.hosts.filter((host) => !installed.includes(host));
+  const installed = run.hosts;
   const target = {
     scope: run.scope,
-    home: homedir(),
+    home: run.home ?? homedir(),
     root: run.root,
     node: process.execPath,
     bin: run.layout.bin,
@@ -149,30 +263,34 @@ export async function runInstall(run: InstallRun) {
     enableReceipt(run.env)
   )
     notes.push(
-      "Enabled the `receipt` MCP tool (extraTools) for the Cursor/Codex rule path.",
+      "Enabled the `receipt` MCP tool (extraTools) for the Cursor/Codex/opencode rule path.",
     );
   const key = (file: InstallFile) =>
     `${file.kind}:${file.path}:${"key" in file ? file.key.join(".") : ""}`;
   const merged = new Map<string, InstallFile>();
-  for (const file of [...kept, ...files]) merged.set(key(file), file);
+  for (const file of [...stillOnDisk(kept), ...files])
+    merged.set(key(file), file);
   const hosts = new Set([
     ...(previous.kind === "ok" ? previous.record.hosts : []),
     ...installed,
   ]);
+  const now = new Date().toISOString();
   const record: InstallRecord = {
-    version: packageVersion(run.layout.source),
+    version: run.layout.version,
     bin: run.layout.bin,
-    installedAt: new Date().toISOString(),
+    // The first install time survives re-installs and upgrades.
+    installedAt: previous.kind === "ok" ? previous.record.installedAt : now,
+    updatedAt: now,
     hosts: [...hosts].sort(),
     scope: run.scope,
     root: run.root,
-    source: run.layout.source,
+    ...(run.layout.source ? { source: run.layout.source } : {}),
     files: [...merged.values()].map((file) =>
       file.kind === "json-key" ? { ...file, key: [...file.key] } : file,
     ),
   };
   if (installed.length > 0) writeInstallRecord(record, run.env);
-  const build = readGitHead(run.layout.source)?.sha?.slice(0, 7) ?? "unknown";
+  const build = layoutLabel(run.layout);
   return {
     kind: "done",
     wipe,
@@ -180,7 +298,6 @@ export async function runInstall(run: InstallRun) {
     files,
     notes,
     installed,
-    skipped,
     build,
   } as const;
 }
@@ -188,17 +305,19 @@ export async function runInstall(run: InstallRun) {
 export const installCommand: CommandHandler = async (
   context: CommandContext,
 ) => {
-  const hosts = hostsFrom(context.args.positionals[0]);
-  if (!hosts) return err(prismError(PrismErrorCode.VALIDATION, USAGE));
+  const wanted = hostsFrom(context.args.positionals[0]);
+  if (!wanted) return err(prismError(PrismErrorCode.VALIDATION, USAGE));
+  const hosts = wanted.filter((host) => hostAvailable(host, homedir()));
+  const skipped = wanted.filter((host) => !hosts.includes(host));
   if (context.args.flag("project") && context.args.flag("user"))
     return err(
       prismError(PrismErrorCode.VALIDATION, "Pick one of --project or --user."),
     );
   const scope: InstallScope = context.args.flag("project") ? "project" : "user";
   const local = context.args.option("local");
-  const layout = sourceLayout(
-    local ? resolve(context.cwd, local) : defaultSource(),
-  );
+  const layout = local
+    ? sourceLayout(resolve(context.cwd, local))
+    : defaultLayout();
   if (typeof layout === "string")
     return err(prismError(PrismErrorCode.NOT_FOUND, layout));
   const result = await runInstall({
@@ -215,7 +334,7 @@ export const installCommand: CommandHandler = async (
         `Cannot write ${result.wipe.path}; nothing was changed. Fix: ${result.wipe.fix}`,
       ),
     );
-  const { wipe, record, files, notes, installed, skipped, build } = result;
+  const { wipe, record, files, notes, installed, build } = result;
   const where = scope === "project" ? ", this repository" : "";
   return ok({
     data: {
@@ -224,15 +343,16 @@ export const installCommand: CommandHandler = async (
       wipe: wipe.kind === "wiped" ? wipe : { kind: wipe.kind },
       notes,
     },
-    human: () =>
+    human: ({ width }) =>
       [
         ...(wipe.kind === "wiped" ? [wipe.line] : []),
         ...installed.map(
           (host) =>
-            `Prism ${record.version} installed for ${HOST_NAMES[host]} (local build ${build}${where}).`,
+            `Prism ${record.version} installed for ${HOST_NAMES[host]} (${build}${where}).`,
         ),
         ...skipped.map((host) => `${HOST_NAMES[host]} not found; skipped.`),
-        ...notes,
+        ...notes.flatMap((note) => wrap(note, width)),
+        installThanks(),
       ].join("\n"),
   });
 };
@@ -296,7 +416,7 @@ export const upgradeCommand: CommandHandler = async () => {
       ),
     );
   const record = previous.record;
-  const layout = sourceLayout(record.source ?? defaultSource());
+  const layout = record.source ? sourceLayout(record.source) : defaultLayout();
   if (typeof layout === "string")
     return err(prismError(PrismErrorCode.NOT_FOUND, layout));
   const hosts = record.hosts.filter((host): host is InstallHost =>
@@ -327,6 +447,6 @@ export const upgradeCommand: CommandHandler = async () => {
       source: layout.source,
     },
     human: () =>
-      `Prism ${before} → ${result.record.version} (local build from ${layout.source}); re-linked ${hosts.join(", ")}. The daemon restarts on next use.`,
+      `Prism ${before} → ${result.record.version} (${layout.source ? `local build from ${layout.source}` : `npm package ${dirname(dirname(layout.bin))}`}); re-linked ${hosts.join(", ")}. The daemon restarts on next use.`,
   });
 };

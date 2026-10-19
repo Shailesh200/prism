@@ -56,12 +56,15 @@ export const LensCheckStatusSchema = z.enum([
 ]);
 export type LensCheckStatus = z.infer<typeof LensCheckStatusSchema>;
 
+/** Evidence lines one finding keeps; the rest are counted in the last line. */
+export const LENS_EVIDENCE_MAX = 20;
+
 /** One computed check result, with the evidence that decided it. */
 export const LensFindingSchema = z.object({
   lens: z.string().min(1),
   check: LensCheckIdSchema,
   status: LensCheckStatusSchema,
-  evidence: z.array(z.string().min(1)).max(20),
+  evidence: z.array(z.string().min(1)).max(LENS_EVIDENCE_MAX),
   /** Remembered overrule note, when `status` is `overruled` (CL-2). */
   note: z.string().optional(),
 });

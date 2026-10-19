@@ -1,9 +1,9 @@
 {
-  "recordedAt": "2026-10-14T09:31:41.025Z",
+  "recordedAt": "2026-10-16T11:26:31.931Z",
   "methodology": {
     "tokenEstimate": "estimatedTokens = bytesRead / 4; tokensPerCall = estimatedTokens / toolCalls",
     "withoutPrism": "Simulated naive agent: list dirs, read manifests, scan/grep files",
-    "withPrism": "Core SDK calls matching MCP tools (repository_overview, blast_radius, find, test_impact, dependency_cycles)"
+    "withPrism": "Core SDK calls matching MCP tools (repository_overview, blast_radius, find, test_impact, dependency_cycles); the index Prism builds on its own is not counted, since no tool returns it"
   },
   "machine": {
     "platform": "darwin",
@@ -28,18 +28,18 @@
             "tokensPerCall": 38
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 7669,
-            "estimatedTokens": 1917,
-            "elapsedMs": 53,
-            "bytesPerCall": 3835,
-            "tokensPerCall": 959
+            "toolCalls": 1,
+            "bytesRead": 3536,
+            "estimatedTokens": 884,
+            "elapsedMs": 45,
+            "bytesPerCall": 3536,
+            "tokensPerCall": 884
           },
           "savings": {
-            "toolCallsPct": 86,
-            "bytesPct": -262,
-            "tokensPct": -262,
-            "timePct": -1667
+            "toolCallsPct": 93,
+            "bytesPct": -67,
+            "tokensPct": -67,
+            "timePct": -1400
           }
         },
         {
@@ -54,18 +54,18 @@
             "tokensPerCall": 34
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 4989,
-            "estimatedTokens": 1247,
-            "elapsedMs": 10,
-            "bytesPerCall": 2495,
-            "tokensPerCall": 624
+            "toolCalls": 1,
+            "bytesRead": 857,
+            "estimatedTokens": 214,
+            "elapsedMs": 12,
+            "bytesPerCall": 857,
+            "tokensPerCall": 214
           },
           "savings": {
-            "toolCallsPct": 83,
-            "bytesPct": -207,
-            "tokensPct": -207,
-            "timePct": -900
+            "toolCallsPct": 92,
+            "bytesPct": 47,
+            "tokensPct": 47,
+            "timePct": -1100
           }
         },
         {
@@ -80,18 +80,18 @@
             "tokensPerCall": 28
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 4308,
-            "estimatedTokens": 1077,
-            "elapsedMs": 8,
-            "bytesPerCall": 2154,
-            "tokensPerCall": 539
+            "toolCalls": 1,
+            "bytesRead": 176,
+            "estimatedTokens": 44,
+            "elapsedMs": 6,
+            "bytesPerCall": 176,
+            "tokensPerCall": 44
           },
           "savings": {
-            "toolCallsPct": 82,
-            "bytesPct": -244,
-            "tokensPct": -244,
-            "timePct": -700
+            "toolCallsPct": 91,
+            "bytesPct": 86,
+            "tokensPct": 86,
+            "timePct": -500
           }
         },
         {
@@ -101,23 +101,23 @@
             "toolCalls": 5,
             "bytesRead": 496,
             "estimatedTokens": 124,
-            "elapsedMs": 1,
+            "elapsedMs": 0,
             "bytesPerCall": 99,
             "tokensPerCall": 25
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 4259,
-            "estimatedTokens": 1065,
-            "elapsedMs": 5,
-            "bytesPerCall": 2130,
-            "tokensPerCall": 533
+            "toolCalls": 1,
+            "bytesRead": 136,
+            "estimatedTokens": 34,
+            "elapsedMs": 944,
+            "bytesPerCall": 136,
+            "tokensPerCall": 34
           },
           "savings": {
-            "toolCallsPct": 60,
-            "bytesPct": -759,
-            "tokensPct": -759,
-            "timePct": -400
+            "toolCallsPct": 80,
+            "bytesPct": 73,
+            "tokensPct": 73,
+            "timePct": 0
           }
         },
         {
@@ -127,23 +127,23 @@
             "toolCalls": 11,
             "bytesRead": 1580,
             "estimatedTokens": 395,
-            "elapsedMs": 1,
+            "elapsedMs": 3,
             "bytesPerCall": 144,
             "tokensPerCall": 36
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 4154,
-            "estimatedTokens": 1039,
-            "elapsedMs": 5,
-            "bytesPerCall": 2077,
-            "tokensPerCall": 520
+            "toolCalls": 1,
+            "bytesRead": 22,
+            "estimatedTokens": 6,
+            "elapsedMs": 6,
+            "bytesPerCall": 22,
+            "tokensPerCall": 6
           },
           "savings": {
-            "toolCallsPct": 82,
-            "bytesPct": -163,
-            "tokensPct": -163,
-            "timePct": -400
+            "toolCallsPct": 91,
+            "bytesPct": 99,
+            "tokensPct": 98,
+            "timePct": -100
           }
         }
       ]
@@ -158,25 +158,25 @@
           "label": "What is this repository?",
           "withoutPrism": {
             "toolCalls": 12,
-            "bytesRead": 1427,
-            "estimatedTokens": 357,
+            "bytesRead": 1395,
+            "estimatedTokens": 349,
             "elapsedMs": 1,
-            "bytesPerCall": 119,
-            "tokensPerCall": 30
+            "bytesPerCall": 116,
+            "tokensPerCall": 29
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 10980,
-            "estimatedTokens": 2745,
-            "elapsedMs": 27,
-            "bytesPerCall": 5490,
-            "tokensPerCall": 1373
+            "toolCalls": 1,
+            "bytesRead": 8422,
+            "estimatedTokens": 2106,
+            "elapsedMs": 21,
+            "bytesPerCall": 8422,
+            "tokensPerCall": 2106
           },
           "savings": {
-            "toolCallsPct": 83,
-            "bytesPct": -669,
-            "tokensPct": -669,
-            "timePct": -2600
+            "toolCallsPct": 92,
+            "bytesPct": -504,
+            "tokensPct": -503,
+            "timePct": -2000
           }
         },
         {
@@ -186,23 +186,23 @@
             "toolCalls": 8,
             "bytesRead": 1315,
             "estimatedTokens": 329,
-            "elapsedMs": 1,
+            "elapsedMs": 0,
             "bytesPerCall": 164,
             "tokensPerCall": 41
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 3080,
-            "estimatedTokens": 770,
+            "toolCalls": 1,
+            "bytesRead": 616,
+            "estimatedTokens": 154,
             "elapsedMs": 6,
-            "bytesPerCall": 1540,
-            "tokensPerCall": 385
+            "bytesPerCall": 616,
+            "tokensPerCall": 154
           },
           "savings": {
-            "toolCallsPct": 75,
-            "bytesPct": -134,
-            "tokensPct": -134,
-            "timePct": -500
+            "toolCallsPct": 88,
+            "bytesPct": 53,
+            "tokensPct": 53,
+            "timePct": 0
           }
         },
         {
@@ -212,23 +212,23 @@
             "toolCalls": 7,
             "bytesRead": 885,
             "estimatedTokens": 221,
-            "elapsedMs": 1,
+            "elapsedMs": 0,
             "bytesPerCall": 126,
             "tokensPerCall": 32
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 2618,
-            "estimatedTokens": 655,
+            "toolCalls": 1,
+            "bytesRead": 154,
+            "estimatedTokens": 39,
             "elapsedMs": 6,
-            "bytesPerCall": 1309,
-            "tokensPerCall": 328
+            "bytesPerCall": 154,
+            "tokensPerCall": 39
           },
           "savings": {
-            "toolCallsPct": 71,
-            "bytesPct": -196,
-            "tokensPct": -196,
-            "timePct": -500
+            "toolCallsPct": 86,
+            "bytesPct": 83,
+            "tokensPct": 82,
+            "timePct": 0
           }
         },
         {
@@ -243,17 +243,17 @@
             "tokensPerCall": 35
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 2571,
-            "estimatedTokens": 643,
-            "elapsedMs": 5,
-            "bytesPerCall": 1286,
-            "tokensPerCall": 322
+            "toolCalls": 1,
+            "bytesRead": 116,
+            "estimatedTokens": 29,
+            "elapsedMs": 699,
+            "bytesPerCall": 116,
+            "tokensPerCall": 29
           },
           "savings": {
-            "toolCallsPct": 50,
-            "bytesPct": -355,
-            "tokensPct": -356,
+            "toolCallsPct": 75,
+            "bytesPct": 79,
+            "tokensPct": 79,
             "timePct": 0
           }
         },
@@ -264,23 +264,23 @@
             "toolCalls": 7,
             "bytesRead": 972,
             "estimatedTokens": 243,
-            "elapsedMs": 1,
+            "elapsedMs": 2,
             "bytesPerCall": 139,
             "tokensPerCall": 35
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 2486,
-            "estimatedTokens": 622,
+            "toolCalls": 1,
+            "bytesRead": 22,
+            "estimatedTokens": 6,
             "elapsedMs": 4,
-            "bytesPerCall": 1243,
-            "tokensPerCall": 311
+            "bytesPerCall": 22,
+            "tokensPerCall": 6
           },
           "savings": {
-            "toolCallsPct": 71,
-            "bytesPct": -156,
-            "tokensPct": -156,
-            "timePct": -300
+            "toolCallsPct": 86,
+            "bytesPct": 98,
+            "tokensPct": 98,
+            "timePct": -100
           }
         }
       ]
@@ -302,18 +302,18 @@
             "tokensPerCall": 36
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 8211,
-            "estimatedTokens": 2053,
-            "elapsedMs": 20,
-            "bytesPerCall": 4106,
-            "tokensPerCall": 1027
+            "toolCalls": 1,
+            "bytesRead": 2548,
+            "estimatedTokens": 637,
+            "elapsedMs": 17,
+            "bytesPerCall": 2548,
+            "tokensPerCall": 637
           },
           "savings": {
-            "toolCallsPct": 86,
-            "bytesPct": -305,
-            "tokensPct": -305,
-            "timePct": -1900
+            "toolCallsPct": 93,
+            "bytesPct": -26,
+            "tokensPct": -26,
+            "timePct": -1600
           }
         },
         {
@@ -323,23 +323,23 @@
             "toolCalls": 10,
             "bytesRead": 1930,
             "estimatedTokens": 483,
-            "elapsedMs": 1,
+            "elapsedMs": 0,
             "bytesPerCall": 193,
             "tokensPerCall": 48
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 6337,
-            "estimatedTokens": 1584,
-            "elapsedMs": 6,
-            "bytesPerCall": 3169,
-            "tokensPerCall": 792
+            "toolCalls": 1,
+            "bytesRead": 674,
+            "estimatedTokens": 169,
+            "elapsedMs": 7,
+            "bytesPerCall": 674,
+            "tokensPerCall": 169
           },
           "savings": {
-            "toolCallsPct": 80,
-            "bytesPct": -228,
-            "tokensPct": -228,
-            "timePct": -500
+            "toolCallsPct": 90,
+            "bytesPct": 65,
+            "tokensPct": 65,
+            "timePct": 0
           }
         },
         {
@@ -354,17 +354,17 @@
             "tokensPerCall": 47
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 5830,
-            "estimatedTokens": 1458,
-            "elapsedMs": 4,
-            "bytesPerCall": 2915,
-            "tokensPerCall": 729
+            "toolCalls": 1,
+            "bytesRead": 167,
+            "estimatedTokens": 42,
+            "elapsedMs": 5,
+            "bytesPerCall": 167,
+            "tokensPerCall": 42
           },
           "savings": {
-            "toolCallsPct": 78,
-            "bytesPct": -245,
-            "tokensPct": -245,
+            "toolCallsPct": 89,
+            "bytesPct": 90,
+            "tokensPct": 90,
             "timePct": 0
           }
         },
@@ -375,23 +375,23 @@
             "toolCalls": 4,
             "bytesRead": 572,
             "estimatedTokens": 143,
-            "elapsedMs": 0,
+            "elapsedMs": 1,
             "bytesPerCall": 143,
             "tokensPerCall": 36
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 5768,
-            "estimatedTokens": 1442,
-            "elapsedMs": 6,
-            "bytesPerCall": 2884,
-            "tokensPerCall": 721
+            "toolCalls": 1,
+            "bytesRead": 114,
+            "estimatedTokens": 29,
+            "elapsedMs": 698,
+            "bytesPerCall": 114,
+            "tokensPerCall": 29
           },
           "savings": {
-            "toolCallsPct": 50,
-            "bytesPct": -908,
-            "tokensPct": -908,
-            "timePct": 0
+            "toolCallsPct": 75,
+            "bytesPct": 80,
+            "tokensPct": 80,
+            "timePct": -69700
           }
         },
         {
@@ -401,23 +401,23 @@
             "toolCalls": 9,
             "bytesRead": 1688,
             "estimatedTokens": 422,
-            "elapsedMs": 0,
+            "elapsedMs": 2,
             "bytesPerCall": 188,
             "tokensPerCall": 47
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 5685,
-            "estimatedTokens": 1421,
-            "elapsedMs": 4,
-            "bytesPerCall": 2843,
-            "tokensPerCall": 711
+            "toolCalls": 1,
+            "bytesRead": 22,
+            "estimatedTokens": 6,
+            "elapsedMs": 5,
+            "bytesPerCall": 22,
+            "tokensPerCall": 6
           },
           "savings": {
-            "toolCallsPct": 78,
-            "bytesPct": -237,
-            "tokensPct": -237,
-            "timePct": 0
+            "toolCallsPct": 89,
+            "bytesPct": 99,
+            "tokensPct": 99,
+            "timePct": -150
           }
         }
       ]
@@ -434,23 +434,23 @@
             "toolCalls": 14,
             "bytesRead": 2277,
             "estimatedTokens": 569,
-            "elapsedMs": 1,
+            "elapsedMs": 2,
             "bytesPerCall": 163,
             "tokensPerCall": 41
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 13630,
-            "estimatedTokens": 3408,
-            "elapsedMs": 29,
-            "bytesPerCall": 6815,
-            "tokensPerCall": 1704
+            "toolCalls": 1,
+            "bytesRead": 5072,
+            "estimatedTokens": 1268,
+            "elapsedMs": 35,
+            "bytesPerCall": 5072,
+            "tokensPerCall": 1268
           },
           "savings": {
-            "toolCallsPct": 86,
-            "bytesPct": -499,
-            "tokensPct": -499,
-            "timePct": -2800
+            "toolCallsPct": 93,
+            "bytesPct": -123,
+            "tokensPct": -123,
+            "timePct": -1650
           }
         },
         {
@@ -465,18 +465,18 @@
             "tokensPerCall": 28
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 12147,
-            "estimatedTokens": 3037,
-            "elapsedMs": 14,
-            "bytesPerCall": 6074,
-            "tokensPerCall": 1519
+            "toolCalls": 1,
+            "bytesRead": 3589,
+            "estimatedTokens": 897,
+            "elapsedMs": 11,
+            "bytesPerCall": 3589,
+            "tokensPerCall": 897
           },
           "savings": {
-            "toolCallsPct": 91,
-            "bytesPct": -396,
-            "tokensPct": -396,
-            "timePct": -1300
+            "toolCallsPct": 95,
+            "bytesPct": -47,
+            "tokensPct": -47,
+            "timePct": -1000
           }
         },
         {
@@ -491,18 +491,18 @@
             "tokensPerCall": 24
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 8704,
-            "estimatedTokens": 2176,
-            "elapsedMs": 7,
-            "bytesPerCall": 4352,
-            "tokensPerCall": 1088
+            "toolCalls": 1,
+            "bytesRead": 146,
+            "estimatedTokens": 37,
+            "elapsedMs": 8,
+            "bytesPerCall": 146,
+            "tokensPerCall": 37
           },
           "savings": {
-            "toolCallsPct": 90,
-            "bytesPct": -324,
-            "tokensPct": -323,
-            "timePct": -600
+            "toolCallsPct": 95,
+            "bytesPct": 93,
+            "tokensPct": 93,
+            "timePct": -700
           }
         },
         {
@@ -517,17 +517,17 @@
             "tokensPerCall": 39
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 8655,
-            "estimatedTokens": 2164,
-            "elapsedMs": 8,
-            "bytesPerCall": 4328,
-            "tokensPerCall": 1082
+            "toolCalls": 1,
+            "bytesRead": 106,
+            "estimatedTokens": 27,
+            "elapsedMs": 687,
+            "bytesPerCall": 106,
+            "tokensPerCall": 27
           },
           "savings": {
-            "toolCallsPct": 60,
-            "bytesPct": -1010,
-            "tokensPct": -1010,
+            "toolCallsPct": 80,
+            "bytesPct": 86,
+            "tokensPct": 86,
             "timePct": 0
           }
         },
@@ -538,23 +538,23 @@
             "toolCalls": 21,
             "bytesRead": 2054,
             "estimatedTokens": 514,
-            "elapsedMs": 1,
+            "elapsedMs": 2,
             "bytesPerCall": 98,
             "tokensPerCall": 24
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 8580,
-            "estimatedTokens": 2145,
-            "elapsedMs": 5,
-            "bytesPerCall": 4290,
-            "tokensPerCall": 1073
+            "toolCalls": 1,
+            "bytesRead": 22,
+            "estimatedTokens": 6,
+            "elapsedMs": 7,
+            "bytesPerCall": 22,
+            "tokensPerCall": 6
           },
           "savings": {
-            "toolCallsPct": 90,
-            "bytesPct": -318,
-            "tokensPct": -317,
-            "timePct": -400
+            "toolCallsPct": 95,
+            "bytesPct": 99,
+            "tokensPct": 99,
+            "timePct": -250
           }
         }
       ]
@@ -569,25 +569,25 @@
           "label": "What is this repository?",
           "withoutPrism": {
             "toolCalls": 10,
-            "bytesRead": 495,
-            "estimatedTokens": 124,
-            "elapsedMs": 0,
-            "bytesPerCall": 50,
+            "bytesRead": 463,
+            "estimatedTokens": 116,
+            "elapsedMs": 2,
+            "bytesPerCall": 46,
             "tokensPerCall": 12
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 3601,
-            "estimatedTokens": 900,
-            "elapsedMs": 12,
-            "bytesPerCall": 1801,
-            "tokensPerCall": 450
+            "toolCalls": 1,
+            "bytesRead": 1449,
+            "estimatedTokens": 362,
+            "elapsedMs": 8,
+            "bytesPerCall": 1449,
+            "tokensPerCall": 362
           },
           "savings": {
-            "toolCallsPct": 80,
-            "bytesPct": -627,
-            "tokensPct": -626,
-            "timePct": 0
+            "toolCallsPct": 90,
+            "bytesPct": -213,
+            "tokensPct": -212,
+            "timePct": -300
           }
         },
         {
@@ -602,17 +602,17 @@
             "tokensPerCall": 17
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 2988,
-            "estimatedTokens": 747,
-            "elapsedMs": 4,
-            "bytesPerCall": 1494,
-            "tokensPerCall": 374
+            "toolCalls": 1,
+            "bytesRead": 836,
+            "estimatedTokens": 209,
+            "elapsedMs": 2,
+            "bytesPerCall": 836,
+            "tokensPerCall": 209
           },
           "savings": {
-            "toolCallsPct": 67,
-            "bytesPct": -649,
-            "tokensPct": -647,
+            "toolCallsPct": 83,
+            "bytesPct": -110,
+            "tokensPct": -109,
             "timePct": 0
           }
         },
@@ -628,17 +628,17 @@
             "tokensPerCall": 16
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 2278,
-            "estimatedTokens": 570,
+            "toolCalls": 1,
+            "bytesRead": 126,
+            "estimatedTokens": 32,
             "elapsedMs": 3,
-            "bytesPerCall": 1139,
-            "tokensPerCall": 285
+            "bytesPerCall": 126,
+            "tokensPerCall": 32
           },
           "savings": {
-            "toolCallsPct": 60,
-            "bytesPct": -619,
-            "tokensPct": -622,
+            "toolCallsPct": 80,
+            "bytesPct": 60,
+            "tokensPct": 59,
             "timePct": 0
           }
         },
@@ -654,17 +654,17 @@
             "tokensPerCall": 16
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 2235,
-            "estimatedTokens": 559,
-            "elapsedMs": 3,
-            "bytesPerCall": 1118,
-            "tokensPerCall": 280
+            "toolCalls": 1,
+            "bytesRead": 92,
+            "estimatedTokens": 23,
+            "elapsedMs": 684,
+            "bytesPerCall": 92,
+            "tokensPerCall": 23
           },
           "savings": {
-            "toolCallsPct": 50,
-            "bytesPct": -760,
-            "tokensPct": -760,
+            "toolCallsPct": 75,
+            "bytesPct": 65,
+            "tokensPct": 65,
             "timePct": 0
           }
         },
@@ -675,22 +675,22 @@
             "toolCalls": 5,
             "bytesRead": 317,
             "estimatedTokens": 79,
-            "elapsedMs": 0,
+            "elapsedMs": 2,
             "bytesPerCall": 63,
             "tokensPerCall": 16
           },
           "withPrism": {
-            "toolCalls": 2,
-            "bytesRead": 2211,
-            "estimatedTokens": 553,
-            "elapsedMs": 5,
-            "bytesPerCall": 1106,
-            "tokensPerCall": 277
+            "toolCalls": 1,
+            "bytesRead": 59,
+            "estimatedTokens": 15,
+            "elapsedMs": 2,
+            "bytesPerCall": 59,
+            "tokensPerCall": 15
           },
           "savings": {
-            "toolCallsPct": 60,
-            "bytesPct": -597,
-            "tokensPct": -600,
+            "toolCallsPct": 80,
+            "bytesPct": 81,
+            "tokensPct": 81,
             "timePct": 0
           }
         }
@@ -700,25 +700,25 @@
   "totals": {
     "withoutPrism": {
       "toolCalls": 250,
-      "bytesRead": 31539,
-      "estimatedTokens": 7885,
-      "elapsedMs": 17,
+      "bytesRead": 31475,
+      "estimatedTokens": 7869,
+      "elapsedMs": 25,
       "bytesPerCall": 126,
-      "tokensPerCall": 32
+      "tokensPerCall": 31
     },
     "withPrism": {
-      "toolCalls": 50,
-      "bytesRead": 143974,
-      "estimatedTokens": 35994,
-      "elapsedMs": 259,
-      "bytesPerCall": 2879,
-      "tokensPerCall": 720
+      "toolCalls": 25,
+      "bytesRead": 29079,
+      "estimatedTokens": 7270,
+      "elapsedMs": 3928,
+      "bytesPerCall": 1163,
+      "tokensPerCall": 291
     },
     "savings": {
-      "toolCallsPct": 80,
-      "bytesPct": -356,
-      "tokensPct": -356,
-      "timePct": -1424
+      "toolCallsPct": 90,
+      "bytesPct": 8,
+      "tokensPct": 8,
+      "timePct": -15612
     }
   }
 }

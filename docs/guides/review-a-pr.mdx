@@ -28,7 +28,7 @@ The agent should call `guard_session` to rank the changed files, then
 tools report, not with the raw diff. See
 [Guard a session](/docs/guides/guard-a-session).
 
-`review_changes` gives the same roll-up as `prism review` in one call. It is
+`guard_session` with `review: true` gives the same roll-up as `prism review` in one call. It is
 one of the nine default tools.
 
 A finding a report lists stays open until a re-scan drops its fingerprint — an
@@ -60,5 +60,4 @@ branch.
 
 [Guard a session](/docs/guides/guard-a-session) ·
 [Findings](/docs/guides/findings) ·
-[Wire into CI](/docs/guides/wire-into-ci) ·
 [Before you edit](/docs/guides/before-you-edit)

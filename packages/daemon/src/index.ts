@@ -8,6 +8,7 @@ export {
   compareVersions,
   daemonHealth,
   daemonReady,
+  daemonBuildIdFor,
   daemonStatus,
   type DaemonHealth,
   ensureDaemon,

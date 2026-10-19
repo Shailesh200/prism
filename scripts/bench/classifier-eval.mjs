@@ -8,6 +8,8 @@
  * committed, only aggregate metrics are written).
  *
  * Positive class = prompts that should get a Prepare pack (label change|bug).
+ * `classifier/trivial.jsonl` holds 40 hand-labelled trivial edits (plan P5):
+ * they must be recognised as changes but get no pack.
  * Metrics: change recall, question false-positive rate, chit-chat FP rate,
  * non-English "no pack" rate.
  *
@@ -52,7 +54,7 @@ async function loadClassifier(kind) {
   );
   return (text) => {
     const r = mod.classifyPrompt(text);
-    return { pack: r.kind === "change" };
+    return { pack: r.kind === "change", trivial: r.kind === "trivial" };
   };
 }
 
@@ -61,7 +63,10 @@ async function loadClassifier(kind) {
 // before column, run against the 1.x hook.
 const kind = arg("classifier", "module");
 const classify = await loadClassifier(kind);
-const sets = { synthetic: readJsonl(join(here, "classifier/synthetic.jsonl")) };
+const sets = {
+  synthetic: readJsonl(join(here, "classifier/synthetic.jsonl")),
+  trivial: readJsonl(join(here, "classifier/trivial.jsonl")),
+};
 const privatePath =
   process.env.PRISM_DEV_CORPUS ??
   join(homedir(), ".prism-dev/classifier-corpus/corpus.jsonl");
@@ -77,6 +82,8 @@ function score(rows) {
   const pos = en.filter((r) => r.label === "change" || r.label === "bug");
   const byLabel = (l) => en.filter((r) => r.label === l);
   const packed = (r) => classify(r.text).pack;
+  const trivial = (r) => Boolean(classify(r.text).trivial);
+  const predictedTrivial = en.filter(trivial);
   return {
     total: rows.length,
     english: en.length,
@@ -86,6 +93,11 @@ function score(rows) {
     chitchatFalsePositive: round(rate(byLabel("chitchat"), packed)),
     reviewPacked: round(rate(byLabel("review"), packed)),
     nonEnglishNoPack: round(rate(other, (r) => !packed(r))),
+    trivialRecall: round(rate(byLabel("trivial"), trivial)),
+    trivialPrecision: round(
+      rate(predictedTrivial, (r) => r.label === "trivial"),
+    ),
+    trivialPacked: round(rate(byLabel("trivial"), packed)),
   };
 }
 
@@ -97,6 +109,7 @@ const result = {
     changeRecall: 0.95,
     questionFalsePositive: 0.05,
     nonEnglishNoPack: 1,
+    trivialPrecision: 0.95,
   },
   sets: Object.fromEntries(Object.entries(sets).map(([k, v]) => [k, score(v)])),
   combined: score(Object.values(sets).flat()),

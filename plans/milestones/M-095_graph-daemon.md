@@ -2,12 +2,24 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **Built, not verified** — B5 freshness and medium-repo memory open (round 4) |
 | Branch | `milestone/M-095-graph-daemon` (from latest `main`) |
-| Depends on | M-094 Verified |
+| Depends on | ~~M-094 Verified~~ M-093 (M-094 obsolete) |
 | Unlocks | M-096 |
 | Packages | new `packages/daemon` (lifted from `dispatch-hub` server + `watch.ts`), `core` (attach client), `mcp-server` / `cli` (attach-first), `plugin` (session hook starts daemon), `indexer` (incremental path) |
 | ADR | [ADR-0063](../adr/0063-prism-daemon-is-a-process.md) |
+
+
+## Status (17 Oct 2026)
+
+- **Built:**
+  - `packages/daemon`, with attach-first MCP and the hooks.
+  - `prism graph status|serve|stop|refresh|map|export`.
+  - The warm daemon keeps hooks under 1 s (B8 round 3: prompt 896 ms, stop 508 ms p95).
+- **Deleted in 2.0:** the git-hook writer (`prism graph hooks`, unified plan §0.4 #37).
+- **Round 4 (running):**
+  - The B5 freshness benchmark (`scripts/bench/daemon-freshness.mjs`), not run since round 2.
+  - Medium-repo peak memory: round 3 measured 1.56 GB, against 1.02 GB before (ceiling 1.72 GB). The round 4 check at 04:04 IST found no regression on the current tree: 0.79 / 0.95 GB on Node 24, against 1.16 GB on Node 23. The release gate still has to confirm it.
 
 ## 1. Goal
 

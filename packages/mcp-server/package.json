@@ -14,15 +14,24 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./review": {
+      "types": "./dist/safety/review-extras.d.ts",
+      "import": "./dist/safety/review-extras.js"
+    },
+    "./receipt": {
+      "types": "./dist/safety/receipt.d.ts",
+      "import": "./dist/safety/receipt.js"
     }
   },
   "bin": {
     "prism-mcp": "./dist/bin.js"
   },
-  "description": "MCP server over Core: local repository intelligence for coding agents",
+  "description": "Prism MCP server — gives your coding agent the right files before it edits, then flags the code it skipped and the code no test covers. Runs on your machine",
   "files": [
     "dist",
-    "media"
+    "media",
+    "!dist/tsconfig.tsbuildinfo"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -32,7 +41,7 @@
   },
   "type": "module",
   "engines": {
-    "node": ">=24"
+    "node": ">=20"
   },
   "devDependencies": {
     "@repo-prism/test-support": "workspace:*"

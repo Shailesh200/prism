@@ -186,6 +186,15 @@ export const cyclesCommand: CommandHandler = async (context) => {
   });
 };
 
+function notFound(name: string | undefined, path: string | undefined) {
+  return err(
+    prismError(
+      PrismErrorCode.NOT_FOUND,
+      `No symbol named '${name ?? ""}'${path ? ` in ${path}` : ""} in the index.`,
+    ),
+  );
+}
+
 export const symbolCommand: CommandHandler = async (context) => {
   const limit = parseLimit(context.args.option("limit"));
   if (!limit.ok) return limit;
@@ -207,6 +216,10 @@ export const symbolCommand: CommandHandler = async (context) => {
     ...(kind === undefined ? {} : { kind }),
   });
   if (!result.ok) return result;
+  // Like blast: a name that is not in the index is NOT_FOUND (exit 2), so a
+  // script can tell a typo from an answer.
+  if (result.value.length === 0)
+    return notFound(name, path?.ok ? path.value : undefined);
 
   const hits = bound(result.value, limit.value);
 
@@ -217,8 +230,6 @@ export const symbolCommand: CommandHandler = async (context) => {
       truncated: hits.truncated,
     },
     human({ color, width }) {
-      if (hits.items.length === 0) return `No symbol named '${name}'.`;
-
       const lines = [
         renderHeading(plural(hits.totalCount, "match", "matches"), color),
         "",
@@ -261,10 +272,16 @@ export const refsCommand: CommandHandler = async (context) => {
     : undefined;
   if (path && !path.ok) return path;
 
-  const result = opened.value.findReferences({
+  const query = {
     name: name ?? "",
     ...(path?.ok ? { path: path.value } : {}),
-  });
+  };
+  // A symbol with no references is an answer (exit 0); no symbol at all is not.
+  const defined = opened.value.findSymbol(query);
+  if (defined.ok && defined.value.length === 0) {
+    return notFound(name, query.path);
+  }
+  const result = opened.value.findReferences(query);
   if (!result.ok) return result;
 
   if (result.value.ambiguous) {

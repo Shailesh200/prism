@@ -2,12 +2,23 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **Built, not verified** — round 4 open (published install path) |
 | Branch | `milestone/M-089-one-build-everywhere` (from latest `main`) |
 | Depends on | M-088 Verified |
 | Unlocks | M-090; closes M-078 |
 | Packages | `packages/plugin` (`definition.ts`, `build-pack.ts`, `hooks/prism-hook.mjs`), `packages/cli` (`doctor --surfaces`), `scripts/` (`dev-link`, `dev-unlink`), root `package.json`, `.nvmrc`, `.gitignore` |
 | ADR | [ADR-0061](../adr/0061-workspace-build-everywhere.md) |
+
+
+## Status (17 Oct 2026)
+
+- **Built:**
+  - `.nvmrc` is 24.18.1, and `bun run dev:link` exists.
+  - `prism doctor --surfaces` (`cli/src/commands/surfaces.ts`) flags npm, `npx @latest` and leftover Marketplace installs.
+  - `prism install <claude|cursor|codex|opencode>` installs the local build (next plan P19/P21). The install matrix passes 4/4 on macOS (change report, round 3).
+  - Every install on the owner's Mac points at the local build.
+- **Changed:** the Marketplace and VSIX parts are dropped, because the IDE extensions were deleted in 2.0.
+- **Round 4 (running):** `npm i -g @repo-prism/cli && prism start` failed outside the source checkout. The fix is made but has not been through the release gate yet. The CI OS matrix has not run (it needs a push).
 
 ## 1. Goal
 

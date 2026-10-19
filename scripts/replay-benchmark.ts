@@ -22,6 +22,9 @@
  *     --repos es-toolkit=https://github.com/toss/es-toolkit.git,... \
  *     --work /tmp/prism-bench --per-repo 6 --out plans/notes/benchmark/R0.json
  *
+ * `--cases FILE` replays the cases of an earlier result (e.g. the B3 baseline)
+ * instead of mining new ones, so the two runs compare case for case.
+ *
  * Requires `bun run build` first (imports the built receipt and checks).
  */
 
@@ -347,6 +350,11 @@ async function main(): Promise<void> {
     arg("--out", join(repoRoot, "plans/notes/benchmark/R0.json")),
   );
   if (!reposArg) throw new Error("--repos name=url,... is required");
+  const casesFrom = arg("--cases");
+  const earlier = casesFrom
+    ? (JSON.parse(readFileSync(casesFrom, "utf8")) as { cases: CaseResult[] })
+        .cases
+    : null;
 
   process.env.PRISM_HOME = join(work, "prism-home");
   mkdirSync(process.env.PRISM_HOME, { recursive: true });
@@ -370,16 +378,32 @@ async function main(): Promise<void> {
       // Full clone: SZZ blames many old blobs, and a blobless clone fetches each.
       execFileSync("git", ["clone", "-q", url, clone], { stdio: "inherit" });
     }
-    const commits = commitsInWindow(clone, windowDays);
-    const candidates = mineRegressions(clone, commits, perRepo).slice(
-      0,
-      perRepo,
-    );
-    const exclude = new Set([
-      ...candidates.map((c) => c.bad),
-      ...candidates.map((c) => c.fix),
-    ]);
-    const controls = pickControls(clone, commits, exclude, candidates.length);
+    let candidates: Candidate[];
+    let controls: { sha: string }[];
+    if (earlier) {
+      const mine = earlier.filter(
+        (c) => c.repo === name && c.commit !== "install",
+      );
+      candidates = mine
+        .filter((c) => c.kind === "regression")
+        .map((c) => ({
+          bad: c.commit,
+          fix: c.fixedBy ?? "",
+          fixSubject: c.fixSubject ?? "",
+          fixFiles: c.fixFiles ?? [],
+        }));
+      controls = mine
+        .filter((c) => c.kind === "control")
+        .map((c) => ({ sha: c.commit }));
+    } else {
+      const commits = commitsInWindow(clone, windowDays);
+      candidates = mineRegressions(clone, commits, perRepo).slice(0, perRepo);
+      const exclude = new Set([
+        ...candidates.map((c) => c.bad),
+        ...candidates.map((c) => c.fix),
+      ]);
+      controls = pickControls(clone, commits, exclude, candidates.length);
+    }
     console.log(
       `${name}: ${candidates.length} regressions, ${controls.length} controls`,
     );

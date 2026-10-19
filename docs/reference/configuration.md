@@ -33,7 +33,7 @@ ecosystem-specific additions once Prism detects the ecosystem.
 
 ## `.prism/config.json`
 
-Shared indexing knobs for CLI and IDE (Core reads this at workspace open):
+Indexing settings shared by the CLI and the MCP server (read when a workspace opens):
 
 ```json
 {
@@ -90,8 +90,11 @@ workspace variable:
 
 Canonical copy:
 [`packages/mcp-server/mcp-install.json`](https://github.com/Shailesh200/prism/blob/main/packages/mcp-server/mcp-install.json).
-`prism install <editor>` writes this entry for you with absolute paths
-(`node …/mcp-server/dist/bin.js`); it never uses `npx` or `@latest`.
+`prism install <editor>` (and `prism start`) write this entry for you with
+absolute paths (`node …/mcp-server/dist/bin.js`), pointing at the server
+installed with the CLI; they do not write `npx` or `@latest`. The hand-written
+config on [Install](/docs/start/install) and the Add to Cursor button start the
+published server with `npx` instead.
 
 Resolution: `--workspace` → `PRISM_WORKSPACE` → host `WORKSPACE_FOLDER_PATHS`
 → `CURSOR_WORKSPACE` → nearest git root → cwd. When that lands on a directory

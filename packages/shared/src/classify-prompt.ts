@@ -19,6 +19,8 @@
 
 export type PromptKind =
   | "change"
+  /** A change too small to need Prism context (typo, wording, formatting). */
+  | "trivial"
   | "review"
   | "question"
   | "chitchat"
@@ -63,6 +65,7 @@ const CHANGE_VERBS = [
   "extract",
   "fix",
   "format",
+  "reformat",
   "generate",
   "handle",
   "hide",
@@ -440,7 +443,27 @@ function wantsChange(clause: string): boolean {
   return true;
 }
 
+/** Cosmetic, single-spot edits (plan P5). Precision first: any doubt → not trivial. */
+const TRIVIAL =
+  /\b(?:typos?|spelling|misspell(?:ed|ing)?|whitespace|indentation|re-?indent|formatting|reformat|trailing (?:whitespace|spaces?|commas?)|semicolons?|lint (?:errors?|warnings?)|wording|comments?|docstrings?|log message|bump (?:the )?version|version bump|capitali[sz]ation|punctuation)\b/i;
+const NOT_TRIVIAL =
+  /\b(?:all|every|everywhere|across|each|codebase|whole|entire|repo|project|bug|crash\w*|broken|fails?|failing|exceptions?|regression|feature|endpoint|api|tests?|logic|behaviou?r|refactor\w*|migrat\w*|system|module|support|implement\w*)\b/i;
+
+export function isTrivialChange(plain: string): boolean {
+  return (
+    words(plain).length <= 14 && TRIVIAL.test(plain) && !NOT_TRIVIAL.test(plain)
+  );
+}
+
 export function classifyPrompt(prompt: string): PromptClass {
+  const verdict = classifyBase(prompt);
+  if (verdict.kind === "change" && isTrivialChange(stripCode(prompt.trim()))) {
+    return { kind: "trivial", rule: "trivial" };
+  }
+  return verdict;
+}
+
+function classifyBase(prompt: string): PromptClass {
   const text = prompt.trim();
   if (text.length < 2) return { kind: "chitchat", rule: "empty" };
   if (isNonEnglish(text)) return { kind: "non_english", rule: "language" };

@@ -1,19 +1,20 @@
 ---
-title: Command Center
-description: "One engine. Pick a surface, a task, or a concept. Analysis stays on your machine."
+title: Introduction
+description: "What Prism does before and after your agent edits, and where to start."
 ---
 
 Prism gives coding agents local context before an edit and checks the change
-after it. Prepare says what to open. Envelope shows what Prism put into the
-agent's context and what it cost. The receipt runs the checks a change reaches
-and says whether it is proven, unproven, or failed. Analysis has no model, and
-your agent makes the edits.
+after it. Prepare says what to open, which tests to run and what to reuse. A lens
+review flags the callers a change left behind and the code no test covers. When
+the agent stops, the receipt runs the checks the change reaches and gives a
+verdict: SHIP, NOT PROVEN or NO-SHIP. Analysis has no model, and your agent
+makes the edits.
 
 <Cards>
   <Card
     title="Get started"
     href="/docs/start/install"
-    description="Install in five minutes — CLI, IDE, or MCP."
+    description="Install the CLI and connect your agent."
   />
   <Card
     title="Intelligence"
@@ -23,17 +24,12 @@ your agent makes the edits.
   <Card
     title="Prepare"
     href="/docs/guides/prepare-a-change"
-    description="One call before you edit — pack, reuse, House Style."
+    description="Files, tests, helpers to reuse and House Style, before the edit."
   />
   <Card
-    title="Envelope"
-    href="/docs/guides/envelope"
-    description="What agents took from the index, measured."
-  />
-  <Card
-    title="Guard"
+    title="Review"
     href="/docs/guides/guard-a-session"
-    description="Read the dirty files that can actually hurt."
+    description="Rank this session's changes and run a lens review."
   />
 </Cards>
 
@@ -47,11 +43,9 @@ your agent makes the edits.
 | Check before editing | [Before you edit](/docs/guides/before-you-edit) |
 | Rank a messy dirty tree | [Guard a session](/docs/guides/guard-a-session) |
 | See unused or duplicated code | [Findings](/docs/guides/findings) |
-| Read the Envelope | [Envelope](/docs/guides/envelope) |
 | Save a note Prepare hands back | [Remember context](/docs/guides/remember-context) |
 | Review a PR or diff | [Review a PR](/docs/guides/review-a-pr) |
 | Delete something safely | [Delete safely](/docs/guides/delete-safely) |
-| Wire Prism into CI | [Wire into CI](/docs/guides/wire-into-ci) |
 
 ## Surfaces
 

@@ -2,12 +2,22 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **Built** (re-scoped by 2.0), not owner-verified |
 | Branch | `milestone/M-097-first-run` (from latest `main`) |
 | Depends on | M-096 Verified |
 | Unlocks | M-098 |
 | Packages | `cli` (default command, report card, `--badge`), `intelligence` (finding selection), `ui` (card image), `scripts/` (precision harness) |
 | Absorbs | Parts of M-061 the precision gate needs |
+
+
+## Status (17 Oct 2026)
+
+- **Re-scoped (unified plan C-10):**
+  - The report card and its health line were dropped.
+  - `prism start` detects agents, installs the local build, indexes and prints the top of the repo map (`cli/src/commands/start.ts`, next plan P19). A bare `prism` prints the same without installing.
+  - The 20-repo precision gate with owner labels was dropped, in favour of B2/B4 on labelled golden repos.
+- **Not measured:** the < 60 s target on es-toolkit.
+- **Round 4:** the published-install fix also covers `prism start` from npm.
 
 ## 1. Goal
 

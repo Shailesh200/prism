@@ -10,6 +10,20 @@ let ws: PrismWorkspace;
 
 const mutesPath = (): string => join(root, ".prism", "finding-mutes.json");
 
+// These tests assert the in-fixture store (`<root>/.prism`), which tests get
+// only while PRISM_HOME is unset (shared/src/prism-home.ts). A developer or CI
+// shell with PRISM_HOME set made them fail and left files in that home (round 4
+// fresh-copy QA), so it is cleared for each test and put back after.
+let savedPrismHome: string | undefined;
+beforeEach(() => {
+  savedPrismHome = process.env.PRISM_HOME;
+  delete process.env.PRISM_HOME;
+});
+afterEach(() => {
+  if (savedPrismHome === undefined) delete process.env.PRISM_HOME;
+  else process.env.PRISM_HOME = savedPrismHome;
+});
+
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "prism-mutes-"));
   await writeFile(join(root, "package.json"), '{"name":"fixture"}\n', "utf8");

@@ -1,6 +1,6 @@
 ---
 title: Graphs
-description: "Dependency, knowledge, and feature graphs — three layers over one index."
+description: "Dependency, knowledge and feature graphs, three layers over one index."
 ---
 
 Prism builds three related graphs from the same [index](/docs/concepts/repository-index).

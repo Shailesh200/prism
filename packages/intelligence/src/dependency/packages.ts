@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { isRelativeSpecifier } from "./resolve.js";
 import { parseJsonc } from "./soft-impact-utils.js";
 
 export type LocalPackage = {
@@ -307,7 +308,7 @@ export function resolveLocalPackageSpecifier(
   packages: readonly LocalPackage[],
   indexedPaths: ReadonlySet<string>,
 ): string | null {
-  if (specifier.startsWith("./") || specifier.startsWith("../")) return null;
+  if (isRelativeSpecifier(specifier)) return null;
   if (specifier.startsWith("/") || specifier.startsWith("node:")) return null;
   if (specifier.startsWith("file:")) return null;
 

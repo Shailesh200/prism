@@ -37,7 +37,9 @@ function signals(overrides: Partial<LensSignals> = {}): LensSignals {
     valueCycles: [],
     packageOf: (path) => path.split("/").slice(0, 2).join("/"),
     dependenciesAdded: [],
+    removedLines: new Map(),
     dependentsNotInDiff: new Map(),
+    mentions: () => true,
     fingerprint: () => "h1",
     ...overrides,
   };
@@ -165,6 +167,9 @@ describe("lens checks (plan §5.3)", () => {
         addedLines: new Map([
           [path, ["export function debounce(fn, wait, options) {"]],
         ]),
+        removedLines: new Map([
+          [path, ["export function debounce(fn, wait) {"]],
+        ]),
         dependentsNotInDiff: new Map([[path, ["src/function/throttle.ts"]]]),
       }),
     );
@@ -172,6 +177,75 @@ describe("lens checks (plan §5.3)", () => {
       status: "fail",
       evidence: [expect.stringContaining("src/function/throttle.ts")],
     });
+  });
+
+  it("a declaration that only moved does not fail", () => {
+    const path = "src/git/git-signals.ts";
+    const line = "export function readGitSignals(";
+    const out = evaluateLensChecks(
+      [lens("qa")],
+      receipt(),
+      signals({
+        changed: [path],
+        addedLines: new Map([[path, [line]]]),
+        removedLines: new Map([[path, [line]]]),
+        dependentsNotInDiff: new Map([[path, ["src/git/git-signals.test.ts"]]]),
+      }),
+    );
+    expect(status(out, "dependents_not_in_diff")?.status).toBe("pass");
+  });
+
+  it("a const that keeps its name is a new value, not a signature change", () => {
+    const path = "src/instructions.ts";
+    const out = evaluateLensChecks(
+      [lens("qa")],
+      receipt(),
+      signals({
+        changed: [path],
+        removedLines: new Map([
+          [path, ["export const SERVER_INSTRUCTIONS = `old`"]],
+        ]),
+        addedLines: new Map([
+          [path, ["export const SERVER_INSTRUCTIONS = `new`"]],
+        ]),
+        dependentsNotInDiff: new Map([[path, ["src/server.ts"]]]),
+      }),
+    );
+    expect(status(out, "dependents_not_in_diff")?.status).toBe("pass");
+  });
+
+  it("an importer that never names the changed export is not a caller", () => {
+    const path = "src/server.ts";
+    const out = evaluateLensChecks(
+      [lens("qa")],
+      receipt(),
+      signals({
+        changed: [path],
+        removedLines: new Map([
+          [path, ["export const MAX_READY_WAIT_MS = 3_000;"]],
+        ]),
+        addedLines: new Map([
+          [path, ["export const MAX_READY_WAIT_MS = 900;"]],
+        ]),
+        dependentsNotInDiff: new Map([[path, ["src/no-network.test.ts"]]]),
+        mentions: () => false,
+      }),
+    );
+    expect(status(out, "dependents_not_in_diff")?.status).toBe("pass");
+  });
+
+  it("a new export or a new file breaks no dependent (website round)", () => {
+    const path = "lib/seo.ts";
+    const out = evaluateLensChecks(
+      [lens("qa")],
+      receipt(),
+      signals({
+        changed: [path],
+        addedLines: new Map([[path, ["export function pageMetadata() {"]]]),
+        dependentsNotInDiff: new Map([[path, ["app/page.tsx"]]]),
+      }),
+    );
+    expect(status(out, "dependents_not_in_diff")?.status).toBe("pass");
   });
 
   it("CL-2/CL-3: an overrule holds until the file changes", () => {
@@ -222,5 +296,21 @@ describe("lens checks (plan §5.3)", () => {
     expect(status(out, "untested_new_branch")?.status).toBe("concern");
     expect(status(out, "untested_changed_symbol")?.status).toBe("concern");
     expect(status(out, "test_reaches_but_not_run")?.status).toBe("concern");
+  });
+
+  it("a change past 20 files keeps 20 evidence lines, the last one counting the rest", () => {
+    const paths = Array.from({ length: 31 }, (_, i) => `src/f${i}.ts`);
+    const out = evaluateLensChecks(
+      DEFAULT_LENSES.filter((row) =>
+        row.checks.includes("untested_changed_symbol"),
+      ),
+      receipt({
+        notProven: paths.map((path) => ({ path, reason: "untested" })),
+      }),
+      signals({ changed: paths }),
+    );
+    const row = status(out, "untested_changed_symbol")!;
+    expect(row.evidence).toHaveLength(20);
+    expect(row.evidence.at(-1)).toBe("+12 more");
   });
 });

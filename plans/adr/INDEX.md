@@ -63,11 +63,12 @@ One row per Architecture Decision Record. Status is the one written in the ADR h
 | 0057 | [Prism Intelligence is one product, one Dashboard, fewer packages](./0057-prism-intelligence-unified-product.md) | Accepted | [ADR-0060](./0060-prism-keeps-its-name.md) (identity and copy), [ADR-0064](./0064-dispatch-removed.md) (Dispatch parts) |
 | 0058 | [Prism does not run agents — it is the safety layer agents run through](./0058-prism-does-not-run-agents.md) | Accepted | — |
 | 0059 | [Lenses — user-owned review lenses, thought by the host's model](./0059-lenses.md) | Accepted | — |
-| 0060 | [Prism keeps its name; the hero is developer speed](./0060-prism-keeps-its-name.md) | Accepted | — |
+| 0060 | [Prism keeps its name; the hero is developer speed](./0060-prism-keeps-its-name.md) | Accepted (hero line amended 2026-10-17) | — |
 | 0061 | [Developing Prism uses the workspace build on every host](./0061-workspace-build-everywhere.md) | Accepted | — |
 | 0062 | [Prism Graph replaces the Repository Map](./0062-prism-graph-replaces-repository-map.md) | Accepted | — |
 | 0063 | [The Prism daemon is a process, not an agent](./0063-prism-daemon-is-a-process.md) | Accepted | — |
 | 0064 | [Dispatch is removed from the product, the MCP surface and the code](./0064-dispatch-removed.md) | Accepted | — |
 | 0065 | [Prepare is injected on prompt submit](./0065-auto-prepare.md) | Accepted | — |
-| 0066 | [Envelope is a product surface](./0066-envelope-product-surface.md) | Accepted | — |
+| 0066 | [Envelope is a product surface](./0066-envelope-product-surface.md) | Superseded | [ADR-0068](./0068-envelope-removed.md) |
 | 0067 | [Prism 2.0 reliability and precision decisions](./0067-prism-2-reliability-and-precision.md) | Accepted | — |
+| 0068 | [Envelope is removed](./0068-envelope-removed.md) | Accepted | — |

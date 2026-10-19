@@ -4,9 +4,11 @@ import {
   receiptFeedback,
   receiptHeadline,
   receiptSummaryLine,
+  receiptTerminalLine,
   renderReceipt,
   renderReceiptMarkdown,
   renderReceiptSvg,
+  renderReceiptTerminal,
 } from "./receipt-render.js";
 
 const base: ChangeReceipt = {
@@ -48,9 +50,9 @@ const base: ChangeReceipt = {
 
 describe("receipt renderers", () => {
   it("leads with the verdict and counts only blocking failures", () => {
-    expect(receiptHeadline(base)).toBe("Prism · failed (1 check)");
+    expect(receiptHeadline(base)).toBe("Prism · NO-SHIP (1 check failed)");
     const text = renderReceipt(base);
-    expect(text.split("\n")[0]).toBe("Prism · failed (1 check)");
+    expect(text.split("\n")[0]).toBe("Prism · NO-SHIP (1 check failed)");
     expect(text).toMatch(/Failed\s+test ✗ FAIL src\/a\.test\.ts/);
     expect(text).toMatch(/Already failing\s+lint — no-unused-vars/);
     expect(text).toMatch(/Proven\s+1 scoped test file · typecheck ✓/);
@@ -65,7 +67,7 @@ describe("receipt renderers", () => {
 
   it("renders a markdown table for a PR comment", () => {
     const md = renderReceiptMarkdown(base);
-    expect(md.split("\n")[0]).toBe("### Prism · failed (1 check)");
+    expect(md.split("\n")[0]).toBe("### Prism · NO-SHIP (1 check failed)");
     expect(md).toContain("| **Failed** | `test` — FAIL src/a.test.ts |");
     expect(md).toContain("| Already failing | `lint` — no-unused-vars |");
   });
@@ -76,7 +78,7 @@ describe("receipt renderers", () => {
       notProven: [{ path: "src/<x>.ts", reason: "no test reaches it" }],
     });
     expect(svg.startsWith("<svg")).toBe(true);
-    expect(svg).toContain("Prism · failed (1 check)");
+    expect(svg).toContain("Prism · NO-SHIP (1 check failed)");
     expect(svg).toContain("src/&lt;x&gt;.ts");
     expect(svg).not.toMatch(/https?:\/\/(?!www\.w3\.org)/);
   });
@@ -92,7 +94,7 @@ describe("receipt summary line (SMK-8)", () => {
       testFiles: ["src/a.test.ts", "src/b.test.ts"],
     };
     expect(receiptSummaryLine(proven)).toBe(
-      "Prism receipt: changed 1 file, 3 dependents, 2 tests reach it — proven",
+      "Prism receipt: changed 1 file, 3 dependents, 2 tests reach it — SHIP",
     );
     const missing: ChangeReceipt = {
       ...proven,
@@ -102,10 +104,10 @@ describe("receipt summary line (SMK-8)", () => {
       checksState: "skipped",
     };
     expect(receiptSummaryLine(missing)).toMatch(
-      /— not_proven\(no_node_modules\)$/,
+      /— NOT PROVEN \(no_node_modules\)$/,
     );
     expect(receiptHeadline(missing)).toBe(
-      "Prism · not_proven(no_node_modules)",
+      "Prism · NOT PROVEN (no_node_modules)",
     );
   });
 
@@ -118,5 +120,124 @@ describe("receipt summary line (SMK-8)", () => {
       checks: [],
     };
     expect(renderReceipt(pending)).toMatch(/checks still running/);
+  });
+
+  it("shows the earlier change's finished verdict under a pending one", () => {
+    const pending: ChangeReceipt = {
+      ...base,
+      verdict: "not_proven",
+      reason: "still_running",
+      checksState: "pending",
+      checks: [],
+      earlier: {
+        id: "r-old",
+        verdict: "failed",
+        summary: "changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",
+      },
+    };
+    expect(renderReceipt(pending).split("\n")[2]).toBe(
+      "Earlier change  changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",
+    );
+  });
+});
+
+describe("terminal line per verdict (Muse v2.1)", () => {
+  const passed = [
+    { name: "test", status: "passed" as const, detail: "", durationMs: 1 },
+  ];
+  const offLimits = (n: number): ChangeReceipt["lensFindings"] => [
+    {
+      lens: "Dev",
+      check: "off_limits_touched",
+      status: "fail",
+      evidence: Array.from({ length: n }, (_, i) => `locked/f${i}.ts`),
+    },
+  ];
+  const notProven = (reason: ChangeReceipt["reason"]): ChangeReceipt => ({
+    ...base,
+    verdict: "not_proven",
+    reason,
+    checks: [],
+  });
+
+  it("gives Muse's exact line for every row", () => {
+    const rows: [ChangeReceipt, string][] = [
+      [
+        { ...base, verdict: "proven", checks: passed },
+        "Prism · SHIP — the checks this change reaches passed",
+      ],
+      [base, "Prism · NO-SHIP (1 check failed) — the agent is fixing it"],
+      [
+        {
+          ...base,
+          verdict: "proven",
+          checks: passed,
+          lensFindings: offLimits(2),
+        },
+        "Prism · NO-SHIP (2 off-limits paths) — the agent is undoing those edits",
+      ],
+      [
+        { ...base, lensFindings: offLimits(1) },
+        "Prism · NO-SHIP (1 check failed, 1 off-limits path) — the agent is fixing it",
+      ],
+      [
+        notProven("untested"),
+        "Prism · NOT PROVEN (untested) — no test reaches this change yet",
+      ],
+      [
+        notProven("no_node_modules"),
+        "Prism · NOT PROVEN (no_node_modules) — install dependencies to run its tests",
+      ],
+      [
+        notProven("unknown_runner"),
+        "Prism · NOT PROVEN (unknown_runner) — no known runner could run its tests",
+      ],
+      [
+        notProven("skipped_offline"),
+        "Prism · NOT PROVEN (skipped_offline) — checks are off for this run",
+      ],
+      [
+        notProven("timeout"),
+        "Prism · NOT PROVEN (timeout) — a check ran past its time limit",
+      ],
+      [
+        notProven("already_failing"),
+        "Prism · NOT PROVEN (already_failing) — its tests failed before this session",
+      ],
+      [
+        notProven("unsupported_language"),
+        "Prism · NOT PROVEN (unsupported_language) — only TS and JS files are checked",
+      ],
+      [
+        notProven("superseded"),
+        "Prism · NOT PROVEN (superseded) — a newer change replaced this one",
+      ],
+      [
+        { ...notProven("still_running"), checksState: "pending" },
+        "Prism · NOT PROVEN (still_running) — no verdict yet; the next receipt shows it",
+      ],
+      [
+        {
+          ...base,
+          verdict: "proven",
+          checks: [],
+          touched: { ...base.touched, files: [], totalFiles: 0 },
+        },
+        "Prism · nothing changed",
+      ],
+    ];
+    for (const [receipt, line] of rows) {
+      expect(receiptTerminalLine(receipt)).toBe(line);
+    }
+  });
+
+  it("prism receipts opens with it and keeps the rest of the receipt", () => {
+    const text = renderReceiptTerminal(base).split("\n");
+    expect(text[0]).toBe(
+      "Prism · NO-SHIP (1 check failed) — the agent is fixing it",
+    );
+    expect(text.slice(1)).toEqual(renderReceipt(base).split("\n").slice(1));
+    // SMK-8's summary line is untouched.
+    expect(text[1]).toBe(receiptSummaryLine(base));
   });
 });

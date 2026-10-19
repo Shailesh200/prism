@@ -7,14 +7,19 @@
 
 import {
   err,
+  findingsFromReceiptParts,
   ok,
+  partialIndexLine,
   prismError,
   PrismErrorCode,
   riskBandDescriptor,
+  type LensFinding,
 } from "@repo-prism/shared";
+import { reviewLensFindings } from "@repo-prism/mcp-server/review";
 import { paint, renderFields, renderHeading } from "../output.js";
 import type { CommandHandler, CommandContext } from "../runtime.js";
 import { bandStyle, plural, renderTable, scoreCell, wrap } from "../table.js";
+import { classifyReviewTarget, reviewPullRequestCommand } from "./review-pr.js";
 import { allWorkspaceRelative, resolveTarget } from "../target.js";
 import { parseFormat, reviewToSarif } from "../sarif.js";
 import {
@@ -138,6 +143,33 @@ export const blastCommand: CommandHandler = async (context) => {
   });
 };
 
+const LENS_MARK = { pass: "✓", concern: "△", fail: "✗", overruled: "↷" };
+
+/** A lens's checks, one line each, with the evidence for the open ones. */
+function renderLens(
+  lens: { readonly name: string; readonly findings: readonly LensFinding[] },
+  color: boolean,
+  width: number,
+): string[] {
+  const lines = [renderHeading(`${lens.name} lens`, color)];
+  if (lens.findings.length === 0)
+    return [...lines, "  No data-backed checks for this lens."];
+  for (const finding of lens.findings) {
+    const mark = LENS_MARK[finding.status];
+    const head = `  ${mark} ${finding.check.replaceAll("_", " ")}`;
+    lines.push(
+      finding.status === "pass" ? paint(head, "dim", color) : head,
+      ...finding.evidence
+        .slice(0, finding.status === "pass" ? 0 : 3)
+        .flatMap((line) => wrap(line, width, "      ")),
+      ...(finding.note
+        ? wrap(`overruled: ${finding.note}`, width, "      ")
+        : []),
+    );
+  }
+  return lines;
+}
+
 export const reviewCommand: CommandHandler = async (context) => {
   const failOn = parseFailOn(context.args.option("failOn"));
   if (!failOn.ok) return failOn;
@@ -145,6 +177,14 @@ export const reviewCommand: CommandHandler = async (context) => {
   if (!limit.ok) return limit;
   const format = parseFormat(context.args.option("format"));
   if (!format.ok) return format;
+
+  const targetKind = classifyReviewTarget(context.args.positionals);
+  if (targetKind.kind === "invalid") {
+    return err(prismError(PrismErrorCode.VALIDATION, targetKind.message));
+  }
+  if (targetKind.kind === "pull") {
+    return reviewPullRequestCommand(context, targetKind.request);
+  }
 
   const opened = await context.open();
   if (!opened.ok) return opened;
@@ -208,6 +248,29 @@ export const reviewCommand: CommandHandler = async (context) => {
   const review = report.value;
   const findings = meetsThreshold(review.overallRisk, failOn.value);
 
+  // `--lens`: the named lens's data-backed checks on the reviewed paths, as
+  // guard_session {review, lens} reports them to an agent.
+  const lensId = context.args.option("lens");
+  let lens: { readonly name: string; readonly findings: LensFinding[] } | null =
+    null;
+  if (lensId !== undefined) {
+    const result = await reviewLensFindings(
+      opened.value,
+      review,
+      review.items.map((item) => item.path),
+      lensId,
+      paths,
+    );
+    if (result.unknownLens)
+      return err(
+        prismError(
+          PrismErrorCode.VALIDATION,
+          `No lens named ${result.unknownLens}. Run \`prism lens list\` to see them.`,
+        ),
+      );
+    lens = { name: result.lensName ?? lensId, findings: result.findings };
+  }
+
   if (format.value === "sarif") {
     return ok({
       data: reviewToSarif(review),
@@ -218,7 +281,13 @@ export const reviewCommand: CommandHandler = async (context) => {
   }
 
   return ok({
-    data: review,
+    data: lens
+      ? {
+          ...review,
+          lensFindings: lens.findings,
+          findings: findingsFromReceiptParts({ lensFindings: lens.findings }),
+        }
+      : review,
     findings,
     human({ color, width }) {
       const items = bound(review.items, limit.value);
@@ -255,6 +324,7 @@ export const reviewCommand: CommandHandler = async (context) => {
 
       const note = truncationNote(items, "changed files");
       if (note) lines.push(paint(note, "dim", color));
+      if (lens) lines.push("", ...renderLens(lens, color, width));
       return lines.join("\n");
     },
   });
@@ -564,6 +634,9 @@ export const prepareCommand: CommandHandler = async (context) => {
             color,
           ),
         );
+      }
+      if (prep.partialIndex) {
+        lines.push("", partialIndexLine(prep.partialIndex));
       }
       return lines.join("\n");
     },

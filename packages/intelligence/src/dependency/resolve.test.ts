@@ -27,11 +27,29 @@ describe("resolveImportTarget", () => {
       "src/lib/index.ts",
     );
   });
+
+  it("resolves `.` and `..` to the folder's index (round 2)", () => {
+    const indexed = new Set([
+      "src/middleware/etag/index.ts",
+      "src/middleware/index.ts",
+    ]);
+    expect(
+      resolveImportTarget("src/middleware/etag/index.test.ts", ".", indexed),
+    ).toBe("src/middleware/etag/index.ts");
+    expect(
+      resolveImportTarget("src/middleware/etag/index.test.ts", "..", indexed),
+    ).toBe("src/middleware/index.ts");
+  });
 });
 
 describe("specifiers", () => {
   it("classifies relative vs bare", () => {
     expect(isRelativeSpecifier("./x")).toBe(true);
+    // `import { x } from "."` is the folder's index (hono's tests do this).
+    expect(isRelativeSpecifier(".")).toBe(true);
+    expect(isRelativeSpecifier("..")).toBe(true);
+    expect(isRelativeSpecifier(".prettierrc")).toBe(false);
+    expect(isBarePackageSpecifier(".")).toBe(false);
     expect(isBarePackageSpecifier("lodash")).toBe(true);
     expect(isBarePackageSpecifier("@scope/pkg/sub")).toBe(true);
     expect(barePackageName("@scope/pkg/sub")).toBe("@scope/pkg");

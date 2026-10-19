@@ -48,7 +48,7 @@ Read milestone doc → implement (no commits) → bun run verify:milestone → f
 ## MCP
 
 Tools call Core and return JSON-serializable DTOs from `@repo-prism/shared`.
-Nine tools are registered by default; opt-in tools come from `~/.prism/config.json` `extraTools[]`.
+All MCP tools are registered, including `receipt`. `extraTools` is not required.
 
 ## Verification
 

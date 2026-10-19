@@ -26,6 +26,11 @@ export {
 
 export {
   detectTestRunner,
-  runCommandFor,
+  testRunPlan,
+  typecheckPlan,
+  PACKAGE_MANAGERS,
+  type PackageManager,
   type PackageManifest,
+  type TestPackage,
+  type TypecheckRun,
 } from "./test-runner.js";

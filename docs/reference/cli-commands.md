@@ -14,6 +14,26 @@ See [Usage](../usage.mdx) for global options, exit codes, and how
 
 ## Set up
 
+### `prism start`
+
+Set up Prism for every coding agent found here (asks first), index this repo and show its map
+
+| Option | Meaning |
+|---|---|
+| `--dry-run` | Only list the config files it would write and the 1.x data it would move |
+
+```bash
+prism start
+```
+
+```bash
+prism start --dry-run
+```
+
+```bash
+prism start --yes
+```
+
 ### `prism install <client>`
 
 Connect Prism to Claude Code, Cursor, Codex or opencode (MCP server, hooks, skills, rule line)
@@ -33,7 +53,7 @@ prism install claude
 ```
 
 ```bash
-prism install cursor --project
+prism install cursor
 ```
 
 ```bash
@@ -195,27 +215,32 @@ What breaks if this file or symbol changes
 prism blast src/core/index.ts --fail-on high
 ```
 
-### `prism review [paths...]`
+### `prism review [target...]`
 
-Risk of the current changes, or of the paths you name
+Risk of the working tree, the files you name, or a GitHub pull request
 
 | Argument | Meaning |
 |---|---|
-| `[paths...]` | Files to review (default: the working-tree diff) |
+| `[target...]` | Files to review, or one github.com pull request URL. Default: the working-tree diff |
 
 | Option | Meaning |
 |---|---|
 | `--base <rev>` | Diff against a git revision |
+| `--lens <name>` | Also run this lens's data-backed checks (architect, dev, qa, or a custom lens) |
 | `--fail-on <band>` | Exit 1 when the risk is at or above this band: low, mid, high |
 | `--limit <n>` | Maximum rows to print (default 50) |
 | `--format <fmt>` | Machine output format: sarif (GitHub code scanning) |
+
+```bash
+prism review --lens qa
+```
 
 ```bash
 prism review --base origin/main --fail-on high
 ```
 
 ```bash
-prism review --base origin/main --format sarif
+prism review https://github.com/org/repo/pull/1
 ```
 
 ### `prism safe-delete <target>`
@@ -274,27 +299,6 @@ Tests that a change can reach
 prism test-impact src/core/index.ts
 ```
 
-### `prism envelope`
-
-What Prism put into agents' context here, by tool, and what ran over budget
-
-| Option | Meaning |
-|---|---|
-| `--days <n>` | Window to report (default 7) |
-| `--session <id>` | One agent session; `latest` for the newest |
-
-```bash
-prism envelope
-```
-
-```bash
-prism envelope --days 30 --json
-```
-
-```bash
-prism envelope --session latest
-```
-
 ### `prism receipts [action] [n]`
 
 List the change receipts the stop hook wrote, or show one
@@ -324,12 +328,12 @@ prism receipts show 1 --as markdown > receipt.md
 
 ### `prism lens [action] [target]`
 
-List, add or remove review lenses (shared by every repository), or overrule a lens check
+List, show, add or remove review lenses (shared by every repository), or overrule a lens check
 
 | Argument | Meaning |
 |---|---|
-| `[action]` | list (default), add, remove, or override |
-| `[target]` | add: the lens name; remove/override: the lens id |
+| `[action]` | list (default), show, add, remove, or override |
+| `[target]` | add: the lens name; show/remove/override: the lens id |
 
 | Option | Meaning |
 |---|---|
@@ -343,6 +347,10 @@ List, add or remove review lenses (shared by every repository), or overrule a le
 | `--check <id>` | override: the check to overrule |
 | `--path <file>` | override: the file the finding names |
 | `--note <text>` | override: why it is fine |
+
+```bash
+prism lens show dev
+```
 
 ```bash
 prism lens add perf --role "Checks hot paths" --focus "No new N+1" --checklist "No query in a loop" --trigger "slow query"
@@ -440,6 +448,30 @@ prism route src/cli.ts src/output.ts
 
 ## Memory
 
+### `prism habit [action] [name]`
+
+Save routines (e.g. "start my day") that any agent can run through the habits tool
+
+| Argument | Meaning |
+|---|---|
+| `[action]` | list (default), add, show, edit, or remove |
+| `[name]` | The habit name (quote it) |
+
+| Option | Meaning |
+|---|---|
+| `--step <text>` | add: "source: action [\| filter]" (repeatable, in order) |
+| `--output <format>` | add: standup, summary, checklist, table, or free |
+| `--template <text>` | add: how to lay out the result |
+| `--description <text>` | add: one line about the habit |
+
+```bash
+prism habit add "start my day" --step "github: list my open PRs and review requests" --step "linear: my in-progress issues" --step "notion: read Daily notes for today" --output standup
+```
+
+```bash
+prism habit show "start my day"
+```
+
 ### `prism remember <note...>`
 
 Save a note about this repository for Prepare to hand back
@@ -499,7 +531,7 @@ Check the environment, workspace and index
 |---|---|
 | `--ci` | Extra CI checks (e.g. warn on shallow clones that truncate history) |
 | `--surfaces` | Show which Prism each editor launches. Fails inside this repo if any of them is the published package. |
-| `--fix` | Stop the daemon and rewrite editor configs to the recorded local build |
+| `--fix` | Stop the daemon, rewrite editor configs to the recorded local build or the installed server, and update hook configs an older release wrote |
 
 ```bash
 prism doctor
@@ -519,6 +551,30 @@ prism doctor skills
 
 ```bash
 prism doctor --fix
+```
+
+### `prism strength [level]`
+
+How much the hooks do: full (default), lite (rules and the stop receipt) or off
+
+| Argument | Meaning |
+|---|---|
+| `[level]` | full, lite or off; omit to show the strength in effect |
+
+| Option | Meaning |
+|---|---|
+| `--repo` | Set it for this repository only (.prism/config.json) |
+
+```bash
+prism strength
+```
+
+```bash
+prism strength lite
+```
+
+```bash
+prism strength off --repo
 ```
 
 ### `prism stats`
@@ -567,11 +623,14 @@ The background daemon that keeps the graph fresh
 
 | Argument | Meaning |
 |---|---|
-| `[action]` | status (default), serve, stop, refresh, or export |
+| `[action]` | status (default), serve, stop, refresh, map, or export |
 
 | Option | Meaning |
 |---|---|
 | `--out <dir>` | export: where to write graph.json |
+| `--scope <path>` | map: only files under this path |
+| `--budget <tokens>` | map: token budget for the map |
+| `--refresh` | map: rebuild instead of reading the cache |
 
 ```bash
 prism graph
@@ -579,6 +638,10 @@ prism graph
 
 ```bash
 prism graph serve
+```
+
+```bash
+prism graph map --budget 800
 ```
 
 ```bash

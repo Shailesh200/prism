@@ -73,6 +73,8 @@ Default `Prism.create()` enables all of the above when default ports are wired.
 | `getDna` | DNA without requiring prior index |
 | `findRoute` / `listLandmarks` | M-016 |
 | `getGitActivity` | Local git; fail-soft `available: false` |
+| `checkRunPlan` | Plan P10/P11: ready test and type-check commands for given files, grouped by package. Never executed. |
+| `repoMap` | Ranked, token-budgeted map of the repository (files, top symbols). Requires `index()`. |
 | `blastRadius` | M-020; **M-049** additive soft lanes (`lane`, `confidence`, `evidence`, `lanes[]`, `hardAffectedCount` / `softAffectedCount`, `coverageNote`); optional `intent: "edit" \| "delete"`; report may include `originRole`, `forwardDependencies`, `scenarioChecklist` |
 | `safeDelete` / `renameImpact` / `testImpact` | M-021; **M-049** `softBlockers` / `toolingCritical` on safe-delete |
 

@@ -33,6 +33,8 @@ export function exitCodeForError(error: PrismError): ExitCode {
     case PrismErrorCode.INVALID_ID:
     case PrismErrorCode.UNSUPPORTED:
       return ExitCode.USAGE;
+    case PrismErrorCode.YES_REQUIRED:
+      return ExitCode.FINDINGS;
     default:
       return ExitCode.INTERNAL;
   }

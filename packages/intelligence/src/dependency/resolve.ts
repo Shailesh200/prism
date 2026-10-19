@@ -3,8 +3,14 @@
  * Collapses `..`, remaps `.js`→`.ts`/`.tsx`, does not use Node/TS module resolution.
  */
 
+/** `./x`, `../x`, and the bare directory forms `.` and `..` (round 2). */
 export function isRelativeSpecifier(source: string): boolean {
-  return source.startsWith("./") || source.startsWith("../");
+  return (
+    source === "." ||
+    source === ".." ||
+    source.startsWith("./") ||
+    source.startsWith("../")
+  );
 }
 
 export function isBarePackageSpecifier(source: string): boolean {

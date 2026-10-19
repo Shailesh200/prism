@@ -7,55 +7,34 @@
  * Nothing else may write stdout.
  */
 
-import { createHash } from "node:crypto";
-import {
-  appendFileSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { Prism } from "@repo-prism/core";
-import {
-  appendEnvelopeLedger,
-  envelopeFooter,
-  envelopeReport,
-  readEnvelopeLedger,
-  writeLastPrepareChange,
-} from "@repo-prism/core/envelope";
 import {
   callDaemonRoute,
   daemonEnabled,
-  daemonReady,
   type DaemonOutcome,
 } from "@repo-prism/daemon";
 import { recordEvent } from "@repo-prism/shared/events";
 import {
-  AUTO_PREPARE_BUDGET,
   type ChangeReceipt,
-  type PrepareChange,
   type PrismError,
   type Result,
   err,
-  looksLikeChangeRequest,
-  ok,
-  chooseLensDetailed,
-  prepareIsAnchored,
-  renderPrepareContext,
-  type PrepareContextExtras,
 } from "@repo-prism/shared";
-import {
-  applyDefaultProcedures,
-  DEFAULT_LENSES,
-  readLensStore,
-} from "@repo-prism/shared/lens-store";
-import { type Attach, daemonAttach, daemonBuildId } from "../daemon-attach.js";
+import { daemonBuildId } from "../daemon-attach.js";
 import { workspacePrismDir } from "@repo-prism/shared/prism-home";
 import { receiptFeedback, renderReceipt } from "./receipt.js";
+import { createReceiptService } from "./receipt-service.js";
+import { promptContext } from "./prompt-context.js";
 import {
-  createReceiptService,
-  readSessionBaseline,
-} from "./receipt-service.js";
+  AUTO_PREPARE_MS,
+  runPromptHook,
+  UNSUPPORTED_LANGUAGE_NOTE,
+  type PromptContext,
+  type PromptContextRequest,
+  type PromptFiles,
+} from "@repo-prism/shared/prompt-hook";
 
 function readStdinJson(): Record<string, unknown> {
   try {
@@ -74,17 +53,32 @@ function readStdinJson(): Record<string, unknown> {
   }
 }
 
-/** Default time Prepare may take inside the prompt hook before it is skipped. */
-export const AUTO_PREPARE_MS = 3500;
-/** Longest the prompt hook waits for the daemon's first index (HK-6). */
-export const READY_WAIT_MS = 3000;
+export { AUTO_PREPARE_MS, UNSUPPORTED_LANGUAGE_NOTE };
+
+export type DaemonPrompt = (
+  root: string,
+  request: PromptContextRequest,
+  timeoutMs: number,
+) => Promise<DaemonOutcome<PromptContext>>;
+
+function defaultDaemonPrompt(env: NodeJS.ProcessEnv): DaemonPrompt | null {
+  if (!daemonEnabled(env)) return null;
+  return (root, request, timeoutMs) =>
+    callDaemonRoute<PromptContext>({
+      path: "/v1/prompt",
+      root,
+      args: request,
+      env,
+      buildId: daemonBuildId(),
+      timeoutMs,
+    });
+}
 
 /**
- * `prism-mcp --hook prompt` (ADR-0065, plan §5.8 H-PROMPT): when the prompt
- * asks for a change, wait up to 3 s for the daemon's index, then inject a
- * Prepare pack (budget 1,200). Never blocks; an empty object means "say
- * nothing". The reason for a skip goes to stderr for the hook log and to
- * the event log.
+ * `prism-mcp --hook prompt`: the shared prompt hook (`runPromptHook`) with
+ * the warm daemon's `/v1/prompt` for the file block, or an in-process index
+ * only when the daemon is off (`PRISM_DAEMON=0`). Empty object means "say
+ * nothing".
  */
 export async function autoPrepare(
   input: Record<string, unknown>,
@@ -92,392 +86,67 @@ export async function autoPrepare(
     readonly root?: string;
     readonly env?: NodeJS.ProcessEnv;
     readonly now?: () => number;
+    /** When the hook's budget started; the hook binary passes its own start. */
+    readonly startedAt?: number;
     /** Defaults to the daemon client; `null` forces the in-process path. */
-    readonly attach?: Attach | null;
-    /** Defaults to the daemon's readiness probe; `null` skips the wait. */
-    readonly ready?: ReadyProbe | null;
+    readonly daemon?: DaemonPrompt | null;
   } = {},
 ): Promise<Record<string, unknown>> {
   const env = options.env ?? process.env;
-  const now = options.now ?? Date.now;
-  const started = now();
   const root = resolve(options.root ?? process.cwd());
-  const skip = (
-    reason: string,
-    event = "prompt.skipped",
-  ): Record<string, unknown> => {
-    process.stderr.write(`prism-mcp: auto-prepare skipped (${reason})\n`);
-    recordEvent(
-      {
-        event,
-        outcome: "skipped",
-        reason,
-        workspace: root,
-        durationMs: now() - started,
-      },
-      { env },
-    );
-    return {};
-  };
-  const mode = env.PRISM_AUTOPREPARE;
-  if (mode === "0" || mode === "off") return skip("PRISM_AUTOPREPARE off");
-  const prompt = typeof input.prompt === "string" ? input.prompt : "";
-  if (!looksLikeChangeRequest(prompt)) return skip("not a change request");
-  const limitMs = Number(env.PRISM_AUTOPREPARE_MS ?? AUTO_PREPARE_MS);
-  const task = prompt.slice(0, 400);
-  const sessionId =
-    typeof input.session_id === "string" && input.session_id
-      ? input.session_id
-      : undefined;
-
-  let via = "daemon";
-  let prepared: Result<PrepareChange, PrismError>;
-  const attach =
-    options.attach === undefined ? daemonAttach(env) : options.attach;
-  const ready =
-    options.ready === undefined
-      ? attach
-        ? defaultReadyProbe(env)
-        : null
-      : options.ready;
-  if (ready) {
-    const answer = await ready(root, READY_WAIT_MS);
-    if (answer.kind === "ok" && !answer.value.ready) {
-      // HK-7: nothing now; the next change prompt in the session retries.
-      return skip(
-        `index not ready (${answer.value.state})`,
-        "prompt.not_ready",
-      );
-    }
-    if (answer.kind === "ok") {
-      recordEvent(
-        {
-          event: "prompt.waited",
-          outcome: "ok",
-          workspace: root,
-          durationMs: now() - started,
-        },
-        { env },
-      );
-    }
-  }
-  const attached = await attach?.(
-    "prepare_change",
-    root,
-    { task, budget: AUTO_PREPARE_BUDGET },
-    Math.max(500, limitMs - (now() - started)),
-  );
-  if (attached?.kind === "ok") {
-    // The daemon's tool already recorded this as the last Prepare.
-    prepared = ok(attached.value as PrepareChange);
-  } else if (attached?.kind === "error") {
-    prepared = err(attached.error);
-  } else {
-    via = "in-process";
-    prepared = await prepareInProcess(root, task, env);
-  }
-
-  if (!prepared.ok) {
-    const details = prepared.error.details as { reason?: unknown } | undefined;
-    if (details?.reason === "language") {
-      // §4.6: an unsupported-language repo gets one line, once per session.
-      if (sessionId && !markSessionOnce(root, sessionId, "language", env)) {
-        return skip("unsupported language (note already given)");
+  const daemon =
+    options.daemon === undefined ? defaultDaemonPrompt(env) : options.daemon;
+  const files: PromptFiles = daemon
+    ? {
+        via: "daemon",
+        call: (request, budget) => daemon(root, request, budget),
       }
-      return {
-        hookSpecificOutput: {
-          hookEventName: "UserPromptSubmit",
-          additionalContext: UNSUPPORTED_LANGUAGE_NOTE,
+    : {
+        via: "in-process",
+        call: async (request) => {
+          const answer = await promptInProcess(root, request, env);
+          return answer.ok
+            ? { kind: "ok", value: answer.value }
+            : { kind: "error", error: answer.error };
         },
       };
-    }
-    return skip(prepared.error.message);
-  }
-  const elapsed = now() - started;
-  if (elapsed > limitMs) return skip(`took ${elapsed}ms, over ${limitMs}ms`);
-  if (!prepareIsAnchored(prepared.value) && !prepared.value.ambiguous) {
-    return skip("no file or symbol in the prompt matched the index");
-  }
-  const extras: PrepareContextExtras = {
-    ...(await lensFor(root, prompt, sessionId, env)),
-    ...(await blastLine(
-      root,
-      prepared.value,
-      attach,
-      via,
-      limitMs - (now() - started),
-    )),
-  };
-  const text = renderPrepareContext(prepared.value, extras);
-  if (sessionId) writeSessionPack(root, sessionId, prepared.value, env);
-  await appendEnvelopeLedger(
+  return runPromptHook(input, {
     root,
-    {
-      ts: new Date().toISOString(),
-      tool: "prepare_change",
-      itemCount: prepared.value.pack.files.length,
-      totalCount: prepared.value.pack.totalCount,
-      truncated: prepared.value.pack.truncated,
-      limit: AUTO_PREPARE_BUDGET,
-      jsonBytes: Buffer.byteLength(text, "utf8"),
-      source: "hook",
-      ...(sessionId ? { sessionId } : {}),
-    },
+    files,
     env,
-  ).catch((error: unknown) => {
-    recordEvent(
-      {
-        event: "prompt.envelope",
-        outcome: "degraded",
-        reason: error instanceof Error ? error.message : String(error),
-        workspace: root,
-      },
-      { env },
-    );
+    ...(options.now ? { now: options.now } : {}),
+    ...(options.startedAt !== undefined
+      ? { startedAt: options.startedAt }
+      : {}),
   });
-  process.stderr.write(
-    `prism-mcp: auto-prepare injected in ${elapsed}ms (${via})\n`,
-  );
-  recordEvent(
-    {
-      event: "prompt.injected",
-      outcome: "ok",
-      workspace: root,
-      durationMs: elapsed,
-      detail: { via },
-    },
-    { env },
-  );
-  return {
-    hookSpecificOutput: {
-      hookEventName: "UserPromptSubmit",
-      additionalContext: text,
-    },
-  };
 }
 
-/** §4.6 / H-PROMPT: the line an unsupported repository gets instead of a pack. */
-export const UNSUPPORTED_LANGUAGE_NOTE =
-  "Prism: this repository's language is not supported in 2.0; no pack.";
-
-/**
- * True the first time `what` is marked for this session, false after. Keyed
- * by a hash of the session id, so two sessions never share a mark.
- */
-function markSessionOnce(
+/** No daemon: open, index and build here, then close (the pre-M-095 path). */
+async function promptInProcess(
   root: string,
-  sessionId: string,
-  what: string,
+  request: PromptContextRequest,
   env: NodeJS.ProcessEnv,
-): boolean {
-  const key = createHash("sha256").update(sessionId).digest("hex").slice(0, 24);
-  const path = join(
-    workspacePrismDir(root, env),
-    "hooks",
-    "once",
-    `${key}.json`,
-  );
-  let marks: string[] = [];
-  try {
-    marks = JSON.parse(readFileSync(path, "utf8")) as string[];
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-      recordEvent(
-        {
-          event: "prompt.session_marks",
-          outcome: "degraded",
-          reason: error instanceof Error ? error.message : String(error),
-          workspace: root,
-        },
-        { env },
-      );
-    }
-  }
-  if (!Array.isArray(marks)) marks = [];
-  if (marks.includes(what)) return false;
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify([...marks, what]));
-  return true;
-}
-
-/** The task's lens with its procedure, once per session (plan §5.3, §5.8). */
-async function lensFor(
-  root: string,
-  prompt: string,
-  sessionId: string | undefined,
-  env: NodeJS.ProcessEnv,
-): Promise<Pick<PrepareContextExtras, "lens">> {
-  const store = await readLensStore(root, env);
-  const lenses = applyDefaultProcedures(
-    store.lenses.length > 0 ? store.lenses : DEFAULT_LENSES,
-  );
-  const choice = chooseLensDetailed(prompt, lenses);
-  if (!choice) return {};
-  if (choice.conflict && choice.conflict.length > 1) {
-    recordEvent(
-      {
-        event: "lens.conflict",
-        outcome: "ok",
-        workspace: root,
-        detail: {
-          chosen: choice.lens.id,
-          candidates: choice.conflict.join(","),
-        },
-      },
-      { env },
-    );
-  }
-  if (
-    sessionId &&
-    !markSessionOnce(root, sessionId, `lens:${choice.lens.id}`, env)
-  ) {
-    return {};
-  }
-  return {
-    lens: {
-      id: choice.lens.id,
-      name: choice.lens.name,
-      procedure: choice.lens.procedure,
-      ...(choice.conflict ? { conflict: choice.conflict } : {}),
-    },
-  };
-}
-
-/** One line on how far a change to the top file reaches, if there is time. */
-async function blastLine(
-  root: string,
-  prepared: PrepareChange,
-  attach: Attach | null | undefined,
-  via: string,
-  remainingMs: number,
-): Promise<Pick<PrepareContextExtras, "blast">> {
-  const top = prepared.pack.files[0]?.path;
-  if (!top || remainingMs < 400) return {};
-  const args = { kind: "file", id: top };
-  let report: {
-    readonly affectedFiles?: readonly unknown[] | undefined;
-    readonly band?: string | undefined;
-    readonly testsLikelyAffected?: readonly unknown[] | undefined;
-  } | null = null;
-  if (via === "daemon" && attach) {
-    const answer = await attach("blast_radius", root, args, remainingMs);
-    if (answer?.kind === "ok") report = answer.value as typeof report;
-  } else {
-    const opened = Prism.create().openRepository(root);
-    if (opened.ok) {
-      try {
-        const blast = await opened.value.blastRadius({ kind: "file", id: top });
-        if (blast.ok) report = blast.value;
-      } finally {
-        opened.value.close();
-      }
-    }
-  }
-  if (!report) return {};
-  const files = report.affectedFiles?.length ?? 0;
-  const tests = report.testsLikelyAffected?.length ?? 0;
-  return {
-    blast: `${top} reaches ${files} file${files === 1 ? "" : "s"} and ${tests} test${tests === 1 ? "" : "s"}${report.band ? ` (${report.band})` : ""}`,
-  };
-}
-
-export type ReadyProbe = (
-  root: string,
-  waitMs: number,
-) => Promise<
-  DaemonOutcome<{ readonly ready: boolean; readonly state: string }>
->;
-
-function defaultReadyProbe(env: NodeJS.ProcessEnv): ReadyProbe {
-  return (root, waitMs) =>
-    daemonReady({ root, waitMs, env, buildId: daemonBuildId() });
-}
-
-/**
- * This session's pack, for the pre-edit hook's outside-pack note (R-C5).
- * Keyed by session so two sessions never share one.
- */
-function writeSessionPack(
-  root: string,
-  sessionId: string,
-  prepared: PrepareChange,
-  env: NodeJS.ProcessEnv,
-): void {
-  const key = createHash("sha256").update(sessionId).digest("hex").slice(0, 24);
-  const path = join(
-    workspacePrismDir(root, env),
-    "hooks",
-    "packs",
-    `${key}.json`,
-  );
-  try {
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(
-      path,
-      JSON.stringify({
-        sessionId,
-        generatedAt: new Date().toISOString(),
-        packFiles: prepared.pack.files.map((f) => ({ path: f.path })),
-      }),
-    );
-  } catch (error) {
-    recordEvent(
-      {
-        event: "prompt.session_pack",
-        outcome: "degraded",
-        reason: error instanceof Error ? error.message : String(error),
-        workspace: root,
-      },
-      { env },
-    );
-  }
-}
-
-/** No daemon: open, index and prepare here, then close (the pre-M-095 path). */
-async function prepareInProcess(
-  root: string,
-  task: string,
-  env: NodeJS.ProcessEnv,
-): Promise<Result<PrepareChange, PrismError>> {
+): Promise<Result<PromptContext, PrismError>> {
   const opened = Prism.create().openRepository(root);
   if (!opened.ok) return opened;
   const workspace = opened.value;
   try {
     const indexed = await workspace.index();
     if (!indexed.ok) return err(indexed.error);
-    const prepared = await workspace.prepareChange({
-      task,
-      budget: AUTO_PREPARE_BUDGET,
-    });
-    if (prepared.ok) {
-      await writeLastPrepareChange(root, prepared.value, env).catch(
-        (error: unknown) => {
-          recordEvent(
-            {
-              event: "prompt.last_prepare",
-              outcome: "degraded",
-              reason: error instanceof Error ? error.message : String(error),
-              workspace: root,
-            },
-            { env },
-          );
-        },
-      );
-    }
-    return prepared;
+    return await promptContext(workspace, request, env);
   } finally {
     workspace.close();
   }
 }
 
-/** The stop hook's hard budget (plan §5.7): past it, say nothing. */
-export const STOP_BUDGET_MS = 10_000;
+/** The stop hook's hard budget (plan P17): structural receipt only, under 1 s. */
+export const STOP_BUDGET_MS = 900;
 
 /**
- * `prism-mcp --hook stop`: the receipt for this session, from the daemon if
- * one answers, else built here (plan §2.1 fallback, never npx). The agent
- * gets the receipt text or nothing: an error is logged as an event, never
- * shown raw (R-C4).
+ * `prism-mcp --hook stop` (plan §5.7 / P17): show the structural receipt at
+ * once. Checks keep running in the daemon and land via `receipt` or the next
+ * prompt. When the daemon is on but silent, degrade with an event — no
+ * in-process hang (HOOK-P4). In-process only when the daemon is off.
  */
 export async function stopHook(
   input: Record<string, unknown>,
@@ -501,7 +170,10 @@ export async function stopHook(
     recordEvent(
       {
         event,
-        outcome: event === "receipt.timeout" ? "skipped" : "error",
+        outcome:
+          event === "receipt.timeout" || event === "receipt.degraded"
+            ? "skipped"
+            : "error",
         reason,
         workspace: root,
         durationMs: now() - started,
@@ -514,47 +186,36 @@ export async function stopHook(
   const daemon =
     options.daemon === undefined ? defaultDaemonReceipt(env) : options.daemon;
   let receipt: ChangeReceipt | null = null;
-  const fromDaemon = await daemon?.(root, sessionId, STOP_BUDGET_MS - 1_000);
+  const daemonBudget = Math.max(100, STOP_BUDGET_MS - (now() - started) - 50);
+  const fromDaemon = await daemon?.(root, sessionId, daemonBudget);
   if (fromDaemon?.kind === "ok") receipt = fromDaemon.value;
   else if (fromDaemon?.kind === "error") {
     return quiet("receipt.error", fromDaemon.error.message);
+  } else if (daemon) {
+    // Daemon enabled but no answer: degrade, do not hang in-process (HOOK-P4).
+    const reason =
+      fromDaemon?.kind === "unavailable"
+        ? fromDaemon.reason
+        : `no daemon answer within ${daemonBudget}ms`;
+    return quiet("receipt.degraded", reason);
   }
   if (!receipt) {
     const built = await inProcessReceipt(
       root,
       sessionId,
       env,
-      Math.max(1_000, STOP_BUDGET_MS - (now() - started) - 500),
+      Math.max(100, STOP_BUDGET_MS - (now() - started) - 50),
     );
     if (!built.ok) return quiet("receipt.error", built.error.message);
     receipt = built.value;
   }
-  if (now() - started > STOP_BUDGET_MS) {
-    return quiet("receipt.timeout", `took ${now() - started}ms`);
-  }
+  // A finished structural receipt is always shown. The 900 ms budget caps the
+  // daemon wait (and the plugin spawn); discarding a completed receipt would
+  // only hide useful output on a cold in-process path (PRISM_DAEMON=0).
 
-  const baseline = readSessionBaseline(root, sessionId, env);
-  const since = Date.parse(baseline?.startedAt ?? "");
-  const ledger = await readEnvelopeLedger(root).catch((error: unknown) => {
-    recordEvent(
-      {
-        event: "receipt.envelope",
-        outcome: "degraded",
-        reason: error instanceof Error ? error.message : String(error),
-        workspace: root,
-      },
-      { env },
-    );
-    return [];
-  });
-  const footer = envelopeFooter(
-    envelopeReport(ledger, {
-      since: Number.isFinite(since) ? since : Date.now() - 4 * 3600_000,
-    }),
-  );
-  const result = footer ? { ...receipt, envelope: footer } : receipt;
-  const text = renderReceipt(result);
-  appendReceiptHistory(root, result, text, env);
+  // The receipt service attached the session value line (plan P13).
+  const text = renderReceipt(receipt);
+  appendReceiptHistory(root, receipt, text, env);
   recordEvent(
     {
       event: "hook.stop",
@@ -562,26 +223,22 @@ export async function stopHook(
       workspace: root,
       durationMs: now() - started,
       detail: {
-        id: result.id,
-        verdict: result.verdict,
-        checksState: result.checksState,
-        mode: result.mode ?? "inproc",
+        id: receipt.id,
+        verdict: receipt.verdict,
+        checksState: receipt.checksState,
+        mode: receipt.mode ?? "inproc",
       },
     },
     { env },
   );
-  // Only a finished check run can ask the agent to keep going.
+  // Only a finished check run can ask the agent to keep going. The receipt
+  // itself is for the user: Stop context would make the agent take another
+  // turn just to answer it.
   const feedback =
-    result.checksState === "done" ? receiptFeedback(result) : null;
+    receipt.checksState === "done" ? receiptFeedback(receipt) : null;
   return feedback
-    ? {
-        decision: "block",
-        reason: feedback,
-        hookSpecificOutput: { hookEventName: "Stop", additionalContext: text },
-      }
-    : {
-        hookSpecificOutput: { hookEventName: "Stop", additionalContext: text },
-      };
+    ? { decision: "block", reason: feedback, systemMessage: text }
+    : { systemMessage: text };
 }
 
 export type DaemonReceipt = (
@@ -604,8 +261,8 @@ function defaultDaemonReceipt(env: NodeJS.ProcessEnv): DaemonReceipt | null {
 }
 
 /**
- * No daemon: build the receipt here and wait for its checks, each held to
- * the time left in the stop budget, so nothing outlives this process.
+ * No daemon: structural receipt only (plan P17). Checks stay pending for a
+ * later `receipt` call; the stop hook must not wait on them.
  */
 async function inProcessReceipt(
   root: string,
@@ -621,13 +278,7 @@ async function inProcessReceipt(
       mode: "inproc",
       build: { checkTimeoutMs: budgetMs, totalTimeoutMs: budgetMs },
     });
-    const first = await service.receipt(
-      opened.value,
-      sessionId ? { sessionId } : {},
-    );
-    if (!first.ok) return first;
-    const [running] = service.pending();
-    return running ? ok(await running) : first;
+    return await service.receipt(opened.value, sessionId ? { sessionId } : {});
   } finally {
     opened.value.close();
   }
@@ -672,7 +323,8 @@ export async function runMcpHook(argv: readonly string[]): Promise<void> {
   const event = argv[at + 1] ?? "stop";
   if (event === "prompt") {
     process.stdout.write(
-      `${JSON.stringify(await autoPrepare(readStdinJson()))}\n`,
+      // The hook's budget includes this process's own start-up.
+      `${JSON.stringify(await autoPrepare(readStdinJson(), { startedAt: Math.round(Date.now() - performance.now()) }))}\n`,
     );
     return;
   }

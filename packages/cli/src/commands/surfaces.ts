@@ -12,6 +12,8 @@ import { join } from "node:path";
 export type SurfaceKind =
   | "workspace-build"
   | "published-npm"
+  /** The server or hooks of an npm install (`npm i -g @repo-prism/cli`). */
+  | "npm-install"
   | "marketplace-extension"
   | "other";
 
@@ -25,6 +27,8 @@ export type SurfaceHit = {
 /** Classify a launch line. Null when the text is not a Prism launch. */
 export function classifyLaunch(text: string): SurfaceKind | null {
   if (!/prism|mcp-server\/dist\/bin\.js/i.test(text)) return null;
+  if (/node_modules\/@repo-prism\/(?:mcp-server|plugin)\//.test(text))
+    return "npm-install";
   if (text.includes("@repo-prism/mcp-server")) return "published-npm";
   if (
     text.includes("packages/mcp-server/dist/bin.js") ||
@@ -195,13 +199,21 @@ export function surfaceProblems(
   if (!prismSource) return [];
   const problems: string[] = [];
   for (const hit of hits) {
-    if (hit.kind === "published-npm" || hit.kind === "marketplace-extension") {
+    if (
+      hit.kind === "published-npm" ||
+      hit.kind === "npm-install" ||
+      hit.kind === "marketplace-extension"
+    ) {
       problems.push(`${hit.host} resolves to ${hit.kind} (${hit.where})`);
     }
   }
   const byHost = new Map<string, number>();
   for (const hit of hits) {
-    if (hit.kind !== "workspace-build" && hit.kind !== "published-npm")
+    if (
+      hit.kind !== "workspace-build" &&
+      hit.kind !== "published-npm" &&
+      hit.kind !== "npm-install"
+    )
       continue;
     if (hit.host === "claude-hooks") continue;
     byHost.set(hit.host, (byHost.get(hit.host) ?? 0) + 1);

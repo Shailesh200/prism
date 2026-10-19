@@ -90,10 +90,14 @@ function parseOrQuarantine(
   return null;
 }
 
-/** Every stored receipt, newest first. */
+/**
+ * Stored receipts, newest first. `limit` reads only the newest files by
+ * modification time, so a hot path (the stop hook) stays bounded.
+ */
 export function listStoredReceipts(
   root: string,
   env: NodeJS.ProcessEnv = process.env,
+  limit?: number,
 ): ChangeReceipt[] {
   const dir = receiptsDir(root, env);
   let names: string[];
@@ -103,18 +107,24 @@ export function listStoredReceipts(
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
   }
+  let files = names
+    .filter((name) => /^[a-f0-9]{8,64}\.json$/.test(name))
+    .map((name) => {
+      const path = join(dir, name);
+      return { path, mtime: statSync(path).mtimeMs };
+    });
+  if (limit !== undefined) {
+    files = files.sort((a, b) => b.mtime - a.mtime).slice(0, limit);
+  }
   const rows: { receipt: ChangeReceipt; mtime: number }[] = [];
-  for (const name of names) {
-    const match = /^([a-f0-9]{8,64})\.json$/.exec(name);
-    if (!match?.[1]) continue;
-    const path = join(dir, name);
+  for (const { path, mtime } of files) {
     const receipt = parseOrQuarantine(
       path,
       readFileSync(path, "utf8"),
       root,
       env,
     );
-    if (receipt) rows.push({ receipt, mtime: statSync(path).mtimeMs });
+    if (receipt) rows.push({ receipt, mtime });
   }
   return rows
     .sort(

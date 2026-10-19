@@ -164,7 +164,7 @@ export const exploreCode = defineTool({
   name: "explore_code",
   title: "Explore code",
   description:
-    "Everything about one file or symbol in a single call: usages, ownership, related and similar code, and a change timeline. Usages are bounded (default 50) via a nested envelope so large files do not drown the response. Use when asked to understand a specific thing rather than the repository as a whole.",
+    "Everything about one file or symbol in a single call: usages, ownership, related and similar code, and a change timeline. Usages are bounded (default 50) via a nested wrapper so large files do not drown the response. Use when asked to understand a specific thing rather than the repository as a whole.",
   inputSchema: {
     kind: z.enum(["file", "symbol"]).describe("What the target is."),
     path: z

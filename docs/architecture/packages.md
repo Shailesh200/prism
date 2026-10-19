@@ -121,14 +121,12 @@ boundary test.
 
 ### `@repo-prism/mcp-server`
 
-The `prism-mcp` binary: tools over Core, on a stdio server named `prism`. Nine
-tools are registered by default (`prepare_change`, `blast_radius`,
-`guard_session`, `test_impact`, `review_changes`, `safe_delete`,
-`rename_impact`, `repository_overview`, `graph`); the rest are opt-in through
-`extraTools` in `~/.prism/config.json`.
+The `prism-mcp` binary: tools over Core, on a stdio server named `prism`. All
+21 tools are registered, including `receipt`. `extraTools` is not required.
 
-**Must never** make a network call outside the daily update check, and never
-relaunches itself.
+Analysis makes no network call. The server may ask Pulse which tool ran and
+whether it worked (`PRISM_PULSE=0` turns that off), and it may install a newer
+release before a session starts (`PRISM_SKIP_SELF_UPDATE=1` turns that off).
 
 ### `@repo-prism/checks`
 

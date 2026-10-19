@@ -115,8 +115,13 @@ export function createPrismMcpServer(
       rootsSettled = true;
       const hints = listed.roots.map((root) => root.uri);
       if (binding.applyHints(hints)) {
-        process.stderr.write(
-          `prism-mcp: workspace ${binding.current()} (from mcp roots)\n`,
+        const root = binding.current();
+        process.stderr.write(`prism-mcp: workspace ${root} (from mcp roots)\n`);
+        // A folder opened or switched after startup gets its own index.
+        // The daemon writes it under ~/.prism/workspaces/<key> and does not
+        // block this handshake.
+        void startDaemonFor(root, options.env ?? process.env).catch(
+          () => undefined,
         );
       }
     } catch (error) {
@@ -160,7 +165,7 @@ export function createPrismMcpServer(
   const daemon = daemonAttach(env);
   const userConfig = loadUserConfigSync(env);
   if (!userConfig.ok) {
-    // Registered tools fall back to the default nine; `prism doctor` reports
+    // Registered tools stay the full set; `prism doctor` reports
     // the same error with its code.
     process.stderr.write(
       `prism: ${userConfig.error.code}: ${userConfig.error.message}; using the default tools\n`,

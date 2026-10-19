@@ -23,9 +23,9 @@ careful". Underlying factors beat the composite when you need finer distinctions
 
 ## One definition, everywhere
 
-CLI `--fail-on`, MCP responses, the GitHub Action and change review all
-call the same `riskToBand` helper. A CLI test fails the build if a threshold
-literal appears in command code.
+CLI `--fail-on`, MCP responses and change review all call the same
+`riskToBand` helper. A CLI test fails the build if a threshold literal
+appears in command code.
 
 ## Using bands in CI
 
@@ -44,4 +44,4 @@ prism cycles --fail-on 0
 
 ## Related
 
-[Wire into CI](/docs/guides/wire-into-ci) · [Signal provenance](/docs/concepts/signal-provenance)
+[Signal provenance](/docs/concepts/signal-provenance)

@@ -17,7 +17,7 @@ describe("MCP server branding", () => {
     expect(info.version).toBe("1.1.1");
     expect(info.websiteUrl).toBe(SERVER_WEBSITE_URL);
     expect(info.description).toBe(
-      "Local context and change checks for coding agents.",
+      "Local software intelligence that catches what your coding agent missed.",
     );
     expect(SERVER_DESCRIPTION).not.toMatch(
       /prismate|teammate|ai-powered|magic/i,

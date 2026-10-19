@@ -1,7 +1,7 @@
 /**
  * One duration vocabulary for every surface (M-067 P-S1).
  *
- * Every surface that renders a duration (CLI, receipts, envelope) goes
+ * Every surface that renders a duration (CLI, receipts, hooks) goes
  * through here so one value never shows as three different numbers.
  *
  * Two rules the audit forced:

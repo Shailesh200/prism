@@ -22,7 +22,7 @@ type SqliteConstructor = typeof import("better-sqlite3");
 type BunSqliteModule = {
   Database: new (
     filename: string,
-    options?: { readonly create?: boolean },
+    options?: { readonly create?: boolean; readonly readonly?: boolean },
   ) => SqliteDatabase;
 };
 
@@ -121,12 +121,15 @@ function attachPragma(db: SqliteDatabase): SqliteDatabase {
   return db;
 }
 
-function openBunSqlite(path: string): SqliteDatabase {
+function openBunSqlite(path: string, readonly = false): SqliteDatabase {
   const mod = loadBunSqlite();
   const db =
     path === ":memory:"
       ? new mod.Database(path)
-      : new mod.Database(path, { create: true });
+      : new mod.Database(
+          path,
+          readonly ? { readonly: true } : { create: true },
+        );
   return attachPragma(db);
 }
 
@@ -135,20 +138,29 @@ function openBunSqlite(path: string): SqliteDatabase {
  * Bun cannot dlopen that addon, so Bun-hosted hosts (playground Vite, MCP)
  * use `bun:sqlite` first — same file, same schema.
  */
-export function openSqliteDatabase(path = ":memory:"): SqliteDatabase {
+export function openSqliteDatabase(
+  path = ":memory:",
+  options?: { readonly?: boolean },
+): SqliteDatabase {
+  const readonly = options?.readonly === true && path !== ":memory:";
   if (isBunRuntime()) {
     try {
-      return openBunSqlite(path);
+      return openBunSqlite(path, readonly);
     } catch {
       /* native better-sqlite3 in a Node worker */
     }
   }
   try {
     const Database = nativeRequire("better-sqlite3") as SqliteConstructor;
-    return attachPragma(new Database(path));
+    return attachPragma(
+      new Database(
+        path,
+        readonly ? { readonly: true, fileMustExist: true } : {},
+      ),
+    );
   } catch (cause) {
     if (!isBunRuntime()) throw cause;
-    return openBunSqlite(path);
+    return openBunSqlite(path, readonly);
   }
 }
 

@@ -1,4 +1,5 @@
 export {
+  claudeHooks,
   claudeManifest,
   cursorManifest,
   devClaudeHooks,

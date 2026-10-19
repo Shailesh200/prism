@@ -66,6 +66,10 @@ jobs:
       - run: bun run --filter @repo-prism/core test
       - run: bun run --filter @repo-prism/cli test
       - run: bun run --filter @repo-prism/mcp-server test
+      # The fixture-indexing and git suites (plan P22) run on every Node too.
+      - run: bun run --filter @repo-prism/shared test:integration
+      - run: bun run --filter @repo-prism/core test:integration
+      - run: bun run --filter @repo-prism/mcp-server test:integration
 
   # 1.8.0 died on `import` (`formatDuration` missing from published shared)
   # before initialize. Source tests never saw it; this job loads dist.
@@ -88,3 +92,60 @@ jobs:
           done
       - run: bun run scripts/check-publish-exports.mjs
       - run: bun run scripts/check-mcp-start.mjs
+
+  # Plan P21 / B10 — install each host into an isolated HOME and run doctor.
+  install-matrix:
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+      - run: bun install --frozen-lockfile
+      - name: Build install surface
+        run: |
+          set -euo pipefail
+          for name in shared test-support analyzer graph-engine impact navigation indexer intelligence core ui mcp-server plugin daemon cli; do
+            bun run --filter "@repo-prism/${name}" build
+          done
+      - name: B10 install matrix
+        run: node scripts/bench/install-matrix.mjs --out "$RUNNER_TEMP/prism-b10"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: B10-install-matrix-${{ matrix.os }}
+          path: ${{ runner.temp }}/prism-b10/B10-install-matrix.json
+
+  # Plan P21 / ACT-2 — shallow clone must deepen without PRISM_SHALLOW on a reachable base.
+  action-shallow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Deepen like the Action
+        shell: bash
+        env:
+          BASE_REF: origin/main
+        run: |
+          set -euo pipefail
+          if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || echo true)" = "true" ]; then
+            git fetch --no-tags --deepen=200 origin || true
+            git fetch --no-tags --depth=200 origin "${BASE_REF#origin/}" || true
+          fi
+          if ! git merge-base HEAD "${BASE_REF}" > /dev/null 2>&1; then
+            echo "::error::PRISM_SHALLOW: base ${BASE_REF} unreachable after deepen"
+            exit 1
+          fi
+          echo "ACT-2 deepen ok (merge-base reachable)"
+

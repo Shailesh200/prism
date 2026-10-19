@@ -35,15 +35,53 @@
     "./receipt-store": {
       "types": "./dist/receipt-store.d.ts",
       "import": "./dist/receipt-store.js"
+    },
+    "./tokens": {
+      "types": "./dist/tokens.d.ts",
+      "import": "./dist/tokens.js"
+    },
+    "./budget": {
+      "types": "./dist/budget.d.ts",
+      "import": "./dist/budget.js"
+    },
+    "./habits": {
+      "types": "./dist/habits.d.ts",
+      "import": "./dist/habits.js"
+    },
+    "./pulse": {
+      "types": "./dist/pulse.d.ts",
+      "import": "./dist/pulse.js"
+    },
+    "./session-store": {
+      "types": "./dist/session-store.d.ts",
+      "import": "./dist/session-store.js"
+    },
+    "./hook-config": {
+      "types": "./dist/hook-config.d.ts",
+      "import": "./dist/hook-config.js"
+    },
+    "./prompt-hook": {
+      "types": "./dist/prompt-hook.d.ts",
+      "import": "./dist/prompt-hook.js"
+    },
+    "./session-dedupe": {
+      "types": "./dist/session-dedupe.d.ts",
+      "import": "./dist/session-dedupe.js"
+    },
+    "./feedback-store": {
+      "types": "./dist/feedback-store.d.ts",
+      "import": "./dist/feedback-store.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/tsconfig.tsbuildinfo"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --coverage"
+    "test": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "zod": "^3.25.0"

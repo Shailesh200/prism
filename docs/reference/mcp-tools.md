@@ -14,33 +14,33 @@ network call or holds a credential.
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-An agent sees **9 default tools**. The other 12 are opt-in:
-list them in `extraTools` in `~/.prism/config.json`. Every count elsewhere in
-the docs is checked against these, so the numbers cannot drift into prose.
+An agent sees **all 21 tools**, including receipt.
+`extraTools` is not required. Every count elsewhere in the docs is
+checked against these, so the numbers cannot drift into prose.
 
 | Tool | Default | What it answers |
 |---|---|---|
-| [`agents_md`](#agents_md) | opt-in | Generate or verify the Living AGENTS.md |
+| [`agents_md`](#agents_md) | yes | Generate or verify the Living AGENTS.md |
 | [`blast_radius`](#blast_radius) | yes | What depends on a file or symbol, and how risky changing it is |
-| [`capabilities`](#capabilities) | opt-in | List every Core analysis capability with availability and a reason when unavailable |
-| [`dependency_cycles`](#dependency_cycles) | opt-in | Import and re-export cycles, each returned as the list of files forming the loop |
-| [`dependency_graph`](#dependency_graph) | opt-in | The import/re-export dependency graph, at file level or aggregated to packages |
-| [`explain_area`](#explain_area) | opt-in | Explain what a module or folder does |
-| [`explore_code`](#explore_code) | opt-in | Everything about one file or symbol in a single call |
+| [`capabilities`](#capabilities) | yes | List every Core analysis capability with availability and a reason when unavailable |
+| [`dependency_cycles`](#dependency_cycles) | yes | Import and re-export cycles, each returned as the list of files forming the loop |
+| [`dependency_graph`](#dependency_graph) | yes | The import/re-export dependency graph, at file level or aggregated to packages |
+| [`explain_area`](#explain_area) | yes | Explain what a module or folder does |
+| [`explore_code`](#explore_code) | yes | Everything about one file or symbol in a single call |
 | [`graph`](#graph) | yes | One structural question about the repository, answered from Prism's local graph |
-| [`guard_session`](#guard_session) | yes | Rank the current dirty session — working-tree changes minus preExistingChanges, when you have that list from a job — by blast risk, so a human reads the highest-risk file first |
-| [`knowledge_graph`](#knowledge_graph) | opt-in | The symbol-level graph — declarations and the references between them — with summary stats |
-| [`list_findings`](#list_findings) | opt-in | Queueable findings from the last index |
-| [`list_packages`](#list_packages) | opt-in | List the packages in a monorepo with their roots |
+| [`guard_session`](#guard_session) | yes | Check my changes |
+| [`habits`](#habits) | yes | The user's saved routines (e.g |
+| [`knowledge_graph`](#knowledge_graph) | yes | The symbol-level graph — declarations and the references between them — with summary stats |
+| [`list_findings`](#list_findings) | yes | Queueable findings from the last index |
+| [`list_packages`](#list_packages) | yes | List the packages in a monorepo with their roots |
 | [`prepare_change`](#prepare_change) | yes | One call before you edit |
-| [`receipt`](#receipt) | opt-in | What this session changed and whether it is proven |
+| [`receipt`](#receipt) | yes | What this session changed and whether it is proven |
 | [`rename_impact`](#rename_impact) | yes | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | [`repository_overview`](#repository_overview) | yes | What this repository is, in one bounded call |
-| [`review_changes`](#review_changes) | yes | Review changed paths in one call |
-| [`review_with`](#review_with) | opt-in | Review a task or the current change through a lens |
+| [`review_with`](#review_with) | yes | Review a task or the current change through a lens |
 | [`safe_delete`](#safe_delete) | yes | Whether a file or symbol can be deleted safely |
 | [`test_impact`](#test_impact) | yes | Which tests import the changed symbol, or a symbol that reaches it — the tests worth running after touching a target |
-| [`workspace_status`](#workspace_status) | opt-in | Compact workspace readiness |
+| [`workspace_status`](#workspace_status) | yes | Compact workspace readiness |
 
 ## `agents_md`
 
@@ -80,21 +80,27 @@ Arguments: `path`.
 
 ## `explore_code`
 
-Everything about one file or symbol in a single call: usages, ownership, related and similar code, and a change timeline. Usages are bounded (default 50) via a nested envelope so large files do not drown the response. Use when asked to understand a specific thing rather than the repository as a whole.
+Everything about one file or symbol in a single call: usages, ownership, related and similar code, and a change timeline. Usages are bounded (default 50) via a nested wrapper so large files do not drown the response. Use when asked to understand a specific thing rather than the repository as a whole.
 
 Arguments: `kind`, `path`, `name`, `start`, `limit`.
 
 ## `graph`
 
-One structural question about the repository, answered from Prism's local graph. Modes: find (a symbol or path by name; candidates when ambiguous), neighbors (imports, importers and tests of a file; declaration and references of a symbol), path (how A reaches B through imports), explain (what a file or folder is for, its owners and tests), query (filter: tests_reaching, importers_of, imports_of, files_in_importing). Every edge says measured, heuristic or inferred; open the file before relying on an inferred one. Bounded by `budget` tokens (default 1500); `truncated` says when it was cut.
+One structural question about the repository, answered from Prism's local graph. Modes: find, neighbors, path, explain, query, symbol (signature/body), map (compact cached repo map of signatures + callers/callees; default budget 4000). Every edge says measured, heuristic or inferred. Bounded by `budget` tokens; `truncated` says when it was cut.
 
-Arguments: `mode`, `name`, `kind`, `target`, `direction`, `from`, `to`, `maxHops`, `path`, `filter`, `of`, `within`, `budget`.
+Arguments: `mode`, `name`, `kind`, `target`, `direction`, `from`, `to`, `maxHops`, `path`, `filter`, `of`, `within`, `scope`, `body`, `id`, `sessionId`, `refresh`, `budget`.
 
 ## `guard_session`
 
-Rank the current dirty session — working-tree changes minus preExistingChanges, when you have that list from a job — by blast risk, so a human reads the highest-risk file first. Each file may carry duplicate (looks like an existing symbol), orphan (a new file nothing imports yet), or boundary (crosses into a package this session otherwise doesn't touch) flags. Call this before landing a session, not as a substitute for review_changes' test-impact and breaking-change view.
+Check my changes. Ranks this session's changes (working-tree changes minus what was already changed when the session began, or minus preExistingChanges; only `paths` when given) by blast risk so the highest-risk file is read first; files may carry duplicate, orphan or boundary flags, and `findings` lists each as what/where/fix/riskIfSkipped. With review:true it also returns `review`: blast radius, test impact and breaking-change hints per changed path, an overall risk band and structured lens findings (paths/base/lens/format pick what to review; format prDescription adds PR-description facts). Call before landing a session or to review a branch.
 
-Arguments: `preExistingChanges`.
+Arguments: `preExistingChanges`, `review`, `paths`, `base`, `lens`, `format`.
+
+## `habits`
+
+The user's saved routines (e.g. 'start my day'). With no name: the list of habits. With a name: the ordered steps (source, action, filter) and output format. Prism fetches nothing: run each step yourself with your connected tools, then write the result in the given format. Each habit is a skill file in ~/.prism/skills; users manage them with `prism habit add|list|show|edit|remove`.
+
+Arguments: `name`.
 
 ## `knowledge_graph`
 
@@ -104,7 +110,7 @@ Arguments: `path`, `limit`.
 
 ## `list_findings`
 
-Queueable findings from the last index: unused exports, duplicate implementations (two files exporting the exact same name), and wrapper functions (a function whose whole body is one call to another export). Excludes findings the user has muted, unless includeMuted is set. Pass one straight to queue_finding to fix it — never invent or paraphrase its fields.
+Queueable findings from the last index: unused exports, duplicate implementations (two files exporting the exact same name), and wrapper functions (a function whose whole body is one call to another export). Each row is structured: what, where, fix, riskIfSkipped, sources, plus its fingerprint. Excludes findings the user has muted, unless includeMuted is set.
 
 Arguments: `limit`, `includeMuted`.
 
@@ -116,15 +122,15 @@ Arguments: `limit`.
 
 ## `prepare_change`
 
-One call before you edit: the files to open for this task (pack), existing helpers to reuse, House Style exemplars, notes (remembered facts and ADR rationale), and a work order (in-scope, off-limits generated/vendor, needs sign-off). Paths, symbol names and why — never file bodies. The whole answer fits a token budget (default 2000); when it is cut, `trimmed` says what was dropped. Ambiguous names come back as candidates; do not pick silently.
+One call before you edit: `prism`, a one-line summary to start your reply with, the lens to work by (its steps, e.g. the smallest complete change), the files to open for this task (pack with exported signatures and path:line anchors), existing helpers to reuse, one House Style pointer, notes (remembered facts and ADR rationale), and a work order. Bodies only for the top symbol when it is ≤ 40 lines; otherwise call graph {mode:"symbol", path, name, body:true}. The whole answer fits a token budget (default 2000); when it is cut, `trimmed` says what was dropped. Ambiguous names come back as candidates; do not pick silently.
 
-Arguments: `task`, `budget`.
+Arguments: `task`, `budget`, `sessionId`, `refresh`.
 
 ## `receipt`
 
-What this session changed and whether it is proven: changed files, dependents, the tests that reach them, and a verdict — proven, not_proven(reason) or failed. Checks run in the background; calling again with the same edits returns the same receipt id, with the check results once they finish. Call this before saying a coding task is done and quote the verdict in one line.
+What this session changed and whether it is proven: changed files, dependents, the tests that reach them, and a verdict — SHIP, NOT PROVEN (reason, with the cheapest check that would prove it) or NO-SHIP. Checks run in the background and each call waits up to 20 s for them; while they run, `next` says whether to call again. Call this before saying a coding task is done and quote the verdict in one line.
 
-Arguments: `sessionId`.
+Arguments: `sessionId`, `waitMs`.
 
 ## `rename_impact`
 
@@ -137,12 +143,6 @@ Arguments: `kind`, `id`, `path`, `newName`.
 What this repository is, in one bounded call: languages, frameworks, package manager, test runners and ranked domains (dna), the detected stack, and the landmarks a human would open first (entrypoints, package roots). Start here when you know nothing about a codebase. Local index only; no network.
 
 Arguments: `packageId`, `limit`.
-
-## `review_changes`
-
-Review changed paths in one call: blast radius, test impact and breaking-change hints per path, rolled up with an overall risk band. Omit paths to auto-discover via git; pass base to compare against a ref. Use for 'review my branch' rather than calling the per-file tools repeatedly.
-
-Arguments: `paths`, `base`, `lens`, `format`.
 
 ## `review_with`
 
@@ -158,7 +158,7 @@ Arguments: `kind`, `id`, `path`.
 
 ## `test_impact`
 
-Which tests import the changed symbol, or a symbol that reaches it — the tests worth running after touching a target. Each test carries reason and viaSymbol; runCommand (when the runner is known: vitest, jest, bun, node:test, mocha) runs exactly those tests. Prism never runs them. The tests list is bounded (default 50).
+Which tests import the changed symbol, or a symbol that reaches it — the tests worth running after touching a target. Each test carries reason and viaSymbol; `run` gives one ready command per package (cwd, command, argv) with its runner (vitest, jest, mocha, bun, node:test) and package manager — run it as given. Prism never runs it. The tests list is bounded (default 50).
 
 Arguments: `kind`, `id`, `path`, `limit`.
 

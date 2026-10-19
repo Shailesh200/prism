@@ -23,8 +23,8 @@ Prism parses source into a local index and derives views from that one store:
 | **Repository DNA** | What is this built from, and which domains does it span? |
 | **Blast radius** | If I change this file, what else is affected? |
 | **Prepare** | What should I open for this task, and what already exists? |
-| **Envelope** | How much did agents take from the index, without dumping source? |
-| **Guard** | Of everything I just dirtied, what should I read first? |
+| **Review** | Of everything this session changed, what should I read first? |
+| **Lens review** | Which callers did the change leave behind, and what has no test? |
 | **Findings** | What unused or duplicated code is worth fixing? |
 | **Receipt** | Which checks did this change reach, and did they pass? |
 
@@ -32,30 +32,29 @@ Prism parses source into a local index and derives views from that one store:
 
 | Surface | For |
 |---|---|
-| **MCP server and hooks** | Claude Code, Cursor, Codex and opencode: nine tools, a prompt-time pack and a stop-time receipt |
+| **MCP server and hooks** | Claude Code, Cursor, Codex and opencode: every tool, a prompt-time pack and a stop-time receipt |
 | **CLI** | Scripts, CI, terminal workflows |
-| **GitHub Action** | A sticky PR comment with blast, tests and risk |
 
 ## Is it for you?
 
-**Probably yes** if you work in a TypeScript or JavaScript codebase too large to
-hold in your head.
+**Probably yes** if you work in a codebase too large to hold in your head.
 
 **Probably not** if the project is small enough to read in an afternoon, or is
-written in a language Prism does not parse deeply. See
+written in a language Prism does not analyse yet. See
 [known limitations](/docs/help/known-limitations).
 
-Prism itself never writes code — the analysis has no model behind it. Your
-agent makes the edit, in your chat. Before the edit,
-[Prepare a change](/docs/guides/prepare-a-change) returns the files to open —
-never the file bodies. When the agent stops, the receipt runs the checks the
-change reaches and prints proven, unproven, or failed.
+Prism writes no code, and its analysis uses no model. Your agent makes the
+edit, in your chat. Before the edit,
+[Prepare](/docs/guides/prepare-a-change) returns the files to open, never the
+file bodies. When the agent stops, the receipt runs the checks the change
+reaches and gives a verdict: SHIP, NOT PROVEN or NO-SHIP.
 
 ## Cost
 
-Disk: an index in `.prism/` (tens of megabytes on a large monorepo). Time:
+Disk: an index under `~/.prism/workspaces/` (tens of megabytes on a large
+monorepo). Time:
 seconds for the first index of a few thousand files, then incremental. Privacy:
-nothing by default — see [privacy](/privacy).
+nothing leaves your machine. See [privacy](/privacy).
 
 ## Next
 

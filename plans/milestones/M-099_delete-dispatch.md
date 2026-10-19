@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **Done** (widened by 2.0), not owner-verified |
 | Branch | `milestone/M-099-delete-dispatch` (from latest `main`) |
 | Depends on | M-098 Verified |
 | Unlocks | M-100 |
@@ -10,16 +10,25 @@
 | ADR | [ADR-0064](../adr/0064-dispatch-removed.md) |
 | Absorbs | M-082 (re-scoped) |
 
+
+## Status (17 Oct 2026)
+
+- Done in commit `f45ccb7`: 901 files changed and about 203k lines deleted.
+- Deleted: `dispatch`, `dispatch-hub`, `app-shell`, `apps/playground`, `host-session`, `repository-map`, `vscode-extension` and `cursor-extension`, plus the health, report and feature tools (unified plan §0.4).
+- 13 packages are published today, plus 2 private ones (`test-support`, `ui`).
+- A `deleted-names` check guards against the names coming back.
+- Envelope was removed later as well (17 Oct 2026).
+
 ## 1. Goal
 
-Remove everything that only existed for jobs and the retired screens, leaving one slim product: Prepare, Envelope, Graph, Receipt, Health. Program §4.4 steps 2–4, §10.
+Remove everything that only existed for jobs and the retired screens, leaving one slim product: Prepare, ~~Envelope~~, Graph, Receipt, ~~Health~~ (Envelope removed 17 Oct 2026; health deleted in 2.0). Program §4.4 steps 2–4, §10.
 
 ## 2. In scope
 
 | Item | Detail |
 |---|---|
 | Pre-check | `safe_delete` and `find_references` report for every exported symbol of `dispatch` and `dispatch-hub`; anything still referenced from kept code is moved first or the milestone stops |
-| Remove shims | The `dispatch` re-exports of Envelope / prepare-last / memory from M-091 |
+| Remove shims | The `dispatch` re-exports of ~~Envelope~~ / prepare-last / memory from M-091 |
 | Delete packages | `packages/dispatch`, `packages/dispatch-hub` (the daemon already lives in `packages/daemon`) |
 | UI | Remove Jobs, Live Relay remnants, Skills editor, standup, Domains, Repository Map, Pulse / Board / List screens from `app-shell`; the IDE webview keeps Graph, Iris, Receipts, Health, Settings |
 | Extension | Remove `host-dispatch*` and Dispatch commands from `vscode-extension` / `cursor-extension` |

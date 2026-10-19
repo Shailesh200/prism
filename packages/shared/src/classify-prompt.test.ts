@@ -64,3 +64,30 @@ describe("classifyPrompt (plan §5.8, §5.11)", () => {
     );
   });
 });
+
+describe("trivial change class (plan P5)", () => {
+  const trivial = [
+    "fix the typo in the README header", // CLS-T1
+    "fix spelling in the error message", // CLS-T2
+    "reformat this file", // CLS-T3
+    "remove trailing whitespace in utils.ts", // CLS-T4
+    "add a missing semicolon on line 12", // CLS-T5
+    "update the comment above debounce", // CLS-T6
+    "bump the version to 2.0.1", // CLS-T7
+    "fix the lint warnings in cart.ts", // CLS-T8
+    "change the wording of the log message", // CLS-T9
+  ];
+  it.each(trivial)("CLS-T1..T9: %s → trivial", (text) => {
+    expect(kind(text)).toBe("trivial");
+  });
+  it.each([
+    "fix the typo bug that crashes checkout",
+    "fix typos across the whole codebase",
+    "add comments support to the API",
+    "fix the failing test in cart.test.ts",
+    "add a retry option to the etag middleware",
+    "what does this comment mean?",
+  ])("CLS-T10: %s → not trivial", (text) => {
+    expect(kind(text)).not.toBe("trivial");
+  });
+});

@@ -54,10 +54,14 @@ export const graph = defineTool({
   name: "graph",
   title: "Repository graph",
   description:
-    "One structural question about the repository, answered from Prism's local graph. Modes: find (a symbol or path by name; candidates when ambiguous), neighbors (imports, importers and tests of a file; declaration and references of a symbol), path (how A reaches B through imports), explain (what a file or folder is for, its owners and tests), query (filter: tests_reaching, importers_of, imports_of, files_in_importing). Every edge says measured, heuristic or inferred; open the file before relying on an inferred one. Bounded by `budget` tokens (default 1500); `truncated` says when it was cut.",
+    "One structural question about the repository, answered from Prism's local graph. Modes: find, neighbors, path, explain, query, symbol (signature/body), map (compact cached repo map of signatures + callers/callees; default budget 4000). Every edge says measured, heuristic or inferred. Bounded by `budget` tokens; `truncated` says when it was cut.",
   inputSchema: {
     mode: z.enum(GRAPH_MODES).describe("What to ask."),
-    name: z.string().min(1).optional().describe("find: the name to look up."),
+    name: z
+      .string()
+      .min(1)
+      .optional()
+      .describe("find or symbol: the name to look up."),
     kind: z
       .string()
       .min(1)
@@ -75,7 +79,9 @@ export const graph = defineTool({
       .string()
       .min(1)
       .optional()
-      .describe("explain: workspace-relative file or folder."),
+      .describe(
+        "explain or symbol: workspace-relative file (or folder for explain).",
+      ),
     filter: z
       .enum(GRAPH_QUERY_FILTERS)
       .optional()
@@ -90,6 +96,33 @@ export const graph = defineTool({
       .min(1)
       .optional()
       .describe("query files_in_importing: the folder to look in."),
+    scope: z
+      .string()
+      .min(1)
+      .optional()
+      .describe("map: limit to this folder prefix."),
+    body: z
+      .boolean()
+      .optional()
+      .describe("symbol: include the exact source range for the declaration."),
+    id: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "symbol: `path#name` when path+name are not passed separately.",
+      ),
+    sessionId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Host session id for P4 dedupe of paths already sent this session.",
+      ),
+    refresh: z
+      .boolean()
+      .optional()
+      .describe("Ignore prior session sends and resend full context."),
     budget: z
       .number()
       .int()
@@ -143,6 +176,40 @@ export const graph = defineTool({
       const path = toWorkspaceRelative(workspaceRoot, args.path);
       if (!path.ok) return path;
       query = { mode: "explain", path: path.value };
+    } else if (args.mode === "map") {
+      if (args.scope) {
+        const scope = toWorkspaceRelative(workspaceRoot, args.scope);
+        if (!scope.ok) return scope;
+        query = { mode: "map", scope: scope.value };
+      } else {
+        query = { mode: "map" };
+      }
+    } else if (args.mode === "symbol") {
+      let symPath = args.path;
+      let symName = args.name;
+      if ((!symPath || !symName) && args.id) {
+        const hash = args.id.lastIndexOf("#");
+        if (hash <= 0 || hash === args.id.length - 1) {
+          return err(
+            prismError(
+              PrismErrorCode.VALIDATION,
+              'graph mode "symbol" id must be path#name',
+            ),
+          );
+        }
+        symPath = symPath ?? args.id.slice(0, hash);
+        symName = symName ?? args.id.slice(hash + 1);
+      }
+      if (!symPath) return err(need("path", args.mode));
+      if (!symName) return err(need("name", args.mode));
+      const path = toWorkspaceRelative(workspaceRoot, symPath);
+      if (!path.ok) return path;
+      query = {
+        mode: "symbol",
+        path: path.value,
+        name: symName,
+        ...(args.body === true ? { body: true } : {}),
+      };
     } else {
       if (!args.filter) return err(need("filter", args.mode));
       if (!args.of) return err(need("of", args.mode));

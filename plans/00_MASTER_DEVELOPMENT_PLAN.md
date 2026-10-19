@@ -2,16 +2,19 @@
 
 > **Status:** APPROVED  
 > **Version:** 0.1.0  
-> **Last updated:** 2026-09-19  
+> **Last updated:** 2026-10-17 (status brought in line with the code; see §3 banner)  
 > **Approved:** 2026-07-20 (owner)  
 > **Supersedes working name:** RepoPulse  
 > **Single source of truth** for product architecture, milestones, and engineering workflow.
 
-**Master Plan approved.** Prism is **one Intelligence product** (ADR-0057).
-Core, impact, Envelope, Prepare, MCP, CLI, and the IDE extensions have shipped.
-The next program ([`PROGRAM_prism-2.0.md`](./milestones/PROGRAM_prism-2.0.md))
-sanitizes the Dashboard into one rail and collapses packages without rewriting
-engines. Current milestone status lives in [`PROGRESS.md`](./PROGRESS.md).
+**Master Plan approved.** As of 17 Oct 2026, Prism is **Prism 2.0**: "Your agent's
+second pair of eyes." It is a local MCP server, CLI, daemon and hooks for coding
+agents. The hero features are **Prepare** and **Lens Review**, and the receipt
+closes every change. The Dashboard, IDE extensions, Dispatch and Envelope are gone.
+The active plan is the 2.0 unified plan ([`notes/prism-unified-plan.md`](./notes/prism-unified-plan.md),
+ADR-0067) on top of [`PROGRAM_focus-reset.md`](./milestones/PROGRAM_focus-reset.md).
+Current milestone status lives in [`PROGRESS.md`](./PROGRESS.md). Sections below
+that describe the Dashboard, the IDE or Prismate are history.
 
 ---
 
@@ -63,7 +66,7 @@ Offline, private, AI-agnostic. Not an LLM product. Not three apps.
 **One product:** **Prismate**. Surfaces are hosts, not SKUs. Dispatch is
 the job runtime (UI: Jobs). Spectrum / Repository Map and Domains are not
 products. See ADR-0057 and
-[`PROGRAM_prism-2.0.md`](./milestones/PROGRAM_prism-2.0.md).
+[`PROGRAM_prism-2.0.md`](./archive/milestones/PROGRAM_prism-2.0.md).
 
 > **Redirect in progress (M-079, 2026-10-06; ADR-0058 + ADR-0059 Accepted).** Prism stops
 > running agents ([ADR-0058](./adr/0058-prism-does-not-run-agents.md)). It
@@ -73,9 +76,16 @@ products. See ADR-0057 and
 > M-079 phase 2 lands. See
 > [`M-079_safety-layer.md`](./archive/milestones/M-079_safety-layer.md).
 
+> **Current product (17 Oct 2026). This replaces the rest of §3:**
+> - **Prism 2.0**, published as `@repo-prism/*` (13 packages at `2.0.0`, not yet published). Site `prismhq.in`. GitHub `Shailesh200/prism`.
+> - **Surfaces:** MCP server, with 9 default tools (`prepare_change`, `blast_radius`, `guard_session`, `test_impact`, `habits`, `safe_delete`, `rename_impact`, `repository_overview`, `graph`) and opt-in extras including `receipt`. Also the `prism` CLI (`prism start`, `install`, `review [--lens]`, `lens`, `habit`, `receipts`, `graph`, `doctor`), the local daemon, the hooks for Claude Code / Cursor / Codex / opencode, and the GitHub Action.
+> - **Hero:** Prepare (before an edit) and Lens Review (Dev / Architect / QA, after). The receipt verdict is `SHIP` / `NOT PROVEN` / `NO-SHIP`. Habits are skills (`~/.prism/skills/<slug>/SKILL.md`).
+> - **Removed:** Dispatch, the Dashboard / Console / playground, the VS Code and Cursor extensions, the health / report / feature tools (`f45ccb7`), and Envelope (17 Oct 2026).
+> - **Release:** 2.0.0 once, after the reliability work (round 4 running). The deploy follows the owner's review on 18 Oct. See [`RELEASE_RUNBOOK.md`](./RELEASE_RUNBOOK.md).
+
 > **Focus Reset approved (owner, 2026-10-10).** This section's Prismate identity is superseded by
 > [`PROGRAM_focus-reset.md`](./milestones/PROGRAM_focus-reset.md) and ADR-0060–0066: the product
-> stays **Prism**; the hero is **Prepare + Envelope** with the **Receipt** closing every change
+> stays **Prism**; the hero is **Prepare + ~~Envelope~~** (Envelope removed 17 Oct 2026; now Prepare + Lens Review) with the **Receipt** closing every change
 > and an always-fresh **Prism Graph** underneath; Dispatch is removed. Node pin is **24.18.1**.
 > Sequence M-088 → M-100, built on `milestone/M-087-focus-reset-plan`. The paragraphs below are
 > the previous contract and are kept until M-100 rewrites them.
@@ -589,11 +599,13 @@ flowchart TD
 | M-099 | Delete Dispatch + dead UI | Cleanup | M-098 | Yes |
 | M-100 | Relaunch | Distribution | M-099 | Yes |
 
+**Status 17 Oct 2026:** for the current status of every row from M-058 on (Done, Built, Obsolete, Absorbed, Deferred), see [`PROGRESS.md`](./PROGRESS.md). Obsolete and absorbed docs are in `archive/milestones/`. M-094 (Envelope) is obsolete.
+
 Agent-native Cuts 1–3 (M-069–M-076) are **done**. T1/T2/T3 proofs recorded. **Cut 4 (cloud / paid) is set aside.**
 
 **Safety layer (M-079):** Prism stops running agents; hooks + change receipt + Lenses in one phased milestone, gated by a replay benchmark (phase 1) and a kill test (end of phase 5). See [`M-079_safety-layer.md`](./archive/milestones/M-079_safety-layer.md). Prism 2.0 resumes at M-080 afterwards.
 
-**Prism 2.0 (M-077–M-086):** one product, one Dashboard, fewer packages. Live Relay (old M-079) is superseded by the safety layer. Demo + domain / `app.` / GitHub / npm org cutover is **last** (M-086). Sanity already on local `main`. Every row uses §8.1 + §9 + §10. See [`PROGRAM_prism-2.0.md`](./milestones/PROGRAM_prism-2.0.md).
+**Prism 2.0 (M-077–M-086):** one product, one Dashboard, fewer packages. Live Relay (old M-079) is superseded by the safety layer. Demo + domain / `app.` / GitHub / npm org cutover is **last** (M-086). Sanity already on local `main`. Every row uses §8.1 + §9 + §10. See [`PROGRAM_prism-2.0.md`](./archive/milestones/PROGRAM_prism-2.0.md).
 
 **Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → **M-041 Gate A** (P0 + P1 + Mono-v1) → M-017 → M-018 → M-025 → surfaces (M-026/M-028/M-030) → M-039.  
 **M-041 continued:** phases P2–P7 + Mono-v2 may run after Gate A (Map unblocked); still tracked as M-041 until epic complete.
@@ -607,8 +619,8 @@ Agent-native Cuts 1–3 (M-069–M-076) are **done**. T1/T2/T3 proofs recorded. 
 | Repository Map (engine) | M-017, M-018, M-019, M-031 | Shipped; **unmounted from the product** in M-078 (ADR-0057). `getRepositoryMap` stays |
 | Safety layer (hooks, change receipt) | M-079 phases 1–3, 5, 6, 8 | Replaces Jobs Live Relay; ADR-0058 |
 | Lenses (Architect / QA / Dev review) | M-079 phases 4, 5, 7 | ADR-0059; host model thinks, stored under `~/.prism` |
-| Marketplace publisher | M-081 | `prismhq.repo-prism` → `prismate` |
-| Public demo + identity cutover | M-086 | `/demo/<fixture>`, domain, `app.`, GitHub org, npm org |
+| Marketplace publisher | M-081 | **Obsolete**: cancelled (ADR-0060); IDE extensions deleted |
+| Public demo + identity cutover | M-086 | **Obsolete**: identity cancelled (ADR-0060); `/demo` out of scope for 2.0 |
 | Zoom levels / layers | M-017, M-019 | Architecture, deps, activity, ownership, debt, risk, perf, coverage |
 | Feature-first navigation | M-012, M-016, M-019 | |
 | Search / bookmarks / landmarks | M-017, M-019, M-031 | |
@@ -825,11 +837,13 @@ Statuses:
 | `Verified` | Merged to main with approval |
 | `Deferred` | Explicitly postponed by owner |
 
-Only **one** milestone may be `In Progress` at a time.
+Only **one** milestone may be `In Progress` at a time. Since 17 Oct 2026, PROGRESS.md also uses `Done`, `Built, not verified`, `Built, not deployed`, `Partly done`, `Open (round 4)`, `Obsolete` and `Absorbed` for work built on the M-087 branch without owner sign-off (legend in PROGRESS.md).
 
 ---
 
 ## 19. Architecture Snapshot (Target)
+
+> History. In 2.0 the surfaces are MCP, CLI, daemon, hooks and the GitHub Action. VS Code, Cursor, Playground and Repository Map are deleted.
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐

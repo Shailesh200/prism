@@ -11,9 +11,10 @@ import {
   ok,
   PrismErrorCode,
   prismError,
-  renderReceipt,
+  renderReceiptTerminal,
   renderReceiptMarkdown,
   renderReceiptSvg,
+  shipVerdictLabel,
   type ChangeReceipt,
 } from "@repo-prism/shared";
 import { listStoredReceipts } from "@repo-prism/shared/receipt-store";
@@ -33,13 +34,10 @@ export type ReceiptRow = {
 export function readReceiptHistory(root: string): ReceiptRow[] {
   return listStoredReceipts(root).map((receipt) => ({
     at: receipt.generatedAt,
-    verdict:
-      receipt.verdict === "not_proven"
-        ? `not_proven(${receipt.reason ?? "untested"})`
-        : receipt.verdict,
+    verdict: shipVerdictLabel(receipt),
     durationMs: receipt.durationMs,
     ...(receipt.sessionId ? { sessionId: receipt.sessionId } : {}),
-    text: renderReceipt(receipt),
+    text: renderReceiptTerminal(receipt),
     receipt,
   }));
 }
@@ -70,7 +68,7 @@ export const receiptsCommand: CommandHandler = async (context) => {
         : row.receipt && as === "svg"
           ? renderReceiptSvg(row.receipt)
           : row.receipt
-            ? renderReceipt(row.receipt)
+            ? renderReceiptTerminal(row.receipt)
             : row.text;
     return ok({ data: row, human: () => body });
   }

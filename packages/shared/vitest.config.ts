@@ -4,9 +4,14 @@ export default defineConfig({
   test: {
     name: "@repo-prism/shared",
     include: ["src/**/*.test.ts"],
-    // Tests spawn git and build fixture repos.
-    testTimeout: 30_000,
-    hookTimeout: 30_000,
+    // Suites that index a real repository, spawn git or run a repo's own
+    // checks live in *.integration.test.ts (plan P22). Unit tests keep
+    // vitest's 5 s default: one that needs more is an integration test.
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "src/**/*.integration.test.ts",
+    ],
     coverage: {
       provider: "v8",
       include: [

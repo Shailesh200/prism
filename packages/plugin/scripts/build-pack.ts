@@ -106,8 +106,15 @@ writeFileSync(
 cpSync(join(root, "skills"), join(staging, "skills"), { recursive: true });
 cpSync(join(root, "commands"), join(staging, "commands"), { recursive: true });
 mkdirSync(join(staging, "hooks"), { recursive: true });
-// The hook imports its prompt classifier as a sibling module.
-for (const file of ["prism-hook.mjs", "classify-prompt.mjs"]) {
+// The hook imports its prompt classifier, prompt hook and hook-config
+// upgrader, and reads its ruleset, as siblings.
+for (const file of [
+  "prism-hook.mjs",
+  "classify-prompt.mjs",
+  "prompt-hook.mjs",
+  "hook-config.mjs",
+  "prism-rules.md",
+]) {
   cpSync(join(root, "hooks", file), join(staging, "hooks", file));
 }
 writeFileSync(

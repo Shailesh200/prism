@@ -54,9 +54,9 @@ describe("action/render-comment.mjs (M-060)", () => {
     );
     const md = renderReviewComment(
       { ok: true, data: { overallRisk: 10, items: [] } },
-      "Prism · proven",
+      "Prism · SHIP",
     );
     expect(md).toContain("### Receipt");
-    expect(md).toContain("Prism · proven");
+    expect(md).toContain("Prism · SHIP");
   });
 });

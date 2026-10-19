@@ -17,7 +17,8 @@ import {
 } from "node:http";
 import type { AddressInfo } from "node:net";
 import { setPriority } from "node:os";
-import { isAbsolute, join, resolve as resolvePath } from "node:path";
+import { isAbsolute, join } from "node:path";
+import { canonicalRoot } from "@repo-prism/shared/prism-home";
 import type { PrismWorkspace } from "@repo-prism/core";
 import {
   type PrismError,
@@ -43,6 +44,8 @@ import {
 export type DaemonToolContext = {
   readonly workspace: PrismWorkspace;
   readonly workspaceRoot: string;
+  /** Daemon process env (PRISM_HOME, …) for tools that persist under it. */
+  readonly env?: NodeJS.ProcessEnv;
 };
 
 export type DaemonTool = {
@@ -97,8 +100,8 @@ export type DaemonStartOutcome =
   | { readonly kind: "already-running"; readonly record: DaemonRecord };
 
 const MAX_BODY_BYTES = 1024 * 1024;
-/** Longest a readiness request may wait (plan §5.8 H-PROMPT). */
-export const MAX_READY_WAIT_MS = 3_000;
+/** Longest a readiness request may wait (plan P17 / H-PROMPT). */
+export const MAX_READY_WAIT_MS = 900;
 
 function send(res: ServerResponse, status: number, payload: unknown): void {
   const body = JSON.stringify(payload);
@@ -176,7 +179,14 @@ async function takeLock(
       });
       const age = info ? Date.now() - info.mtimeMs : Number.POSITIVE_INFINITY;
       if (owner === process.pid) return null;
-      if (isProcessAlive(owner) && age < 30_000) return null;
+      if (isProcessAlive(owner)) {
+        if (age < 30_000) return null;
+        // A live owner that wrote the record is a daemon too busy to answer
+        // health in time (a first index blocks it for seconds), not a reused
+        // pid: taking its lock would start a second daemon beside it.
+        const record = await readDaemonRecord(env);
+        if (record?.pid === owner) return null;
+      }
       await rm(path, { force: true });
     }
   }
@@ -352,7 +362,7 @@ export async function startDaemon(
         }),
       ]);
       clearTimeout(timer);
-      const row = pool.status().find((w) => w.root === resolvePath(root));
+      const row = pool.status().find((w) => w.root === canonicalRoot(root));
       return send(res, 200, {
         ok: true,
         value: {
@@ -369,7 +379,7 @@ export async function startDaemon(
       if (!args.ok) return send(res, 400, { ok: false, error: args.error });
       pool.warm(root);
       try {
-        const result = await rootRoute.call(resolvePath(root), args.value);
+        const result = await rootRoute.call(canonicalRoot(root), args.value);
         return send(
           res,
           200,
@@ -408,7 +418,7 @@ export async function startDaemon(
       if (!ready.ok) return send(res, 200, { ok: false, error: ready.error });
       try {
         const result = await tool.call(
-          { workspace: ready.value, workspaceRoot: root },
+          { workspace: ready.value, workspaceRoot: root, env },
           args.value,
         );
         return send(

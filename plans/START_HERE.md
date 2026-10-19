@@ -1,4 +1,18 @@
-# Start Here — After Master Plan Approval
+# Start Here
+
+## 0. Where things stand (17 Oct 2026)
+
+- **Product:** Prism, "Your agent's second pair of eyes." Hero features: **Prepare** (the right files, tests, reuse and house style before an agent edits) and **Lens Review** (Dev / Architect / QA lenses after it edits). The receipt closes every change with `SHIP` / `NOT PROVEN` / `NO-SHIP`. Site: `prismhq.in`. npm: `@repo-prism/*`.
+- **Gone in 2.0:** Dispatch, the Dashboard, the VS Code / Cursor extensions, the health and report tools, and Envelope (removed 17 Oct). Habits are skills (`~/.prism/skills/<slug>/SKILL.md`).
+- **Branch:** all current work is on `milestone/M-087-focus-reset-plan`. The last commit is `08e4d3c`, with a lot of uncommitted work on top. Nothing has been pushed or published.
+- **Now:** round 4 of the 2.0 reliability work (`notes/round4-status.md`). It covers the published install path, `prism review --lens`, a lighter prompt hook, medium-repo memory, the follow-up quality gaps, benchmarks B2 / B3 / B5, Claude Code re-tests (Sonnet 5.5 complex, Opus small) and the full release gate.
+- **Next:** the owner reviews on 18 Oct. Then commit, the 2.0.0 release ([`RELEASE_RUNBOOK.md`](./RELEASE_RUNBOOK.md)) and the website deploy, each only on the owner's word. Only 2.0.0 is released, once.
+- **Read first:** [`PROGRESS.md`](./PROGRESS.md) (status of every milestone), [`notes/prism-2-next-change-report.md`](./notes/prism-2-next-change-report.md) (results, rounds 2–4), [`notes/prism-unified-plan.md`](./notes/prism-unified-plan.md) (the 2.0 contract, ADR-0067).
+- **Dev rules for this phase:** every Prism install points at the local build. Use Node 24 (`.nvmrc` 24.18.1) and bun. Do not commit, push, publish or deploy without asking.
+
+The sections below are the original start-up steps (M-000, M-001). The hard rules in §7 still apply.
+
+## Original start-up steps (history)
 
 ## 1. First milestone (docs — not code)
 

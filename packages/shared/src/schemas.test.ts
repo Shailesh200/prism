@@ -11,6 +11,7 @@ import {
   TestingReportSchema,
   PrepareChangeSchema,
   FindingRefSchema,
+  ContextFileSchema,
   parseDto,
 } from "./schemas.js";
 import { PrismErrorCode } from "./errors.js";
@@ -206,6 +207,7 @@ describe("DTO schemas round-trip", () => {
           {
             path: "src/users/fetchUser.ts",
             symbols: ["fetchUser"],
+            signatures: [],
             why: ["feature users"],
             tokenWeight: 12,
             provenance: "heuristic",
@@ -241,6 +243,7 @@ describe("DTO schemas round-trip", () => {
           {
             path: "src/users/fetchUser.ts",
             symbols: ["fetchUser"],
+            signatures: [],
             why: ["seed"],
             tokenWeight: 4,
             provenance: "heuristic",
@@ -288,5 +291,31 @@ describe("DTO schemas round-trip", () => {
       fingerprint: "abc123",
     };
     expect(FindingRefSchema.parse(raw)).toEqual(raw);
+  });
+});
+
+describe("P9 CONF-4 ContextFile confidence contract", () => {
+  it("accepts high|medium|low and omits when absent", () => {
+    const base = {
+      path: "src/a.ts",
+      symbols: ["a"],
+      signatures: [],
+      why: ["seed file"],
+      tokenWeight: 1,
+      provenance: "measured" as const,
+    };
+    expect(
+      ContextFileSchema.parse({ ...base, confidence: "high" }).confidence,
+    ).toBe("high");
+    expect(
+      ContextFileSchema.parse({ ...base, confidence: "medium" }).confidence,
+    ).toBe("medium");
+    expect(
+      ContextFileSchema.parse({ ...base, confidence: "low" }).confidence,
+    ).toBe("low");
+    expect(ContextFileSchema.parse(base).confidence).toBeUndefined();
+    expect(() =>
+      ContextFileSchema.parse({ ...base, confidence: "maybe" }),
+    ).toThrow();
   });
 });

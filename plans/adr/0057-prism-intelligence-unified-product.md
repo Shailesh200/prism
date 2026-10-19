@@ -5,7 +5,7 @@
 | Status | **Accepted** |
 | Date | 2026-09-18 |
 | Accepted | 2026-09-19 (owner) |
-| Milestone | Program [`PROGRAM_prism-2.0.md`](../milestones/PROGRAM_prism-2.0.md) (M-077+) |
+| Milestone | Program [`PROGRAM_prism-2.0.md`](../archive/milestones/PROGRAM_prism-2.0.md) (M-077+) |
 | Amends | [ADR-0004](./0004-core-only-integration-surface.md), [ADR-0035](./0035-dispatch-vertical.md), [ADR-0048](./0048-prism-console-unification.md), [ADR-0052](./0052-product-identity-and-iris.md), [ADR-0053](./0053-console-information-architecture.md) |
 | Does not | Reopen Q-009 / Q-010; rename MCP tools; rewrite engine algorithms |
 

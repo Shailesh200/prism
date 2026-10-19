@@ -5,8 +5,9 @@
  */
 
 import { spawn } from "node:child_process";
-import { openSync } from "node:fs";
+import { openSync, readFileSync, statSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type { PrismError } from "@repo-prism/shared";
 import { daemonDir, daemonEnabled, daemonLogPath } from "./paths.js";
 import {
@@ -273,7 +274,7 @@ export async function daemonReady(
 /** Call an internal route (`/v1/session`, `/v1/receipt`). */
 export async function callDaemonRoute<T = unknown>(
   input: {
-    readonly path: "/v1/session" | "/v1/receipt";
+    readonly path: "/v1/session" | "/v1/receipt" | "/v1/prompt";
     readonly root: string;
     readonly args?: Readonly<Record<string, unknown>>;
   } & ClientOptions,
@@ -289,6 +290,25 @@ export async function callDaemonRoute<T = unknown>(
     { ...input.args, root: input.root },
     input,
   );
+}
+
+/**
+ * A server build's daemon id: its package version plus the build time of
+ * `stampFile` (the server's `dist/daemon-attach.js`). The server and the CLI
+ * derive it the same way, so a CLI passing it replaces a stale daemon.
+ * Undefined when either part cannot be read.
+ */
+export function daemonBuildIdFor(stampFile: string): string | undefined {
+  try {
+    const pkg = join(dirname(stampFile), "..", "package.json");
+    const { version } = JSON.parse(readFileSync(pkg, "utf8")) as {
+      version?: unknown;
+    };
+    if (typeof version !== "string") return undefined;
+    return `${version}+${Math.trunc(statSync(stampFile).mtimeMs)}`;
+  } catch {
+    return undefined;
+  }
 }
 
 export type EnsureDaemonInput = {

@@ -208,6 +208,138 @@
         "src/middleware/etag/index.test.ts"
       ],
       "modules": "0ae4c42545469640"
+    },
+    {
+      "id": "es-toolkit-ea692b9f",
+      "repo": "es-toolkit",
+      "fix": "ea692b9fd50b1b3f566f38e8104c97c50f1f7fc2",
+      "parent": "d7a1d6895b6e856ff88ffc47aa25f861cd391157",
+      "subject": "fix(mergeWith, toMerged): handle mixed array/object types consistently with merge (#2026)",
+      "tests": [
+        "benchmarks/bundle-size/mergeWith.spec.ts",
+        "src/object/mergeWith.spec.ts",
+        "src/object/toMerged.spec.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "benchmarks/bundle-size/mergeWith.spec.ts",
+        "src/object/mergeWith.spec.ts",
+        "src/object/toMerged.spec.ts"
+      ],
+      "modules": "40695de3beec47fc",
+      "set": "bigger"
+    },
+    {
+      "id": "es-toolkit-8f557cb3",
+      "repo": "es-toolkit",
+      "fix": "8f557cb34f8a8320702534186dce4fa7c9d7bee0",
+      "parent": "5f783dc27a5c7d00669a1a39573680b6f0db6f37",
+      "subject": "fix(compat/takeWhile, compat/takeRightWhile, compat/uniqBy): support string inputs (#2004)",
+      "tests": [
+        "src/compat/array/takeRightWhile.spec.ts",
+        "src/compat/array/takeWhile.spec.ts",
+        "src/compat/array/uniqBy.spec.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "src/compat/array/takeRightWhile.spec.ts",
+        "src/compat/array/takeWhile.spec.ts",
+        "src/compat/array/uniqBy.spec.ts"
+      ],
+      "modules": "40695de3beec47fc",
+      "set": "bigger"
+    },
+    {
+      "id": "hono-b20d4225",
+      "repo": "hono",
+      "fix": "b20d4225c9aa9e615717ca74e437852cc9fd5b94",
+      "parent": "9728702911073aec5a63a3ba2840b7240e5d3205",
+      "subject": "fix(utils/body,validator): normalize Content-Type media type for case-insensitive matching (#5067)",
+      "tests": [
+        "src/utils/body.test.ts",
+        "src/utils/buffer.test.ts",
+        "src/validator/validator.test.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "src/utils/body.test.ts",
+        "src/utils/buffer.test.ts",
+        "src/validator/validator.test.ts"
+      ],
+      "modules": "0ae4c42545469640",
+      "set": "bigger"
+    },
+    {
+      "id": "hono-22db73f4",
+      "repo": "hono",
+      "fix": "22db73f461633ffd365ea2e42ff972c83d6cf6c8",
+      "parent": "6b9fb24874d04017bc6c449dbc75b330345f43aa",
+      "subject": "fix(middleware/etag): generate etag hash value from all chunks (#3604)",
+      "tests": [
+        "src/middleware/etag/index.test.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "src/middleware/etag/index.test.ts"
+      ],
+      "modules": "0ae4c42545469640",
+      "set": "bigger"
+    },
+    {
+      "id": "hono-3d8abbc2",
+      "repo": "hono",
+      "fix": "3d8abbc2392277a2026ac09fb3929d9cb1ef2065",
+      "parent": "267186d65e739c257041324f5e8f9a64300df763",
+      "subject": "fix(client): return query params in $url (#3541)",
+      "tests": [
+        "src/client/client.test.ts",
+        "src/client/utils.test.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "src/client/client.test.ts",
+        "src/client/utils.test.ts"
+      ],
+      "modules": "0ae4c42545469640",
+      "set": "bigger"
+    },
+    {
+      "id": "hono-7a254bc0",
+      "repo": "hono",
+      "fix": "7a254bc0c74f85b2618c2cb62b31a463ed34c53f",
+      "parent": "ac069d1696536e6d8f43e9b360cbee389035e15f",
+      "subject": "fix(serve-static):supports directory contains `.` and not ends `/` (#3256)",
+      "tests": [
+        "runtime_tests/bun/index.test.tsx",
+        "runtime_tests/deno/middleware.test.tsx",
+        "src/middleware/serve-static/index.test.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "runtime_tests/bun/index.test.tsx",
+        "runtime_tests/deno/middleware.test.tsx",
+        "src/middleware/serve-static/index.test.ts"
+      ],
+      "modules": "0ae4c42545469640",
+      "set": "bigger"
     }
   ]
 }

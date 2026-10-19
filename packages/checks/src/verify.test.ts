@@ -4,7 +4,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { rm } from "node:fs/promises";
-import { resolveVerifyPlan, verifyJobWork, type VerifyStep } from "./verify.js";
+import { getPriority } from "node:os";
+import {
+  CHECK_CANCELLED,
+  resolveVerifyPlan,
+  verifyJobWork,
+  verifyRunnerWithTimeout,
+  type VerifyStep,
+} from "./verify.js";
 
 const FIXTURES = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -180,4 +187,38 @@ describe("package manager resolution", () => {
     const argv = JSON.parse(await readFile(marker, "utf8")) as string[];
     expect(argv.slice(-2)).toEqual(["run", "test"]);
   });
+});
+
+describe("background check runner (round 2)", () => {
+  const step = (argv: string[]): VerifyStep =>
+    ({ name: "t", kind: "argv", argv }) as VerifyStep;
+
+  it.runIf(process.platform !== "win32")(
+    "stops a running check when its signal aborts",
+    async () => {
+      const controller = new AbortController();
+      const started = Date.now();
+      const run = verifyRunnerWithTimeout(30_000, controller.signal)(
+        tmpdir(),
+        step(["sleep", "20"]),
+      );
+      setTimeout(() => controller.abort(), 100);
+      const result = await run;
+      expect(result.ok).toBe(false);
+      expect(result.output).toBe(CHECK_CANCELLED);
+      expect(Date.now() - started).toBeLessThan(5_000);
+    },
+  );
+
+  it.runIf(process.platform !== "win32")(
+    "runs checks at low priority",
+    async () => {
+      const result = await verifyRunnerWithTimeout(10_000)(
+        tmpdir(),
+        step(["sh", "-c", "ps -o nice= -p $$"]),
+      );
+      expect(result.ok).toBe(true);
+      expect(Number(result.output.trim())).toBeGreaterThan(getPriority());
+    },
+  );
 });

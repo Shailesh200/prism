@@ -1,5 +1,4 @@
 import {
-  type TestRunner,
   PrismErrorCode,
   classifyToolingRoot,
   err,
@@ -97,12 +96,26 @@ export type ImpactContext = {
    * what the file really exports. Absent: every export is assumed (coarse).
    */
   readonly fileExports?: ReadonlyMap<string, readonly string[]>;
-  /** Workspace test runner (from package.json), for `runCommand`. */
-  readonly testRunner?: TestRunner;
+  /** Packages that can run tests (plan P10), for test_impact's `run`. */
+  readonly testPackages?: readonly TestPackage[];
+  /** The repository's package manager, from its lockfile. */
+  readonly packageManager?: PackageManager;
+  /**
+   * Files that changed in the same commits as `path`, strongest first (P7).
+   * test_impact adds the tests among them; absent without git history.
+   */
+  readonly coChange?: (path: string) => readonly CoChangePartner[];
   /** Entry role per file (plan §4.4): package main/bin/exports, route, literal path, test. */
   readonly entryRoles?: ReadonlyMap<string, string>;
   /** Whether a path is source that may be reported as an orphan (plan §4.4). */
   readonly isOrphanEligible?: (path: string) => boolean;
+};
+
+/** A file that changed together with another (core's co-change index). */
+export type CoChangePartner = {
+  readonly path: string;
+  readonly together: number;
+  readonly jaccard: number;
 };
 
 export function stripFilePrefix(idOrPath: string): string {
@@ -112,6 +125,7 @@ export function stripFilePrefix(idOrPath: string): string {
 }
 
 import { isTestPath, isTypeDeclarationPath } from "@repo-prism/shared";
+import type { PackageManager, TestPackage } from "./test-runner.js";
 
 export { isTestPath, isTypeDeclarationPath };
 
@@ -678,7 +692,10 @@ export function mergeSoftAffected(
       softDepth1++;
       softOnly.set(edge.from, {
         depth: 1,
-        reason: `covers ${originPath} via soft signal`,
+        reason:
+          edge.lane === "import"
+            ? `imports ${originPath} (${edge.reason})`
+            : `covers ${originPath} via soft signal`,
         soft: true,
         lane: edge.lane,
         confidence: edge.confidence,

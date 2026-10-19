@@ -370,6 +370,12 @@ async function withPrismCalls(
   calls: Array<{
     step: string;
     run: (ws: WorkspaceHandle) => unknown | Promise<unknown>;
+    /**
+     * Prism's own work before the agent asks (the index). It is timed but not
+     * counted: no MCP tool returns the index to the agent (round 3 fix; it
+     * used to be charged as an agent read in every scenario).
+     */
+    setup?: boolean;
   }>,
 ): Promise<RunMetrics> {
   const started = performance.now();
@@ -379,6 +385,10 @@ async function withPrismCalls(
   const workspace = openWorkspace(root, Prism);
 
   for (const call of calls) {
+    if (call.setup) {
+      await call.run(workspace);
+      continue;
+    }
     toolCalls += 1;
     const result = await call.run(workspace);
     const json = JSON.stringify(result ?? {});
@@ -505,7 +515,7 @@ async function runScenario(
       return {
         without: await withoutPrismOrient(fixture.root),
         with: await withPrismCalls(fixture.root, Prism, [
-          { step: "index (once)", run: (ws) => ws.index() },
+          { step: "index", run: (ws) => ws.index(), setup: true },
           {
             step: "repository_overview",
             run: async (ws) => [
@@ -520,7 +530,7 @@ async function runScenario(
       return {
         without: await withoutPrismSafeEdit(fixture.root, fixture.editTarget),
         with: await withPrismCalls(fixture.root, Prism, [
-          { step: "index (once)", run: (ws) => ws.index() },
+          { step: "index", run: (ws) => ws.index(), setup: true },
           {
             step: "blast_radius",
             run: (ws) =>
@@ -532,7 +542,7 @@ async function runScenario(
       return {
         without: await withoutPrismFind(fixture.root, fixture.symbol),
         with: await withPrismCalls(fixture.root, Prism, [
-          { step: "index (once)", run: (ws) => ws.index() },
+          { step: "index", run: (ws) => ws.index(), setup: true },
           {
             step: "find",
             run: (ws) => ws.findSymbol({ name: fixture.symbol }),
@@ -543,7 +553,7 @@ async function runScenario(
       return {
         without: await withoutPrismTestImpact(fixture.root, fixture.editTarget),
         with: await withPrismCalls(fixture.root, Prism, [
-          { step: "index (once)", run: (ws) => ws.index() },
+          { step: "index", run: (ws) => ws.index(), setup: true },
           {
             step: "test_impact",
             run: (ws) =>
@@ -555,7 +565,7 @@ async function runScenario(
       return {
         without: await withoutPrismCycles(fixture.root),
         with: await withPrismCalls(fixture.root, Prism, [
-          { step: "index (once)", run: (ws) => ws.index() },
+          { step: "index", run: (ws) => ws.index(), setup: true },
           { step: "dependency_cycles", run: (ws) => ws.getCycles() },
         ]),
       };
@@ -631,7 +641,7 @@ async function main() {
       withoutPrism:
         "Simulated naive agent: list dirs, read manifests, scan/grep files",
       withPrism:
-        "Core SDK calls matching MCP tools (repository_overview, blast_radius, find, test_impact, dependency_cycles)",
+        "Core SDK calls matching MCP tools (repository_overview, blast_radius, find, test_impact, dependency_cycles); the index Prism builds on its own is not counted, since no tool returns it",
     },
     machine: {
       platform: process.platform,

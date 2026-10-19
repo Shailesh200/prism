@@ -8,8 +8,9 @@
 
 import { agentsMdCommand } from "./commands/agents-md.js";
 import { dataCommand } from "./commands/data-prune.js";
-import { envelopeCommand } from "./commands/envelope.js";
 import { graphCommand } from "./commands/graph.js";
+import { habitCommand } from "./commands/habit.js";
+import { strengthCommand } from "./commands/strength.js";
 import { lensCommand } from "./commands/lens.js";
 import {
   installCommand,
@@ -32,6 +33,7 @@ import {
   testImpactCommand,
 } from "./commands/change.js";
 import { overviewCommand } from "./commands/overview.js";
+import { startCommand } from "./commands/start.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { statsCommand } from "./commands/stats.js";
 import { indexCommand } from "./commands/index-command.js";
@@ -55,6 +57,21 @@ import {
 } from "./registry.js";
 
 export const COMMANDS: readonly CommandSpec[] = [
+  {
+    name: "start",
+    group: "Set up",
+    summary:
+      "Set up Prism for every coding agent found here (asks first), index this repo and show its map",
+    handler: startCommand,
+    options: [
+      {
+        flags: "--dry-run",
+        description:
+          "Only list the config files it would write and the 1.x data it would move",
+      },
+    ],
+    examples: ["prism start", "prism start --dry-run", "prism start --yes"],
+  },
   {
     name: "install",
     group: "Set up",
@@ -84,7 +101,7 @@ export const COMMANDS: readonly CommandSpec[] = [
     ],
     examples: [
       "prism install claude",
-      "prism install cursor --project",
+      "prism install cursor",
       "prism install all --local ~/Prism",
     ],
   },
@@ -135,7 +152,7 @@ export const COMMANDS: readonly CommandSpec[] = [
       {
         flags: "--fix",
         description:
-          "Stop the daemon and rewrite editor configs to the recorded local build",
+          "Stop the daemon, rewrite editor configs to the recorded local build or the installed server, and update hook configs an older release wrote",
       },
     ],
     examples: [
@@ -144,6 +161,30 @@ export const COMMANDS: readonly CommandSpec[] = [
       "prism doctor --surfaces",
       "prism doctor skills",
       "prism doctor --fix",
+    ],
+  },
+  {
+    name: "strength",
+    group: "Diagnostics",
+    summary:
+      "How much the hooks do: full (default), lite (rules and the stop receipt) or off",
+    handler: strengthCommand,
+    arguments: [
+      {
+        syntax: "[level]",
+        description: "full, lite or off; omit to show the strength in effect",
+      },
+    ],
+    options: [
+      {
+        flags: "--repo",
+        description: "Set it for this repository only (.prism/config.json)",
+      },
+    ],
+    examples: [
+      "prism strength",
+      "prism strength lite",
+      "prism strength off --repo",
     ],
   },
   {
@@ -188,7 +229,7 @@ export const COMMANDS: readonly CommandSpec[] = [
     arguments: [
       {
         syntax: "[action]",
-        description: "status (default), serve, stop, refresh, or export",
+        description: "status (default), serve, stop, refresh, map, or export",
       },
     ],
     options: [
@@ -196,10 +237,23 @@ export const COMMANDS: readonly CommandSpec[] = [
         flags: "--out <dir>",
         description: "export: where to write graph.json",
       },
+      {
+        flags: "--scope <path>",
+        description: "map: only files under this path",
+      },
+      {
+        flags: "--budget <tokens>",
+        description: "map: token budget for the map",
+      },
+      {
+        flags: "--refresh",
+        description: "map: rebuild instead of reading the cache",
+      },
     ],
     examples: [
       "prism graph",
       "prism graph serve",
+      "prism graph map --budget 800",
       "prism graph export --out .prism/graph",
     ],
   },
@@ -301,23 +355,31 @@ export const COMMANDS: readonly CommandSpec[] = [
   {
     name: "review",
     group: "Assess a change",
-    summary: "Risk of the current changes, or of the paths you name",
+    summary:
+      "Risk of the working tree, the files you name, or a GitHub pull request",
     handler: reviewCommand,
     arguments: [
       {
-        syntax: "[paths...]",
-        description: "Files to review (default: the working-tree diff)",
+        syntax: "[target...]",
+        description:
+          "Files to review, or one github.com pull request URL. Default: the working-tree diff",
       },
     ],
     options: [
       { flags: "--base <rev>", description: "Diff against a git revision" },
+      {
+        flags: "--lens <name>",
+        description:
+          "Also run this lens's data-backed checks (architect, dev, qa, or a custom lens)",
+      },
       FAIL_ON_BAND_OPTION,
       LIMIT_OPTION,
       FORMAT_OPTION,
     ],
     examples: [
+      "prism review --lens qa",
       "prism review --base origin/main --fail-on high",
-      "prism review --base origin/main --format sarif",
+      "prism review https://github.com/org/repo/pull/1",
     ],
   },
   {
@@ -454,25 +516,6 @@ export const COMMANDS: readonly CommandSpec[] = [
     examples: ["prism findings list", "prism findings mute a3f8c5f0c392dbeb"],
   },
   {
-    name: "envelope",
-    group: "Assess a change",
-    summary:
-      "What Prism put into agents' context here, by tool, and what ran over budget",
-    handler: envelopeCommand,
-    options: [
-      { flags: "--days <n>", description: "Window to report (default 7)" },
-      {
-        flags: "--session <id>",
-        description: "One agent session; `latest` for the newest",
-      },
-    ],
-    examples: [
-      "prism envelope",
-      "prism envelope --days 30 --json",
-      "prism envelope --session latest",
-    ],
-  },
-  {
     name: "receipts",
     group: "Assess a change",
     summary: "List the change receipts the stop hook wrote, or show one",
@@ -496,16 +539,16 @@ export const COMMANDS: readonly CommandSpec[] = [
     name: "lens",
     group: "Assess a change",
     summary:
-      "List, add or remove review lenses (shared by every repository), or overrule a lens check",
+      "List, show, add or remove review lenses (shared by every repository), or overrule a lens check",
     handler: lensCommand,
     arguments: [
       {
         syntax: "[action]",
-        description: "list (default), add, remove, or override",
+        description: "list (default), show, add, remove, or override",
       },
       {
         syntax: "[target]",
-        description: "add: the lens name; remove/override: the lens id",
+        description: "add: the lens name; show/remove/override: the lens id",
       },
     ],
     options: [
@@ -543,8 +586,47 @@ export const COMMANDS: readonly CommandSpec[] = [
       { flags: "--note <text>", description: "override: why it is fine" },
     ],
     examples: [
+      "prism lens show dev",
       'prism lens add perf --role "Checks hot paths" --focus "No new N+1" --checklist "No query in a loop" --trigger "slow query"',
       'prism lens override dev --check reuse_missed --path src/utils/formatDueDate.ts --note "intentionally differs"',
+    ],
+  },
+  {
+    name: "habit",
+    group: "Memory",
+    summary:
+      'Save routines (e.g. "start my day") that any agent can run through the habits tool',
+    handler: habitCommand,
+    arguments: [
+      {
+        syntax: "[action]",
+        description: "list (default), add, show, edit, or remove",
+      },
+      { syntax: "[name]", description: "The habit name (quote it)" },
+    ],
+    options: [
+      {
+        flags: "--step <text>",
+        description:
+          'add or edit: "source: action [| filter]" (repeatable, in order)',
+        repeatable: true,
+      },
+      {
+        flags: "--output <format>",
+        description: "add or edit: standup, summary, checklist, table, or free",
+      },
+      {
+        flags: "--template <text>",
+        description: "add or edit: how to lay out the result",
+      },
+      {
+        flags: "--description <text>",
+        description: "add or edit: one line about the habit",
+      },
+    ],
+    examples: [
+      'prism habit add "start my day" --step "github: list my open PRs and review requests" --step "linear: my in-progress issues" --step "notion: read Daily notes for today" --output standup',
+      'prism habit show "start my day"',
     ],
   },
   {

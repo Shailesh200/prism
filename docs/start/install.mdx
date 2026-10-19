@@ -1,6 +1,6 @@
 ---
 title: Install
-description: "Install the CLI, let `prism install` wire your agent, confirm it works — about five minutes."
+description: "Install the CLI, let `prism install` wire your agent, and check it with `prism doctor`."
 ---
 
 Prism 2.0 is one CLI and one MCP server (`prism-mcp`) that ship together. You do
@@ -12,13 +12,13 @@ Prism 2.0 is one CLI and one MCP server (`prism-mcp`) that ship together. You do
 <Steps>
 <Step>
 
-**Node.js 24+** — check with `node -v`.
+**Node.js** — check with `node -v`.
 
 </Step>
 <Step>
 
-**A project folder** — TypeScript / JavaScript. Git is recommended (the stop
-receipt and test impact read it) but not required.
+**A project folder.** Git is recommended (the stop receipt and test impact
+read it) but not required.
 
 </Step>
 </Steps>
@@ -35,7 +35,8 @@ and records what it wrote in `~/.prism/install.json`, so `prism uninstall`
 removes exactly that and nothing else. The MCP entry launches the installed
 `prism-mcp` binary — never a registry download.
 
-Wiring a host by hand? The entry is the `prism-mcp` command with no arguments.
+Wiring a host by hand? Use `npx -y @repo-prism/mcp-server@2` as the server
+command; each agent’s [install page](/install) has the snippet.
 
 ## 3. Confirm it works
 
@@ -48,6 +49,30 @@ the index for the current repository. In your agent, ask "what breaks if I
 change this file?" — it answers from Prism's graph.
 
 Something off? [Troubleshooting](/docs/help/troubleshooting).
+
+## Upgrade
+
+```bash
+npm install -g @repo-prism/cli
+prism upgrade            # optional: re-link every agent now
+```
+
+You do not need to run `prism install` again. Releases sometimes change the
+hooks Prism registers (2.0 adds a background Stop hook that reports the
+verdict when the checks finish). The next Claude Code session updates Prism's
+own entries in `settings.json`. It keeps your other hooks and writes a backup
+next to the file (`settings.json.prism-backup-<version>`). The new hooks
+apply from the session after that.
+
+If Prism's entries were edited by hand, or run from two places, Prism leaves
+the file alone. It prints one line, once a day, with the command to run:
+`prism install claude`, or `prism install claude --project` for a
+repository's settings. `prism doctor` shows the same check, and
+`prism doctor --fix` applies a safe update now. Set `PRISM_HOOK_REFRESH=0` to
+turn the automatic update off.
+
+opencode runs the new hook through its existing plugin file, so it needs
+nothing. Cursor and Codex have no Prism hooks to update.
 
 ## What Prism writes
 
@@ -64,7 +89,6 @@ Nothing goes into your checkout. State lives in the machine-wide library:
     hooks/snapshot.json   what hooks read (under their latency budget)
     receipts/             the last 20 stop receipts
     memory.json           notes saved with prism remember
-  envelope-ledger.jsonl   tool-call receipts (never source)
 ```
 
 `prism data prune` lists empty workspace folders, caches of deleted checkouts,
@@ -77,7 +101,7 @@ and untracked worktrees; `prism data prune --yes` removes them.
 [Stop receipt](/docs/guides/receipt) ·
 [Usage](/docs/usage)
 
-## From source (contributors)
+## Contributing
 
 ```bash
 git clone https://github.com/Shailesh200/prism

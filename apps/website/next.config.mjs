@@ -59,7 +59,12 @@ const config = {
       },
       {
         source: "/docs/ide/settings",
-        destination: "/docs/reference/ide-settings",
+        destination: "/docs/start/install",
+        permanent: true,
+      },
+      {
+        source: "/docs/reference/ide-settings",
+        destination: "/docs/start/install",
         permanent: true,
       },
       {
@@ -152,6 +157,28 @@ const config = {
         destination: "/benchmarks",
         permanent: true,
       },
+      // The Product menu has no overview page; each product has its own.
+      {
+        source: "/products",
+        destination: "/product/prepare",
+        permanent: true,
+      },
+      // /whats-new/rss.xml stays a route handler. The slug rule must not take it.
+      {
+        source: "/whats-new",
+        destination: "/changelog",
+        permanent: true,
+      },
+      {
+        source: "/whats-new/:version(\\d+\\.\\d+\\.\\d+)",
+        destination: "/changelog#:version",
+        permanent: true,
+      },
+      {
+        source: "/whats-new/:slug((?!rss\\.xml$).*)",
+        destination: "/changelog/:slug",
+        permanent: true,
+      },
       {
         source: "/features/catalog",
         destination: "/docs/reference/capabilities",
@@ -241,11 +268,6 @@ const config = {
       {
         source: "/docs/guides/:page(track-health|investigate-domain)",
         destination: "/docs/guides/understand-a-repo",
-        permanent: true,
-      },
-      {
-        source: "/docs/guides/envelope",
-        destination: "/docs/guides/envelope",
         permanent: true,
       },
       {

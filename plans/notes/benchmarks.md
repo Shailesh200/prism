@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Milestone | [M-063](../milestones/M-063_distribution.md) |
+| Milestone | [M-063](../archive/milestones/M-063_distribution.md) |
 | Harness | [`scripts/bench/agent-orientation.ts`](../../scripts/bench/agent-orientation.ts) |
 | Website | [/benchmarks](https://www.prismhq.in/benchmarks) |
 

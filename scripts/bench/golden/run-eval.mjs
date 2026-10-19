@@ -12,6 +12,7 @@
  * P is only counted when the label set is non-empty (labels are lower bounds).
  *
  *   node scripts/bench/golden/run-eval.mjs --clone DIR --tasks FILE [--tasks FILE…] --out FILE [--label B4]
+ *     [--ids-from RESULT.json]   # only the task ids an earlier result scored (e.g. the B2 baseline)
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -27,12 +28,20 @@ const arg = (n, f) => all(n)[0] ?? f;
 const { Prism } = await import(
   pathToFileURL(join(repoRoot, "packages/core/dist/index.js")).href
 );
+const { buildPromptPack } = await import(
+  pathToFileURL(join(repoRoot, "packages/shared/dist/index.js")).href
+);
 const clones = all("clone");
 const taskFiles = all("tasks");
 if (clones.length !== taskFiles.length)
   throw new Error("run-eval: pass one --clone per --tasks");
 const out = arg("out");
 const label = arg("label", "eval");
+// Re-run exactly the tasks an earlier result scored, so the two compare.
+const idsFrom = arg("ids-from");
+const keep = idsFrom
+  ? new Set(JSON.parse(readFileSync(idsFrom, "utf8")).rows.map((r) => r.id))
+  : null;
 
 const pct = (xs) =>
   xs.length
@@ -58,6 +67,7 @@ for (let k = 0; k < clones.length; k++) {
     readFileSync(taskFiles[k], "utf8"),
   );
   for (const t of tasks) {
+    if (keep && !keep.has(t.id)) continue;
     execFileSync("git", [
       "-C",
       clone,
@@ -84,6 +94,18 @@ for (let k = 0; k < clones.length; k++) {
       row.top3 = ranked.slice(0, 3).includes(t.firstFile) ? 1 : 0;
       row.recallAtPack =
         t.files.filter((f) => ranked.includes(f)).length / t.files.length;
+      // Round 2: the block the prompt hook would inject (files Prism is sure
+      // of, or nothing). Precision counts only when it speaks; a block whose
+      // files are all off the fix misleads the agent (promptWrong).
+      const block = buildPromptPack({ prep, prompt: t.task });
+      row.promptSpoke = block.shown.length > 0 ? 1 : 0;
+      if (block.shown.length > 0) {
+        const shown = block.shown.map((f) => f.path);
+        const hits = shown.filter((f) => t.files.includes(f)).length;
+        row.promptPrecision = hits / shown.length;
+        row.promptWrong = hits === 0 ? 1 : 0;
+        row.promptFirst = shown.includes(t.firstFile) ? 1 : 0;
+      }
       row.tokens = Math.ceil(
         Buffer.byteLength(JSON.stringify(prep), "utf8") / 4,
       );
@@ -117,7 +139,7 @@ for (let k = 0; k < clones.length; k++) {
     }
     rows.push(row);
     console.error(
-      `${label} ${t.id} ${row.error ? `ERROR ${row.error}` : `top1=${row.top1} top3=${row.top3} recall=${row.recallAtPack?.toFixed(2)} tok=${row.tokens}`}`,
+      `${label} ${t.id} ${row.error ? `ERROR ${row.error}` : `top1=${row.top1} top3=${row.top3} recall=${row.recallAtPack?.toFixed(2)} block=${row.promptSpoke ? `${row.promptPrecision?.toFixed(2)}` : "quiet"} tok=${row.tokens}`}`,
     );
   }
   execFileSync("git", [
@@ -140,6 +162,10 @@ function summarize(rs) {
     top1: pct(col("top1")),
     top3: pct(col("top3")),
     recallAtPack: pct(col("recallAtPack")),
+    promptSpoke: pct(col("promptSpoke")),
+    promptPrecision: pct(col("promptPrecision")),
+    promptWrong: pct(col("promptWrong")),
+    promptFirst: pct(col("promptFirst")),
     testPrecision: pct(col("testPrecision")),
     testRecall: pct(col("testRecall")),
     blastPrecision: pct(col("blastPrecision")),

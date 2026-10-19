@@ -53,7 +53,7 @@ describe("checkForUpdate", () => {
     expect(isLocalCheckout(INSTALLED)).toBe(false);
   });
 
-  it("reports an available update and caches the answer for 24 h", async () => {
+  it("reports an available update and caches the answer for 3 days", async () => {
     const env = home();
     const calls = { n: 0 };
     let now = Date.parse("2026-10-14T00:00:00Z");

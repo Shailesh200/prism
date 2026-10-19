@@ -37,3 +37,4 @@ export {
   migrate,
   readSchemaVersion,
 } from "./cache/migrations.js";
+export { prioritizePackageFirst } from "./package-first.js";

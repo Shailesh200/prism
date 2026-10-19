@@ -2,12 +2,26 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **Built, not verified** — B2 eval and lighter prompt hook open (round 4) |
 | Branch | `milestone/M-093-prepare-v2` (from latest `main`) |
 | Depends on | M-092 Verified |
-| Unlocks | M-094 |
+| Unlocks | ~~M-094~~ M-095 (M-094 obsolete) |
 | Packages | `intelligence` (prepare), `core` (`prepareChange`), `mcp-server` (`tools/prepare.ts`), `plugin` (prompt-submit hook), `scripts/bench` (replay eval) |
 | ADR | [ADR-0065](../adr/0065-auto-prepare.md) |
+
+
+## Status (17 Oct 2026)
+
+- **Built:**
+  - Signature-only packs (next plan P2).
+  - A token cap per tool (P3) and no repeats within a session (P4).
+  - Co-change ranking and learning from real edits (P6/P7).
+  - Reasons and confidence on each pick (P9).
+  - Auto-Prepare on prompt submit (ADR-0065). In round 3 the lens goes out first.
+- **B4 golden, round 3:** top-3 39.1% and recall@pack 61.8%. Both are up from 2.0 but below the targets of ≥ 55% and ≥ 70%.
+- **Round 4 (running):**
+  - B2 Prepare eval, skipped since round 2.
+  - A lighter prompt hook. Round 3 made it start a second Node process, and its 1 s tests are flaky on the 8 GB Mac. A fix is made but not yet gated.
 
 ## 1. Goal
 
@@ -27,7 +41,7 @@ Every change starts with a small, correct pack, injected without the agent askin
 
 ## 3. Out of scope
 
-- Envelope session grouping (M-094). The daemon (M-095).
+- ~~Envelope session grouping (M-094).~~ The daemon (M-095).
 
 ## 4. DoD
 

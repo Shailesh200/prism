@@ -13,5 +13,6 @@
       "viaSymbol": "run"
     }
   ],
-  "unknownRunner": true
+  "run": [],
+  "runNote": "1 test with no runner Prism knows (vitest, jest, mocha, bun, node:test) and no test script in their package"
 }

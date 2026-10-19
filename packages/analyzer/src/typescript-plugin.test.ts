@@ -207,6 +207,47 @@ describe("createTypescriptPlugin", () => {
     });
   });
 
+  it("NS-2 computed non-literal key falls back to all members", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prism-ns2-"));
+    const path = join(dir, "ns2.ts");
+    await writeFile(
+      path,
+      [
+        'import * as lo from "./lo";',
+        'const k = cond ? "a" : "b";',
+        "lo[k](1);",
+      ].join("\n"),
+      "utf8",
+    );
+    const host = createAnalyzerHost({ plugins: [createTypescriptPlugin()] });
+    const result = await host.analyzeFile(path);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const row = result.value.imports.find((i) => i.source === "./lo");
+    expect(row?.imported).toEqual(["*"]);
+  });
+
+  it("NS-3 escaping the namespace as a value falls back to all members", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prism-ns3-"));
+    const path = join(dir, "ns3.ts");
+    await writeFile(
+      path,
+      [
+        'import * as lo from "./lo";',
+        "export const all = lo;",
+        "passThrough(lo);",
+        "const copy = { ...lo };",
+      ].join("\n"),
+      "utf8",
+    );
+    const host = createAnalyzerHost({ plugins: [createTypescriptPlugin()] });
+    const result = await host.analyzeFile(path);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const row = result.value.imports.find((i) => i.source === "./lo");
+    expect(row?.imported).toEqual(["*"]);
+  });
+
   it("extracts MemberExpression / optional call refs with via:member (P-A4)", async () => {
     const dir = await mkdtemp(join(tmpdir(), "prism-member-"));
     const path = join(dir, "svc.ts");

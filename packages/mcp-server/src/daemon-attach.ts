@@ -3,11 +3,11 @@
  * so a hook can ask the daemon without loading every tool definition.
  */
 
-import { statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   callDaemonTool,
+  daemonBuildIdFor,
   daemonEnabled,
   type DaemonOutcome,
   ensureDaemon,
@@ -26,18 +26,17 @@ let cachedBuildId: string | undefined;
  */
 export function daemonBuildId(): string {
   if (cachedBuildId) return cachedBuildId;
-  let stamp = "0";
-  try {
-    stamp = String(Math.trunc(statSync(here).mtimeMs));
-  } catch (error) {
+  // Same derivation as the CLI's, so `prism start` can replace a stale daemon.
+  const id = daemonBuildIdFor(here);
+  if (!id) {
     // An unreadable stamp still yields a stable id for this process.
     recordEvent({
       event: "daemon.build_stamp",
       outcome: "degraded",
-      reason: error instanceof Error ? error.message : String(error),
+      reason: "build stamp unreadable",
     });
   }
-  cachedBuildId = `${readPackageVersion()}+${stamp}`;
+  cachedBuildId = id ?? `${readPackageVersion()}+0`;
   return cachedBuildId;
 }
 

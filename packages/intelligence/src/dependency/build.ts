@@ -42,6 +42,11 @@ export type UnresolvedDependency = {
   readonly source: string;
   readonly kind: "import" | "re-export" | "require";
   readonly reason: string;
+  /**
+   * A bare specifier naming no package in this workspace (`react`,
+   * `@nestjs/common`): an installed dependency, not a gap in the local graph.
+   */
+  readonly external?: true;
 };
 
 /**
@@ -117,6 +122,11 @@ function collectFileEdges(
       )
     : { rules: [], configs: [] };
 
+  const localNames = new Set(packages.map((p) => p.name));
+  /** No workspace package and no path alias claims it: an installed dependency. */
+  const isExternal = (source: string): boolean =>
+    !localNames.has(barePackageName(source)) &&
+    !aliases.rules.some((rule) => source.startsWith(rule.prefix));
   const seen = new Map<string, FileEdge>();
   const pushEdge = (e: FileEdge) => {
     const key = `${e.kind}\0${e.fromPath}\0${e.toPath}`;
@@ -177,6 +187,7 @@ function collectFileEdges(
             source: imp.source,
             kind: edgeKind,
             reason: "bare_specifier",
+            ...(isExternal(imp.source) ? { external: true as const } : {}),
           });
         } else {
           unresolved.push({
@@ -258,13 +269,15 @@ function collectFileEdges(
           });
           continue;
         }
+        const bare = isBarePackageSpecifier(exp.source);
         unresolved.push({
           from: file.path,
           source: exp.source,
           kind: "re-export",
-          reason: isBarePackageSpecifier(exp.source)
-            ? "bare_specifier"
-            : "unsupported_specifier",
+          reason: bare ? "bare_specifier" : "unsupported_specifier",
+          ...(bare && isExternal(exp.source)
+            ? { external: true as const }
+            : {}),
         });
         continue;
       }

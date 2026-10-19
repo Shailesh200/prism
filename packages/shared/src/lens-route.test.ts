@@ -4,6 +4,7 @@ import {
   chooseLens,
   chooseLensDetailed,
   invalidTrigger,
+  stripNegatedClauses,
 } from "./lens-route.js";
 import type { LensDefinition } from "./lenses.js";
 
@@ -28,6 +29,7 @@ const lenses = [...DEFAULT_LENSES, custom];
 const LABELED: readonly { task: string; id: string }[] = [
   { task: "planning a new feature for billing", id: "architect" },
   { task: "review this PR", id: "architect" },
+  { task: "review the last commit", id: "architect" },
   { task: "work on a big feature", id: "architect" },
   { task: "draft an RFC for auth", id: "architect" },
   { task: "review the pull request before it lands", id: "architect" },
@@ -47,6 +49,22 @@ const LABELED: readonly { task: string; id: string }[] = [
   { task: "use QA on this pull request", id: "qa" },
   { task: "run the Security lens on the diff", id: "security" },
   { task: "Architect, look at this typo", id: "architect" },
+  // Several lenses named (website round): an ask wins, then "<name> lens",
+  // then the task's intent; no longer the first word.
+  {
+    task: "Context: the Architect plan is in plan.md.\nUse Prism's Dev lens. Build the home page.",
+    id: "dev",
+  },
+  { task: "The Architect lens wrote this; now use QA on it", id: "qa" },
+  { task: "Architect notes are done. Build it with the Dev lens", id: "dev" },
+  {
+    task: "Dev notes aside, review this PR from the architect",
+    id: "architect",
+  },
+  {
+    task: "The architect and dev folks want the button padding fixed",
+    id: "dev",
+  },
 ];
 
 describe("chooseLens", () => {
@@ -192,6 +210,28 @@ describe("plan §5.3 routing rows", () => {
     expect(
       pick("use the security lens; there is a slow query too")?.lens.id,
     ).toBe("security");
+  });
+
+  it("round 2: a negated clause routes nowhere", () => {
+    const task =
+      "Tests listed below fail on this checkout. Fix the source so they pass.\nDo not edit test files. Do not push or open a pull request.";
+    expect(chooseLensDetailed(task, lenses)?.lens.id).toBe("dev");
+    expect(chooseLensDetailed(task, lenses)?.by).toBe("default");
+    expect(
+      chooseLens("don't use the Security lens, just fix it", lenses)?.id,
+    ).toBe("dev");
+    expect(chooseLens("review this pull request", lenses)?.id).toBe(
+      "architect",
+    );
+    const kept = stripNegatedClauses(
+      "Fix it. Never touch auth. Don't open a PR",
+    );
+    expect(kept).toMatch(/^Fix it\./);
+    expect(kept).not.toMatch(/auth|PR/);
+    // A fix phrased as a behaviour: the negated clause is the task.
+    expect(
+      stripNegatedClauses("don't match an empty path segment as a param"),
+    ).toBe("don't match an empty path segment as a param");
   });
 
   it("CL-13: refuses short triggers and built-in routing words", () => {

@@ -26,7 +26,6 @@ const INITIALIZE = {
 
 export function mcpDistEntries(root) {
   return {
-    hub: join(root, "packages", "dispatch-hub", "dist", "index.js"),
     server: join(root, "packages", "mcp-server", "dist", "server.js"),
     bin: join(root, "packages", "mcp-server", "dist", "bin.js"),
   };
@@ -40,7 +39,6 @@ export async function assertMcpGraphLoads(root) {
     }
   }
   // bin.js starts the process; load the same import graph Cursor hits first.
-  await import(pathToFileURL(entries.hub).href);
   await import(pathToFileURL(entries.server).href);
 }
 

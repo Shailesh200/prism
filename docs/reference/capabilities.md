@@ -20,12 +20,12 @@ use this page when you need the exhaustive index.
 | `prism data` | data |
 | `prism deps` | deps |
 | `prism doctor` | doctor |
-| `prism envelope` | envelope |
 | `prism explain` | explain |
 | `prism explore` | explore |
 | `prism findings` | findings |
 | `prism forget` | forget |
 | `prism graph` | graph |
+| `prism habit` | habit |
 | `prism index` | index |
 | `prism install` | install |
 | `prism lens` | lens |
@@ -40,7 +40,9 @@ use this page when you need the exhaustive index.
 | `prism review` | review |
 | `prism route` | route |
 | `prism safe-delete` | safe-delete |
+| `prism start` | start |
 | `prism stats` | stats |
+| `prism strength` | strength |
 | `prism symbol` | symbol |
 | `prism test-impact` | test-impact |
 | `prism uninstall` | uninstall |
@@ -58,7 +60,8 @@ use this page when you need the exhaustive index.
 | `explain_area` | Explain what a module or folder does |
 | `explore_code` | Everything about one file or symbol in a single call |
 | `graph` | One structural question about the repository, answered from Prism's local graph |
-| `guard_session` | Rank the current dirty session — working-tree changes minus preExistingChanges, when you have that list from a job — by blast risk, so a human reads the highest-risk file first |
+| `guard_session` | Check my changes |
+| `habits` | The user's saved routines (e.g |
 | `knowledge_graph` | The symbol-level graph — declarations and the references between them — with summary stats |
 | `list_findings` | Queueable findings from the last index |
 | `list_packages` | List the packages in a monorepo with their roots |
@@ -66,7 +69,6 @@ use this page when you need the exhaustive index.
 | `receipt` | What this session changed and whether it is proven |
 | `rename_impact` | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | `repository_overview` | What this repository is, in one bounded call |
-| `review_changes` | Review changed paths in one call |
 | `review_with` | Review a task or the current change through a lens |
 | `safe_delete` | Whether a file or symbol can be deleted safely |
 | `test_impact` | Which tests import the changed symbol, or a symbol that reaches it — the tests worth running after touching a target |

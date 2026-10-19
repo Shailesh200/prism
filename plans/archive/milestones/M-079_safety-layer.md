@@ -8,7 +8,7 @@
 | Unlocks | M-080 (Prism 2.0 remainder resumes) |
 | Packages | `plans/`, `scripts/`, `dispatch`, checks module (new, default `packages/checks`), `plugin`, `mcp-server`, `cli`, `intelligence`, `impact`, `analyzer`, `shared`, `app-shell`, `ui`, `dispatch-hub` |
 | ADRs | [ADR-0058](../../adr/0058-prism-does-not-run-agents.md) Prism does not run agents · [ADR-0059](../../adr/0059-lenses.md) Lenses |
-| Replaces | Old M-079 *Jobs Live Relay*; [`PROGRAM_prism-2.0.md`](../../milestones/PROGRAM_prism-2.0.md) §8 |
+| Replaces | Old M-079 *Jobs Live Relay*; [`PROGRAM_prism-2.0.md`](./PROGRAM_prism-2.0.md) §8 |
 
 One milestone, one branch, phased with gates (like M-041). The owner reviews at each gate; commits on this branch only when the owner approves.
 

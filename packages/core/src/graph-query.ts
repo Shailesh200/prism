@@ -20,10 +20,13 @@ import {
   fitGraphAnswer,
   ok,
   prismError,
+  symbolSlice,
 } from "@repo-prism/shared";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { dedupeDeclarations, lineAt } from "./find-dedupe.js";
+import { buildCachedRepoMap } from "./repo-map.js";
+import { MAP_DEFAULT_BUDGET } from "@repo-prism/intelligence";
 import type { GraphReads } from "./graph-reads.js";
 
 const FILE = "file:";
@@ -467,11 +470,119 @@ async function filter(
   });
 }
 
+async function mapDetail(
+  workspace: GraphReads,
+  query: Extract<GraphQuery, { mode: "map" }>,
+  budget: number,
+): Promise<Result<Draft, PrismError>> {
+  const result = buildCachedRepoMap(workspace, {
+    ...(query.scope ? { scope: query.scope } : {}),
+    maxTokens: budget,
+  });
+  if (!result.ok) return result;
+  return ok({
+    mode: "map",
+    nodes: [],
+    edges: [],
+    map: result.value.text,
+    ...(result.value.truncated
+      ? {
+          note: `Map truncated to ${result.value.kept}/${result.value.total} files (budget ${budget}).`,
+        }
+      : result.value.fromCache
+        ? { note: "map cache hit" }
+        : {}),
+  });
+}
+
+async function symbolDetail(
+  workspace: GraphReads,
+  query: Extract<GraphQuery, { mode: "symbol" }>,
+): Promise<Result<Draft, PrismError>> {
+  const index = workspace.getIndex();
+  if (!index.ok) return index;
+  const file = index.value.files.find((f) => f.path === query.path);
+  if (!file) {
+    return err(
+      prismError(PrismErrorCode.NOT_FOUND, `No indexed file ${query.path}`),
+    );
+  }
+  const matches = file.symbols.filter((s) => s.name === query.name);
+  if (matches.length === 0) {
+    return err(
+      prismError(
+        PrismErrorCode.NOT_FOUND,
+        `No symbol named ${query.name} in ${query.path}`,
+      ),
+    );
+  }
+  // Prefer a non-export declaration when both exist.
+  const sym = matches.find((s) => s.kind !== "export") ?? matches[0]!;
+  const abs = join(workspace.rootPath, query.path);
+  const source = existsSync(abs) ? readFileSync(abs, "utf8") : null;
+  if (source == null) {
+    return ok({
+      mode: "symbol",
+      nodes: [
+        {
+          kind: "symbol",
+          path: query.path,
+          name: sym.name,
+          symbolKind: sym.kind,
+        },
+      ],
+      edges: [],
+      note: `Source for ${query.path} is not readable on disk.`,
+      symbol: {
+        path: query.path,
+        name: sym.name,
+        kind: sym.kind,
+        line: 1,
+        endLine: 1,
+        signature: `${sym.kind} ${sym.name}`,
+      },
+    });
+  }
+  const slice = symbolSlice(source, sym.start, sym.end);
+  const detail = {
+    path: query.path,
+    name: sym.name,
+    kind: sym.kind,
+    line: slice.line,
+    endLine: slice.endLine,
+    signature: slice.signature || `${sym.kind} ${sym.name}`,
+    ...(query.body ? { body: slice.body } : {}),
+  };
+  return ok({
+    mode: "symbol",
+    nodes: [
+      {
+        kind: "symbol",
+        path: query.path,
+        name: sym.name,
+        symbolKind: sym.kind,
+        line: slice.line,
+      },
+    ],
+    edges: [],
+    symbol: detail,
+  });
+}
+
 export async function runGraphQuery(
   workspace: GraphReads,
   query: GraphQuery,
   budget?: number,
 ): Promise<Result<GraphAnswer, PrismError>> {
+  const capped = clampGraphBudget(
+    budget ?? (query.mode === "map" ? MAP_DEFAULT_BUDGET : undefined),
+  );
+  if (query.mode === "map") {
+    const draft = await mapDetail(workspace, query, capped);
+    if (!draft.ok) return draft;
+    // Map text is already budget-truncated; still stamp tokenEstimate.
+    return ok(fitGraphAnswer(draft.value, capped));
+  }
   const run =
     query.mode === "find"
       ? find(workspace, query)
@@ -481,8 +592,10 @@ export async function runGraphQuery(
           ? path(workspace, query)
           : query.mode === "explain"
             ? explain(workspace, query)
-            : filter(workspace, query);
+            : query.mode === "symbol"
+              ? symbolDetail(workspace, query)
+              : filter(workspace, query);
   const draft = await run;
   if (!draft.ok) return draft;
-  return ok(fitGraphAnswer(draft.value, clampGraphBudget(budget)));
+  return ok(fitGraphAnswer(draft.value, capped));
 }

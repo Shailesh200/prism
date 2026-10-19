@@ -18,6 +18,7 @@ import {
 
 export { pathFingerprint };
 import {
+  LENS_EVIDENCE_MAX,
   isTestPath,
   offLimitReason,
   type ChangeReceipt,
@@ -44,15 +45,28 @@ export type LensSignals = {
   packageOf(path: string): string;
   /** Changed files whose added lines are new dependencies, per manifest. */
   readonly dependenciesAdded: readonly string[];
+  /** Removed lines per changed file (none for a new file). */
+  readonly removedLines: ReadonlyMap<string, readonly string[]>;
   /** Files that import a changed file and were not edited. */
   readonly dependentsNotInDiff: ReadonlyMap<string, readonly string[]>;
+  /**
+   * Whether `path` names `exportName`. An importer of the file that never
+   * mentions the changed export is not a caller of it.
+   */
+  mentions(path: string, exportName: string): boolean;
   /** File content hash, for overrule fingerprints (CL-2/CL-3). */
   fingerprint(path: string): string | null;
 };
 
 const BRANCH = /\b(if|else|switch|case|for|while|catch)\b|\?\?|\?[^.:]/;
 const EXPORT_DECL =
-  /^\s*export\s+(?:default\s+)?(?:async\s+)?(?:function|const|let|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/;
+  /^\s*export\s+(?:default\s+)?(?:async\s+)?(function|const|let|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/;
+
+function exportDecl(line: string): { kind: string; name: string } | null {
+  const match = EXPORT_DECL.exec(line);
+  if (!match?.[1] || !match[2]) return null;
+  return { kind: match[1], name: match[2] };
+}
 const IMPORT_LINE =
   /\b(?:import|export)\b[^'"]*\bfrom\s*['"]([^'"]+)['"]|\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]/;
 
@@ -95,18 +109,40 @@ function compute(
     case "new_cross_package_edge": {
       // An edge is new when the session added its import line and no other
       // file already links the same two packages.
-      const existing = new Set<string>();
-      const fresh: { key: string; line: string }[] = [];
-      for (const edge of signals.edges) {
+      // Package lookups read manifests up the tree, so only look at the
+      // whole graph when the session added a cross-package import at all.
+      const keyOf = (edge: LensSignals["edges"][number]): string | null => {
         const fromPkg = signals.packageOf(edge.from);
         const toPkg = signals.packageOf(edge.to);
-        if (fromPkg === toPkg) continue;
-        const key = `${fromPkg || "(root)"} → ${toPkg || "(root)"}`;
-        const added = addedSpecifiers(signals.addedLines.get(edge.from) ?? []);
-        if (added.has(edge.source)) {
+        return fromPkg === toPkg
+          ? null
+          : `${fromPkg || "(root)"} → ${toPkg || "(root)"}`;
+      };
+      const addedByFile = new Map<string, Set<string>>();
+      const isAdded = (edge: LensSignals["edges"][number]): boolean => {
+        const lines = signals.addedLines.get(edge.from);
+        if (!lines) return false;
+        let added = addedByFile.get(edge.from);
+        if (!added) {
+          added = addedSpecifiers(lines);
+          addedByFile.set(edge.from, added);
+        }
+        return added.has(edge.source);
+      };
+      const fresh: { key: string; line: string }[] = [];
+      for (const edge of signals.edges) {
+        if (!isAdded(edge)) continue;
+        const key = keyOf(edge);
+        if (key) {
           fresh.push({ key, line: `${edge.from} imports ${edge.to} (${key})` });
-        } else {
-          existing.add(key);
+        }
+      }
+      const existing = new Set<string>();
+      if (fresh.length > 0) {
+        for (const edge of signals.edges) {
+          if (isAdded(edge)) continue;
+          const key = keyOf(edge);
+          if (key) existing.add(key);
         }
       }
       const novel = fresh.filter((row) => !existing.has(row.key));
@@ -196,13 +232,41 @@ function compute(
     case "dependents_not_in_diff": {
       const evidence: string[] = [];
       for (const path of changedSources) {
-        const changedExports = (signals.addedLines.get(path) ?? [])
-          .map((line) => EXPORT_DECL.exec(line)?.[1])
-          .filter((name): name is string => Boolean(name));
-        const dependents = signals.dependentsNotInDiff.get(path) ?? [];
+        // An export that existed and was changed or removed; a new export
+        // (or a new file) breaks no one (website round). A declaration that
+        // left and came back with the same text only moved. A const or let
+        // that is still exported under the same name changed its value;
+        // importers of the name take the new value.
+        const addedLines = signals.addedLines.get(path) ?? [];
+        const addedDecls = new Set(
+          addedLines.filter((line) => exportDecl(line)),
+        );
+        const addedKind = new Map<string, string>();
+        for (const line of addedLines) {
+          const decl = exportDecl(line);
+          if (decl) addedKind.set(decl.name, decl.kind);
+        }
+        const changedExports = [
+          ...new Set(
+            (signals.removedLines.get(path) ?? []).flatMap((line) => {
+              const decl = exportDecl(line);
+              if (!decl || addedDecls.has(line)) return [];
+              if (
+                (decl.kind === "const" || decl.kind === "let") &&
+                addedKind.get(decl.name) === decl.kind
+              ) {
+                return [];
+              }
+              return [decl.name];
+            }),
+          ),
+        ];
+        const dependents = (signals.dependentsNotInDiff.get(path) ?? []).filter(
+          (dep) => changedExports.some((name) => signals.mentions(dep, name)),
+        );
         if (changedExports.length > 0 && dependents.length > 0) {
           evidence.push(
-            `${path} changes ${[...new Set(changedExports)].join(", ")}; not edited: ${dependents.slice(0, 5).join(", ")}${dependents.length > 5 ? ` (+${dependents.length - 5})` : ""}`,
+            `${path} changes ${changedExports.join(", ")}; not edited: ${dependents.slice(0, 5).join(", ")}${dependents.length > 5 ? ` (+${dependents.length - 5})` : ""}`,
           );
         }
       }
@@ -257,7 +321,7 @@ export function evaluateLensChecks(
   for (const lens of lenses) {
     if (!lens.enabled) continue;
     for (const check of lens.checks) {
-      const result = compute(check, receipt, signals);
+      const result = capEvidence(compute(check, receipt, signals));
       if (result.status === "fail" || result.status === "concern") {
         // Overruled only when every path the finding names still has the
         // fingerprint the owner overruled; any edit re-opens it (CL-3).
@@ -281,9 +345,27 @@ export function evaluateLensChecks(
   return findings;
 }
 
+/**
+ * A finding on a big change keeps the first lines and counts the rest: the
+ * schema holds at most LENS_EVIDENCE_MAX, and a 30-file change once failed
+ * the whole receipt ("receipt.corrupt", website round).
+ */
+function capEvidence<T extends { readonly evidence: readonly string[] }>(
+  result: T,
+): T {
+  const { evidence } = result;
+  if (evidence.length <= LENS_EVIDENCE_MAX) return result;
+  const kept = evidence.slice(0, LENS_EVIDENCE_MAX - 1);
+  return {
+    ...result,
+    evidence: [...kept, `+${evidence.length - kept.length} more`],
+  };
+}
+
+/** Read-only: never take `index.lock` from under the user's own git. */
 function git(root: string, args: readonly string[]): string | null {
   try {
-    return execFileSync("git", args, {
+    return execFileSync("git", ["--no-optional-locks", ...args], {
       cwd: root,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -301,18 +383,28 @@ function git(root: string, args: readonly string[]): string | null {
   }
 }
 
-function addedLinesFor(root: string, path: string): string[] {
+function diffLinesFor(
+  root: string,
+  path: string,
+): { added: string[]; removed: string[] } {
   const tracked = git(root, ["ls-files", "--error-unmatch", "--", path]);
   if (tracked === null) {
     const abs = join(root, path);
-    return existsSync(abs) ? readFileSync(abs, "utf8").split("\n") : [];
+    return {
+      added: existsSync(abs) ? readFileSync(abs, "utf8").split("\n") : [],
+      removed: [],
+    };
   }
-  const diff =
-    git(root, ["diff", "--no-color", "--unified=0", "HEAD", "--", path]) ?? "";
-  return diff
-    .split("\n")
-    .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
-    .map((line) => line.slice(1));
+  const lines = (
+    git(root, ["diff", "--no-color", "--unified=0", "HEAD", "--", path]) ?? ""
+  ).split("\n");
+  const side = (mark: string) =>
+    lines
+      .filter(
+        (line) => line.startsWith(mark) && !line.startsWith(mark.repeat(3)),
+      )
+      .map((line) => line.slice(1));
+  return { added: side("+"), removed: side("-") };
 }
 
 const DEP_BLOCKS = [
@@ -365,11 +457,23 @@ const FILE_NODE = /^file:/;
 export function gatherLensSignals(
   workspace: PrismWorkspace,
   changed: readonly string[],
+  /**
+   * Every path in the change. A review analyses the riskiest 100 of a large
+   * diff; files outside that slice are still edited, so they are not
+   * "dependents not in the diff".
+   */
+  inDiff: readonly string[] = changed,
 ): LensSignals {
   const root = workspace.rootPath;
-  const changedSet = new Set(changed);
+  const changedSet = new Set(inDiff);
+  const diffs = new Map(
+    changed.map((path) => [path, diffLinesFor(root, path)]),
+  );
   const addedLines = new Map(
-    changed.map((path) => [path, addedLinesFor(root, path)]),
+    [...diffs].map(([path, diff]) => [path, diff.added]),
+  );
+  const removedLines = new Map(
+    [...diffs].map(([path, diff]) => [path, diff.removed]),
   );
   const graph = workspace.getDependencyGraph();
   const edges = graph.ok
@@ -403,7 +507,14 @@ export function gatherLensSignals(
       return pkg;
     },
     dependenciesAdded: dependenciesAdded(root, changed),
+    removedLines,
     dependentsNotInDiff: dependents,
+    mentions(path, exportName) {
+      const abs = join(root, path);
+      const text = existsSync(abs) ? readFileSync(abs, "utf8") : "";
+      const escaped = exportName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`\\b${escaped}\\b`).test(text);
+    },
     fingerprint: (path) => contentFingerprint(root, path),
   };
 }

@@ -1,5 +1,6 @@
 ---
 description: Export Prism's graph of this repository and summarise it
+disable-model-invocation: true
 ---
 
 Run `prism graph export` in the workspace. It writes `graph.json` and prints

@@ -1,6 +1,6 @@
 ---
 title: Signal provenance
-description: "Every number carries where it came from — measured, estimated, or unavailable."
+description: "Every number says where it came from: measured, estimated or unavailable."
 ---
 
 Every number Prism shows carries a record of where it came from. That is why
@@ -24,7 +24,6 @@ fiction.
 | **Inferred** | Feature membership or similar-by-name — not load-bearing until you open the file |
 
 Graph edges on Intelligence tools carry `measured` | `heuristic` | `inferred`.
-The Envelope byte ratio is measured.
 
 Surfaces show this: fields in `--json` and MCP results, labels in the CLI. Estimated figures are labelled; unavailable ones are absent rather than
 zero.

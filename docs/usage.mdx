@@ -1,6 +1,6 @@
 ---
 title: Usage
-description: "Day-to-day use of the CLI and AI agents — one engine, two surfaces."
+description: "Day-to-day use of Prism from the CLI and from your agent."
 ---
 
 One engine, two ways to reach it. The numbers are identical whichever tab you
@@ -12,7 +12,7 @@ pick; only the presentation changes.
 Real exit codes and clean JSON — what makes `prism` useful in a script. Full
 command list: [CLI reference](/docs/reference/cli-commands).
 
-### Global options
+## Global options
 
 | Option | Effect |
 |---|---|
@@ -29,22 +29,22 @@ command list: [CLI reference](/docs/reference/cli-commands).
 No subcommand prints help and exits **0**. A near-miss typo exits **2** with a
 suggestion.
 
-### Which repository?
+## Which repository?
 
 Most explicit wins: `--workspace` → `PRISM_WORKSPACE` → nearest `.git` ancestor
 → cwd. `prism doctor` prints which rule won. Path arguments resolve from
 **your** directory; paths outside the workspace are refused, not clamped.
 
-### Exit codes
+## Exit codes
 
 | Code | Meaning |
 |---|---|
 | `0` | Ran successfully |
 | `1` | Ran successfully, and found what you gated on |
-| `2` | Usage error |
+| `2` | Usage error, or the file, symbol or path you named is not in the index |
 | `3` | Prism itself failed |
 
-### Failing a build
+## Failing a build
 
 ```bash
 prism blast src/core/index.ts --fail-on high
@@ -54,17 +54,17 @@ prism cycles --fail-on any
 
 `--fail-on` takes a [band](/docs/concepts/risk-bands) and fires at or above it.
 
-### Scripting
+## Scripting
 
 ```bash
 prism overview --json | jq '.data.dna.rankedDomains'
 ```
 
-Success and failure share one JSON envelope; in `--json` mode errors go to
+Success and failure share one JSON wrapper; in `--json` mode errors go to
 **stdout** inside it. Colour is never emitted when stdout is not a TTY.
 `--json` is never truncated — `--limit` bounds only the human table.
 
-### Worth knowing
+## Worth knowing
 
 - The first command in a repo is slow (it builds the index); later commands
   reuse it.
@@ -79,9 +79,9 @@ You set Prism up once. After that, ask for what you want — the server's
 instructions teach the agent which tools to call, so you never type a tool name.
 Prism does not make the edit. Your agent does, in your chat.
 
-### Default tools
+## Tools
 
-The server registers nine tools by default:
+The server registers every tool, including `receipt`. The ones the instructions teach first:
 
 | Tool | For |
 |---|---|
@@ -89,17 +89,16 @@ The server registers nine tools by default:
 | `blast_radius` | What depends on a file or symbol, and how risky a change is |
 | `guard_session` | Which dirty files to read first |
 | `test_impact` | Which tests cover a change |
-| `review_changes` | Blast radius and test impact for every changed path, in one call |
+| `habits` | Your saved routines (e.g. "start my day") as steps your agent runs with its own tools |
 | `safe_delete` | Whether a file or symbol can go, with blockers and orphans |
 | `rename_impact` | Every reference a rename has to touch |
 | `repository_overview` | What this repository is and where to start |
 | `graph` | Find a symbol or path, its neighbours, how A reaches B, what an area is for |
 
-List more in `extraTools` in `~/.prism/config.json` to register opt-in tools
-(dependency and knowledge graphs, cycles, findings, `agents_md`, and others).
+The rest, including `receipt`, dependency and knowledge graphs, cycles, findings, and `agents_md`, are on too.
 Each is listed in the [MCP reference](/docs/reference/mcp-tools).
 
-### How to talk
+## How to talk
 
 | You say | Agent should use |
 |---|---|
@@ -111,41 +110,40 @@ Each is listed in the [MCP reference](/docs/reference/mcp-tools).
 | "Review my current changes" | `guard_session`, then `blast_radius` on what it flags |
 
 With the Prism plugin pack installed, the stop hook runs the checks the
-change reaches when the agent stops, and prints a receipt: proven, unproven,
-or failed.
+change reaches when the agent stops, and prints a receipt with a verdict:
+SHIP, NOT PROVEN or NO-SHIP.
 
 Optional [prompts](/docs/reference/mcp-prompts) appear in clients that show a
 prompt picker.
 
-### How the server behaves
+## How the server behaves
 
-1. Handshake is fast — connecting does not index.
+1. Handshake is fast. Indexing starts in the background and does not block the connection. A folder opened later is indexed the same way.
 2. The first tool call may take seconds while the index builds.
 3. stdio only — diagnostics on stderr and logging notifications.
-4. Lists are bounded (`totalCount` / `truncated`). A cut list must say so —
-   that honesty is the [Envelope](/docs/guides/envelope).
+4. Lists are bounded (`totalCount` / `truncated`). A cut list says so.
 5. Paths outside the workspace are refused.
 6. No tool edits your repository, makes a network call, or holds third-party
    credentials — see [privacy](/privacy).
 
-### Force a specific repo path
+## Force a specific repo path
 
 Only if auto-detection is wrong:
 
 ```bash
-prism-mcp --workspace /path/to/repo
+prism-mcp --workspace ~/code/my-app
 # or
-PRISM_WORKSPACE=/path/to/repo prism-mcp
+PRISM_WORKSPACE=~/code/my-app prism-mcp
 ```
 
 Put the same into the client's `args` / `env` if needed.
 
-### If something fails
+## If something fails
 
 1. Run `prism doctor` inside the same project.
 2. Check the workspace (MCP roots / git root vs cwd). If a tool reports the
    wrong repository, reload prism with the git project open.
-3. Confirm Node 24+.
+3. Run `prism doctor --surfaces` to see which Node each client launches.
 4. Disable and re-enable **prism** in the client, or restart it.
 5. Set `PRISM_WORKSPACE` once and retry.
 
@@ -157,5 +155,4 @@ All tools: [MCP reference](/docs/reference/mcp-tools).
 ## Related
 
 [Install](/docs/start/install) · [Prepare a change](/docs/guides/prepare-a-change) ·
-[Wire into CI](/docs/guides/wire-into-ci) ·
 [Troubleshooting](/docs/help/troubleshooting)

@@ -3,7 +3,8 @@
 > Update this file on every milestone merge.  
 > Only **one** milestone may be `In Progress` at a time.  
 > Master Plan: [`00_MASTER_DEVELOPMENT_PLAN.md`](./00_MASTER_DEVELOPMENT_PLAN.md)  
-> Verified milestone docs M-000 → M-079 live in [`archive/milestones/`](./archive/milestones/).
+> Verified milestone docs M-000 → M-079 live in [`archive/milestones/`](./archive/milestones/), with obsolete and absorbed ones (archived 17 Oct 2026).  
+> **17 Oct 2026:** rows from M-058 on were brought in line with the code. Since M-079, nothing has been owner-verified or merged. All of it sits on `milestone/M-087-focus-reset-plan`. Only Prism 2.0.0 will be released, once, after the reliability work. Nothing is pushed or published yet.
 
 | Milestone | Branch | Status | Owner approved | Merged to main | Notes |
 |---|---|---|---|---|---|
@@ -65,12 +66,12 @@
 | M-055 [Website Marketing Motion](./archive/milestones/M-055_website-motion.md) | `milestone/M-055-website-motion` | Verified | ✅ | ✅ | Approved + merged 2026-08-08. GSAP cartographic motion on marketing pages (ADR-0032); portfolio mechanism without gate/wipe/HUD/particles; prompt at `plans/prompts/WEBSITE_GSAP_REDESIGN.md`. Owner smoked locally. |
 | M-056 [Number Integrity](./archive/milestones/M-056_number-integrity.md) | `milestone/M-056-number-integrity` | Verified | ☑ | ☑ | Truncation honesty: unresolved imports, git cap, blast limits, polyglot coverage, coverage limitations. Fast-tracked: scope landed via M-053 merge, audit confirmed |
 | M-057 [Daily Loop](./archive/milestones/M-057_daily-loop.md) | `milestone/M-057-daily-loop` | Verified | ☑ | ☑ | IDE hero: watcher, blast Quick Pick, shared config, completions, Node ≥22. Completed 2026-08-09: if-absent config migration + file→UI hydration; warm-index extraction; P-B2/B3/B9 test gaps filled |
-| M-058 Agent Surface v2 | `milestone/M-058-agent-surface` | Planned | ☐ | ☐ | MCP hero: bounded tools, resources, capabilities, compact JSON |
-| M-059 Reference Precision | `milestone/M-059-reference-precision` | Planned | ☐ | ☐ | Moat: homonyms, member calls, barrels, tsconfig, require(); deep-TS spike. Homonym `ambiguous` on `main`; remainder absorbed by M-079 phase 6 |
-| M-060 CI and PR Integration | `milestone/M-060-ci-pr` | Planned | ☐ | ☐ | GitHub Action, SARIF, PR comment, cold-start caching. Deferred until the change receipt (M-079 phase 5) proves itself locally |
-| M-061 Detection Quality | `milestone/M-061-detection-quality` | Planned | ☐ | ☐ | Multi-signal detectors, feature inference fallback, backend extractors |
-| M-062 UI Actionability | `milestone/M-062-ui-actionability` | Planned | ☐ | ☐ | D-9 IA merge, DomainScreen split, dead-end fixes, shared table primitives |
-| M-063 Distribution and Proof | `milestone/M-063-distribution` | Planned | ☐ | ☐ | Benchmarks, one-click MCP install, URL updates, killer demo, CHANGELOG |
+| M-058 [Agent Surface v2](./archive/milestones/M-058_agent-surface.md) | `milestone/M-058-agent-surface` | Absorbed | ☐ | ☐ | Replaced by the 2.0 tool surface: 9 default tools + opt-in (`shared/src/tool-names.ts`), bounded lists, `maxTokens` (next plan P3). Archived 17 Oct |
+| M-059 [Reference Precision](./archive/milestones/M-059_reference-precision.md) | `milestone/M-059-reference-precision` | Absorbed | ☐ | ☐ | Into 2.0: resolver (unified plan §4.1) + member-level `import *` (P8, unit). Measured by B4 golden, not hand labels. Archived 17 Oct |
+| M-060 [CI and PR Integration](./archive/milestones/M-060_ci-pr.md) | `milestone/M-060-ci-pr` | Absorbed | ☐ | ☐ | Action v2 with SARIF + PR comment built (`action/`, P21). Open: ACT-1 real fork PR (needs a push). Archived 17 Oct |
+| M-061 [Detection Quality](./archive/milestones/M-061_detection-quality.md) | `milestone/M-061-detection-quality` | Obsolete | ☐ | ☐ | Stack/feature/backend reports deleted in 2.0 (`f45ccb7`). Archived 17 Oct |
+| M-062 [UI Actionability](./archive/milestones/M-062_ui-actionability.md) | `milestone/M-062-ui-actionability` | Obsolete | ☐ | ☐ | app-shell, playground and IDE extensions deleted in 2.0 (`f45ccb7`). Archived 17 Oct |
+| M-063 [Distribution and Proof](./archive/milestones/M-063_distribution.md) | `milestone/M-063-distribution` | Absorbed | ☐ | ☐ | Proof → M-098, distribution → M-100. Archived 17 Oct |
 | M-064 [Agent Dashboard Hub](./archive/milestones/M-064_agent-dashboard.md) | `milestone/M-064-agent-dashboard` | Verified | ✅ | ✅ | Global jobs board: dispatch-hub daemon on :17330, OS + IDE toasts, thin MCP App widget (ADR-0043). Shipped in `@repo-prism/mcp-server@1.1.12`; owner reviewed smoke path 2026-08-31 |
 | M-065 [Claude Code Worker](./archive/milestones/M-065_claude-code-worker.md) | `milestone/M-065-claude-code-worker` | Verified | ✅ | ✅ | Dispatch worker backends: `claude -p` worker child, backend resolution from MCP clientInfo, per-backend init (ADR-0044). Owner approved direct release 2026-08-31 |
 | M-066 [Checkout-first Jobs + Claude Presence](./archive/milestones/M-066_checkout-first-jobs.md) | `milestone/M-066-checkout-first-jobs` | Verified | ✅ | ✅ | Checkout-first placement, no-commit default (ADR-0045); statusLine, subagent tree, configure preferences. `claude --bg` spike deferred to owner's machine (ADR-0046 follows) |
@@ -86,30 +87,42 @@
 | M-075 [Symbol memory + ADR nodes](./archive/milestones/M-075_symbol-memory-adr.md) | `milestone/M-075-symbol-memory-adr` | Verified | ✅ | ✅ | Owner verified 2026-09-17 (merged on main). Phase 3 Cut 3: `remember` optional `symbol`/`path`, rewrite on rename; `rationale_for` edges from ADRs and `WHY:`/`NOTE:` comments; `prepare_change.notes` for pack files. |
 | M-076 [Work orders + hook](./archive/milestones/M-076_work-orders-hook.md) | `milestone/M-076-work-orders-hook` | Verified | ✅ | ✅ | Owner verified 2026-09-17 (merged on main). Phase 3 Cut 3: `PrepareChange.order` from generated/vendor + blast/ownership; MCP `work_order`; Dispatch copies off-limits into the PRD; advisory IDE hook (no veto unless an Accepted ADR arms it). Agent-native Cuts 1–3 done (M-069–M-076). T1/T2/T3 proofs recorded. **Cut 4 set aside.** |
 | M-077 [Prism 2.0](./archive/milestones/M-077_prism-2.0.md) | `milestone/M-077-prism-2.0` | Verified | ✅ | ✅ | Owner verified 2026-09-19 (merged on local main). Prism 2.0 contract locked: one product (Prismate), one Dashboard, prismate.io identity, hero copy, sequence M-078–M-086. Docs/plan only. Next: M-078 from this main. |
-| M-078 Dashboard shell | `milestone/M-078-dashboard-shell` | In Review | ✅ | ☐ | Owner approved 2026-09-24 and merged to local main. Suite is red in this environment: better-sqlite3 is built for Node 23 while the runner wants Node 26. |
+| M-078 [Dashboard shell](./archive/milestones/M-078_dashboard-shell.md) | `milestone/M-078-dashboard-shell` | Obsolete | ✅ | ☐ | Was In Review (merged to local main 2026-09-24, never Verified). The Dashboard was deleted in 2.0 (`f45ccb7`). Archived 17 Oct |
 | M-079 [Safety layer + Lenses](./archive/milestones/M-079_safety-layer.md) | `milestone/M-079-safety-layer` | Verified | ✅ | ✅ | Owner verified 2026-10-06 (merged on local main). Hooks, change receipt, and Lenses (ADR-0058, ADR-0059). `verify:milestone` green on Node 26.5.0. Taught tools: `repository_overview`, `prepare_change`, `blast_radius`, `review_with`, `guard_session`. Next: M-080. |
-| M-080 Agent + CLI IA | `milestone/M-080-agent-cli-ia` | Planned | ☐ | ☐ | Loopback Streamable HTTP `/mcp`; teach `app.` URL. After M-079; instructions part done in M-079 phase 8. |
-| M-081 Marketplace publisher | `milestone/M-081-marketplace-publisher` | Planned | ☐ | ☐ | `prismhq.repo-prism` → `prismate`. Not npm. |
-| M-082 One Dashboard package | `milestone/M-082-dashboard-package` | Planned | ☐ | ☐ | `packages/dashboard` merge. |
-| M-083 Engine package merge | `milestone/M-083-engine-merge` | Planned | ☐ | ☐ | Folder moves + shims. No algorithm rewrite. |
-| M-084 Surfaces + IDE merge | `milestone/M-084-surfaces-ide` | Planned | ☐ | ☐ | VSIX, not npm ide. Remote cutover waits for M-086. |
-| M-085 Docs trim | `milestone/M-085-docs-trim` | Planned | ☐ | ☐ | Public nav shrink. `plans/` stays. |
-| M-086 Website + demo + identity | `milestone/M-086-website-demo-identity` | Planned | ☐ | ☐ | Last. Domain, `app.`, GitHub org, npm org, `/demo/<fixture>`. |
-| M-087 Focus Reset Plan | `milestone/M-087-focus-reset-plan` | In Progress | ✅ | ☐ | Owner locked the program 2026-10-10 and directed M-088–M-100 to be built on this branch in one pass. ADR-0060–0066 Accepted. Node 24.18.1. Envelope moves into Core. |
-| M-088 Prism identity + hero copy | `milestone/M-088-identity-hero-copy` | Planned | ☐ | ☐ | Built on the M-087 branch (owner one-pass). Remove Prismate; "Faster agent sessions. Fewer broken builds." ADR-0060. |
-| M-089 One build everywhere | `milestone/M-089-one-build-everywhere` | Planned | ☐ | ☐ | Built on the M-087 branch. Node 24.18.1, dev pack, `dev:link`, `doctor --surfaces`. ADR-0061. |
-| M-090 Hygiene | `milestone/M-090-hygiene` | Planned | ☐ | ☐ | Built on the M-087 branch. Branches/worktrees cleaned, Live Relay stash dropped, the other six stashes dropped 2026-10-12 (SHAs in `plans/notes/M-090-branches.md`), `prism data prune`, plans archive, ADR index. |
-| M-091 Surface cut | `milestone/M-091-surface-cut` | Planned | ☐ | ☐ | Built on the M-087 branch. Default tools cut (find_symbol/explain_area stand in for `graph`), Dispatch off MCP, Envelope + prepare-last in Core, `prism remember`. ADR-0064. |
-| M-092 Receipt v2 | `milestone/M-092-receipt-v2` | Planned | ☐ | ☐ | Built on the M-087 branch: baseline-aware verdict, session scope, verdict line, count fix, markdown/SVG renderers, `prism receipts`. The review action appends `prism receipts show 1 --as markdown` to the PR comment. Open: R2 replay rerun. |
-| M-093 Prepare v2 | `milestone/M-093-prepare-v2` | Planned | ☐ | ☐ | Built on the M-087 branch: 2,000-token whole-response budget, auto-Prepare on prompt submit, seed ranking fixes. Open: replay eval harness and its gate. ADR-0065. |
-| M-094 Envelope v2 | `milestone/M-094-envelope-v2` | Planned | ☐ | ☐ | Built on the M-087 branch: hook entries + session ids in the ledger, per-tool budgets, receipt footer, `prism envelope`. Open: Iris screen, privacy schema test. ADR-0066. |
-| M-095 Graph daemon | `milestone/M-095-graph-daemon` | Planned | ☐ | ☐ | Built on the M-087 branch: `packages/daemon`, `prism-mcp --daemon`, attach-first MCP + auto-Prepare, `prism graph`. Edit → index 268 ms p95 at 10k. Open at 10k: symbol answer after edit 2.3 s, auto-Prepare 1.7 s p95. ADR-0063. |
-| M-096 Graph model + artifact + tool | `milestone/M-096-graph-artifact-tool` | Planned | ☐ | ☐ | Built on the M-087 branch: `graph` tool, `prism graph export` and `prism graph open` (`graph.json`, `GRAPH_REPORT.md`, offline `graph.html`). Open: M-059 precision, hand-checked reports. ADR-0062. |
-| M-097 First run in 60s | `milestone/M-097-first-run` | Planned | ☐ | ☐ | Built on the M-087 branch: `prism` with no arguments prints a report card (health, cycle, untested hotspot, orphan) and writes `graph.html`. Open: 20-repo precision gate needs owner labels. |
-| M-098 Proof with Claude Code | `milestone/M-098-real-agent-proof` | Planned | ☐ | ☐ | Real A/B, CIs, publish whatever it shows; calibrates Envelope. |
-| M-099 Delete Dispatch + dead UI | `milestone/M-099-delete-dispatch` | Planned | ☐ | ☐ | Delete `dispatch`, `dispatch-hub`, retired screens; ≥50k lines. ADR-0064. |
-| M-100 Relaunch | `milestone/M-100-relaunch` | Planned | ☐ | ☐ | README, seven-page docs, `/benchmarks`, `/demo/<fixture>`, Marketplace listing. Graph and receipt guides are in the docs nav. The seven-page cut waits on moving the other pages out of the public tree. |
+| M-080 [Agent + CLI IA](./milestones/M-080_agent-cli-ia.md) | `milestone/M-080-agent-cli-ia` | Deferred | ☐ | ☐ | No HTTP `/mcp` in code; MCP is stdio + daemon. `app.prismate.io` cancelled (ADR-0060). Revisit after 2.0 |
+| M-081 [Marketplace publisher](./archive/milestones/M-081_marketplace-publisher.md) | `milestone/M-081-marketplace-publisher` | Obsolete | ☐ | ☐ | Cancelled: no Prismate (ADR-0060), IDE extensions deleted (`f45ccb7`). Archived 17 Oct |
+| M-082 [One Dashboard package](./archive/milestones/M-082_dashboard-package.md) | `milestone/M-082-dashboard-package` | Obsolete | ☐ | ☐ | Dashboard packages deleted, not merged (`f45ccb7`). Archived 17 Oct |
+| M-083 [Engine package merge](./milestones/M-083_engine-merge.md) | `milestone/M-083-engine-merge` | Deferred | ☐ | ☐ | Until after 2.0. Engine packages still separate; `repository-map` deleted |
+| M-084 [Surfaces + IDE merge](./archive/milestones/M-084_surfaces-ide.md) | `milestone/M-084-surfaces-ide` | Obsolete | ☐ | ☐ | No IDE surface: `vscode-extension` / `cursor-extension` deleted (`f45ccb7`). `doctor --surfaces` only flags a stale Marketplace install. Archived 17 Oct |
+| M-085 [Docs trim](./archive/milestones/M-085_docs-trim.md) | `milestone/M-085-docs-trim` | Absorbed | ☐ | ☐ | Plans part in M-090, public docs in M-100 (`docs:check` ok, 41 pages). Archived 17 Oct |
+| M-086 [Website + demo + identity](./archive/milestones/M-086_website-demo-identity.md) | `milestone/M-086-website-demo-identity` | Obsolete | ☐ | ☐ | Identity cancelled (ADR-0060); site stays `prismhq.in`. Website → M-100. `/demo` out of scope for 2.0. Archived 17 Oct |
+| M-087 [Focus Reset Plan](./milestones/M-087_focus-reset-plan.md) | `milestone/M-087-focus-reset-plan` | In Progress | ✅ | ☐ | Umbrella branch. Plan approved 2026-10-10 (ADR-0060–0066). Carries `2480b92` (M-088–M-100 work), `f45ccb7` (2.0 deletions), `08e4d3c` (2.0 reliability, ADR-0067) and uncommitted P1–P24 + rounds 2–4. Round 4 running (`notes/round4-status.md`). Owner review 18 Oct; nothing pushed |
+| M-088 [Prism identity + hero copy](./milestones/M-088_identity-hero-copy.md) | `milestone/M-088-identity-hero-copy` | Done | ☐ | ☐ | Prismate gone from code. Website, README and package descriptions use "Your agent's second pair of eyes."; hero features Prepare + Lens Review; ADR-0060 amended. Left: MCP `branding.ts` description, README hero image |
+| M-089 [One build everywhere](./milestones/M-089_one-build-everywhere.md) | `milestone/M-089-one-build-everywhere` | Built, not verified | ☐ | ☐ | Node 24.18.1, `dev:link`, `doctor --surfaces`, `prism install` from local build; install matrix 4/4 macOS. Round 4 (running): published npm install path, fix made, still being checked. CI OS matrix not run |
+| M-090 [Hygiene](./milestones/M-090_hygiene.md) | `milestone/M-090-hygiene` | Done | ☐ | ☐ | Branches/worktrees/stashes cleared (`notes/M-090-branches.md`; none left), `prism data prune`, `adr/INDEX.md`, plans archive (more archived 17 Oct) |
+| M-091 [Surface cut](./milestones/M-091_surface-cut.md) | `milestone/M-091-surface-cut` | Done | ☐ | ☐ | Re-scoped by 2.0: 9 default tools (incl. `habits`, `graph`), opt-in via `extraTools[]`; Dispatch off MCP; `review_changes` → `guard_session {review:true}`; habits are skills. Envelope part dropped |
+| M-092 [Receipt v2](./milestones/M-092_receipt-v2.md) | `milestone/M-092-receipt-v2` | Built, not verified | ☐ | ☐ | SHIP / NOT PROVEN / NO-SHIP verdict first (P11), structured findings (P18), `prism receipts --as markdown` or `svg`, baseline re-run in a throwaway copy (round 3). Round 4: B3 replay |
+| M-093 [Prepare v2](./milestones/M-093_prepare-v2.md) | `milestone/M-093-prepare-v2` | Built, not verified | ☐ | ☐ | Signature packs, caps, session dedupe, co-change, reasons (P2–P9); auto-Prepare (ADR-0065). B4 top-3 39.1% / recall@pack 61.8% (targets 55 / 70). Round 4: B2 eval, lighter prompt hook |
+| M-094 [Envelope v2](./archive/milestones/M-094_envelope-v2.md) | `milestone/M-094-envelope-v2` | Obsolete | ☐ | ☐ | **Envelope removed entirely** 17 Oct 2026 (code, CLI, docs, site, CHANGELOG 1.12.0 entry). ADR-0066 superseded. Archived 17 Oct |
+| M-095 [Graph daemon](./milestones/M-095_graph-daemon.md) | `milestone/M-095-graph-daemon` | Built, not verified | ☐ | ☐ | `packages/daemon`, attach-first, `prism graph`. B8 hooks 896 / 508 ms p95. Round 4: B5 freshness; medium RSS re-check found no regression on Node 24 (0.79 / 0.95 GB), still to be confirmed by the gate |
+| M-096 [Graph tool + export](./milestones/M-096_graph-artifact-tool.md) | `milestone/M-096-graph-artifact-tool` | Done | ☐ | ☐ | `graph` tool, `graph {mode:map}` (P1), `prism graph export`. `graph.html`, `GRAPH_REPORT.md`, `graph open` deleted on purpose (unified plan §0.4 #35) |
+| M-097 [First run](./milestones/M-097_first-run.md) | `milestone/M-097-first-run` | Built, not verified | ☐ | ☐ | Re-scoped to `prism start` / bare `prism` (P19). Report card and 20-repo owner-label gate dropped. < 60 s on es-toolkit not timed |
+| M-098 [Proof with Claude Code](./milestones/M-098_real-agent-proof.md) | `milestone/M-098-real-agent-proof` | Open (round 4) | ☐ | ☐ | A/B harness, B6 rounds 1–3, `docs/benchmarks/2.x.md`, release gate. Gate fails 1 (Claude small-task cost). Round 4: Sonnet 5.5 complex / Opus small re-tests, follow-up quality, full gate. Envelope calibration dropped |
+| M-099 [Delete Dispatch + dead UI](./milestones/M-099_delete-dispatch.md) | `milestone/M-099-delete-dispatch` | Done | ☐ | ☐ | `f45ccb7`: 901 files, ~203k lines deleted (Dispatch, hub, app-shell, playground, host-session, repository-map, IDE extensions, health/report tools) |
+| M-100 [Relaunch](./milestones/M-100_relaunch.md) | `milestone/M-100-relaunch` | Built, not deployed | ☐ | ☐ | Website rebuilt (v6, prismhq.in, SEO, `/benchmarks`, paginated `/changelog`), docs for 2.0. Marketplace listing and `/demo` dropped. README updated 17 Oct. Deploy after owner review 18 Oct |
 
 ## Legend
 
 `Not Started` · `Planned` · `In Progress` · `In Review` · `Blocked` · `Verified` · `Deferred`
+
+Added 17 Oct 2026, for work built on the M-087 branch without owner sign-off:
+
+| Status | Meaning |
+|---|---|
+| `Done` | Built and tested as re-scoped; awaiting owner review and merge |
+| `Built, not verified` | Built and unit-tested; an end-to-end benchmark or proof is still open |
+| `Built, not deployed` | Built locally; deploy waits for owner review |
+| `Partly done` | Some of the scope is built; the gap is in Notes |
+| `Open (round 4)` | Being worked on in round 4 (only one row may be `In Progress`) |
+| `Obsolete` | No longer applies; the doc is kept in `archive/milestones/` |
+| `Absorbed` | Its scope moved to another milestone or to the 2.0 plan |

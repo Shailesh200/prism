@@ -1,0 +1,76 @@
+---
+title: Lenses
+description: Dev, Architect and QA, plus a lens you add. One per session. Nine checks, no model.
+source: packages/shared/src/lens-route.ts; packages/shared/src/lens-store.ts; packages/shared/src/lenses.ts; packages/mcp-server/src/safety/prompt-context.ts
+---
+
+> A lens is how the agent works on this task. Prism picks one. It does not call a model.
+
+See also the [lenses product page](/product/lenses).
+
+## Built-in lenses
+
+| Lens | Picked for | What it does |
+| --- | --- | --- |
+| Dev | Daily changes. The default. | The smallest complete fix, using what the repo already has. |
+| QA | A bug hunt: “find bugs”, “why does X fail”, “missing tests”. | A concrete failure, the path, and the test that should catch it. |
+| Architect | A new feature, a plan, or a review of a PR or change. | Structure: package boundaries, cycles, and decisions already recorded. |
+
+Dev’s procedure says to follow the house style of the files beside the change. Prepare hands those patterns back. Dev’s data-backed checks are reuse_missed, new_dependency_added and untested_new_branch. House style is not a tenth check.
+
+## How a lens is picked
+
+One lens per session. A later message that widens the task (“everything”, “anywhere”) can pick again.
+
+Prism reads the words, on your machine:
+
+1. A lens you name, including one you added. An explicit ask (“use the Dev lens”) beats a plain mention.
+2. A custom trigger phrase. The longest match wins. A tie goes to the lens edited most recently.
+3. QA, for a bug hunt.
+4. Architect, for a feature, a plan, or a review.
+5. Dev.
+
+Text inside code blocks and quotes is ignored, and so is a negated clause (“do not open a pull request” does not ask for Architect).
+
+On Claude Code the prompt hook runs that order, so a trigger can pick a custom lens by itself. Cursor, Codex and opencode have no prompt hook. Name the lens (“use the Triage lens”). On opencode the lens arrives through `prepare_change`. The line the agent sees is `Lens:` followed by the name and the procedure.
+
+## Add your own
+
+```bash
+prism lens add triage --name Triage --role "Sorts a new issue: where it lives, how far it reaches, which tests cover it." --trigger triage --checks dependents_not_in_diff
+prism lens list
+prism lens show triage
+prism lens remove triage
+```
+
+`prism lens show <id>` prints one lens in full: role, focus, checklist, evidence, checks and triggers.
+
+A trigger is two words, or one word of six letters or more. It cannot use review, bug, bugs, pr, qa, architect or dev. Flags: `--name`, `--role`, `--focus`, `--checklist`, `--checks`, `--evidence`, `--trigger`.
+
+Lenses live in `~/.prism/lenses/lenses.json` and are shared by every repository.
+
+## Lens review
+
+Ask for a review with a lens: “review it with the QA lens”. Your agent calls `guard_session` with `review: true` and `lens`, and gets that lens's findings, each with where, what, a fix and the risk if skipped. Every receipt also runs the lens checks on the change.
+
+In a terminal, `prism review --lens qa` prints the same checks under the change review: each check passes, or shows the evidence that it did not.
+
+```bash
+prism review --lens qa
+```
+
+## The nine checks
+
+Prism computes these from the index, the diff and the receipt. A custom lens chooses which ones to run.
+
+| Check | What it reports |
+| --- | --- |
+| new_cross_package_edge | A new import between two packages that were not already linked. |
+| new_value_cycle | A new import cycle. |
+| off_limits_touched | A generated or vendor path in the change. |
+| reuse_missed | A duplicate of a helper that already exists. |
+| new_dependency_added | A dependency this change added. |
+| untested_new_branch | A new branch in a file no test reaches. |
+| untested_changed_symbol | A changed file no test reaches. |
+| dependents_not_in_diff | An export changed, and a file that uses it was not edited. |
+| test_reaches_but_not_run | Tests reach the change, and they did not run. |

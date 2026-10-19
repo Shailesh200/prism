@@ -50,29 +50,59 @@ export {
   ReceiptCheckSchema,
   ReceiptFlagSchema,
   ReceiptLensLineSchema,
+  ReceiptProofSchema,
+  SessionValueSchema,
   blockingChecks,
+  offLimitsTouched,
   preexistingFailures,
+  shipVerdict,
+  shipVerdictLabel,
   type ChangeReceipt,
   type NotProvenReason,
   type ReceiptCheck,
   type ReceiptFlag,
   type ReceiptLensLine,
+  type ReceiptProof,
+  type SessionValue,
+  type ShipVerdict,
 } from "./receipt.js";
+export {
+  WITHOUT_PRISM_TOKENS_PER_FILE,
+  sessionValue,
+  sessionValueLine,
+} from "./session-value.js";
+export {
+  cheapestProof,
+  recordedCheckDurations,
+  type ProofCandidate,
+} from "./receipt-proof.js";
 export {
   receiptFeedback,
   nothingChanged,
   receiptHeadline,
   receiptSummaryLine,
+  receiptTerminalLine,
   renderReceipt,
   renderReceiptMarkdown,
   renderReceiptSvg,
+  renderReceiptTerminal,
 } from "./receipt-render.js";
+export {
+  findingFromReceiptFlag,
+  findingFromRef,
+  findingsFromLens,
+  findingsFromGuardFiles,
+  findingsFromReceiptParts,
+  listedFindingFromRef,
+  mergeFindings,
+} from "./structured-finding.js";
 
 export {
   LENS_CHECK_IDS,
   LensCheckIdSchema,
   LensCheckStatusSchema,
   LensFindingSchema,
+  LENS_EVIDENCE_MAX,
   type LensCheckId,
   type LensCheckStatus,
   type LensFinding,
@@ -101,6 +131,7 @@ export {
   chooseLensDetailed,
   invalidTrigger,
   routableText,
+  stripNegatedClauses,
   type LensChoice,
 } from "./lens-route.js";
 
@@ -209,10 +240,27 @@ export {
   type PromptKind,
 } from "./classify-prompt.js";
 export {
+  PREPARE_NUDGE,
+  PROMPT_PACK_FILES,
+  buildPromptPack,
+  confidentFile,
+  lensLabel,
   prepareIsAnchored,
-  renderPrepareContext,
-  type PrepareContextExtras,
+  promptNames,
+  promptSummaryLine,
+  widensScope,
+  type PromptPack,
+  type PromptPackInput,
+  type PromptPackLens,
 } from "./prepare-context.js";
+export {
+  PARTIAL_INDEX_PREFIX,
+  partialIndexLine,
+  partialIndexOf,
+  partialIndexWarning,
+  type PartialIndex,
+} from "./partial-index.js";
+export { claudeToolId, PRISM_MCP_SERVER } from "./tool-ids.js";
 export {
   AUTO_PREPARE_BUDGET,
   PREPARE_RESPONSE_BUDGET,
@@ -243,7 +291,17 @@ export {
   type GraphProvenance,
   type GraphQuery,
   type GraphQueryFilter,
+  type GraphSymbolDetail,
 } from "./graph-query.js";
+
+export {
+  PREPARE_BODY_MAX_LINES,
+  SIGNATURE_CLIP,
+  lineAtOffset,
+  signatureLine,
+  symbolSlice,
+  type SymbolSlice,
+} from "./source-slice.js";
 
 export {
   GRAPH_EXPORT_VERSION,
@@ -398,6 +456,8 @@ export {
   CodeExplorerTimelineSchema,
   CodeExplorerReportSchema,
   ContextFileSchema,
+  ContextSignatureSchema,
+  ContextBodySchema,
   ContextPackSchema,
   ReuseHitSchema,
   HouseStylePatternIdSchema,
@@ -408,7 +468,10 @@ export {
   PrepareChangeSchema,
   DEFAULT_PREPARE_BUDGET,
   prepareMapTokenWeight,
+  FindingSchema,
+  FindingRiskSchema,
   FindingRefSchema,
+  ListedFindingSchema,
   FindingMuteSchema,
   FindingMuteStoreSchema,
   AgentsMdClaimsSchema,
@@ -417,7 +480,10 @@ export {
   AgentsMdGenerateResultSchema,
   WorkingSetSchema,
   parseDto,
+  type Finding,
+  type FindingRisk,
   type FindingRef,
+  type ListedFinding,
   type FindingMute,
   type FindingMuteStore,
   type AgentsMdClaims,
@@ -440,6 +506,7 @@ export {
   type RenameImpactReport,
   type TestImpactReport,
   type TestImpactItem,
+  type TestRun,
   type TestRunner,
   type ChangeReviewItem,
   type ChangeReviewReport,
@@ -482,6 +549,8 @@ export {
   type CodeExplorerTimeline,
   type CodeExplorerReport,
   type ContextFile,
+  type ContextSignature,
+  type ContextBody,
   type ContextPack,
   type ReuseHit,
   type HouseStylePatternId,
@@ -533,3 +602,16 @@ export {
   unsupportedLanguageError,
   type RepoLanguageSupport,
 } from "./language-support.js";
+export {
+  estimateTokens,
+  estimateJsonTokens,
+  estimateTokensFromBytes,
+} from "./tokens.js";
+export {
+  fitToBudget,
+  budgetFor,
+  TOOL_TOKEN_BUDGETS,
+  DEFAULT_TOOL_TOKEN_BUDGET,
+  type BudgetCut,
+} from "./budget.js";
+export { PRISM_RULESET, PRISM_RULESET_MAX_TOKENS } from "./ruleset.js";

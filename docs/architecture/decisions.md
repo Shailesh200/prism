@@ -19,8 +19,8 @@ Extensions, the CLI, and the MCP tools consume `@repo-prism/core`.
 **Dispatch is removed** (ADR-0064). Dispatch (ADR-0035) was a second façade on
 the `prism` MCP server for background jobs, standups, the Console, and Live
 Relay. ADR-0064 removed it from the product and from MCP: no Dispatch tool is
-registered. The Envelope ledger and the last Prepare moved into Core, and
-memories moved to `prism remember`. The `dispatch` and `dispatch-hub` packages
+registered. The last Prepare moved into Core, and memories moved to
+`prism remember`. The `dispatch` and `dispatch-hub` packages
 are deleted in a later milestone. Fixing a finding is the user's own chat.
 
 **The default MCP surface is small** (M-091, Prism 2.0 plan §0.3). Nine tools
@@ -37,7 +37,7 @@ Core rather than by whoever calls it. See
 
 **Say what a number is made of** (ADR-0029). Every signal carries whether it was
 measured, inferred or is unknown, and the interface shows it. See
-[signal provenance](../concepts/signal-provenance.md).
+[signal provenance](/docs/concepts/signal-provenance).
 
 ## How code is read
 
@@ -94,7 +94,7 @@ ADR-0058 stopped Prism running agents and ADR-0064 removed Dispatch.
 Verification lives on in the receipt.
 
 **MCP speaks over stdio, indexes lazily, and refuses consent-gated work**
-(ADR-0030). See [using MCP](../usage.mdx).
+(ADR-0030). See [using MCP](/docs/usage).
 
 **The product screens are one shared package** (ADR-0021). The extension and the
 playground render the same components.
@@ -110,7 +110,7 @@ are not removed; result shapes only gain optional fields.
 
 ## Toolchain
 
-**Bun, Node 26, and a locked performance-oriented toolchain** (ADR-0002,
+**Bun, a pinned Node, and a locked performance-oriented toolchain** (ADR-0002,
 ADR-0003). Chosen once, so that build speed is not relitigated per package.
 
 ## Reading a record

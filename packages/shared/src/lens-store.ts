@@ -172,6 +172,7 @@ const ARCHITECT_PROCEDURE = `You are the Architect lens: the senior pass on stru
 3. The change would add a dependency between packages, or a cycle? Do not, unless the task requires it. Name the edge if you must add one.
 4. The smallest design that fits the layers this repo already has. No new framework.
 5. On a pull request, read the code the change touches, not only the diff. Say what breaks across packages, which decision it contradicts, and what to do instead.
+6. Then the lean pass the Dev lens writes by: flag code that should not exist (dead code, an option nobody sets, an abstraction with one use), a helper the repo already has (cite its path), and near-copies that must change together. Propose the fix that deletes code.
 
 Never cut: an accepted decision, an off-limits path, or a boundary the repo already enforces.`;
 
@@ -191,10 +192,29 @@ const DEV_PROCEDURE = `You are the Dev lens, for a daily fix. Finish the task wi
 2. A helper, pattern, or type already in this codebase does it? Use that, the way the files beside it do.
 3. Can one line say it? One line.
 4. Otherwise the minimum that works, in the house style of the nearby files. No wrapper, config, or code for later.
-5. A bug fix: find the callers, then fix the root cause once in the shared code.
+5. A bug fix: fix it where it breaks. The cause is in shared code? Fix it there, once. Leave working code beside it as it is.
 6. New logic — a branch, a loop, money, or security — leaves one small test. A typo or a comment does not.
+7. Removing a safety check (a confirmation, a guard): a setting already controls it? Change the setting. Otherwise list the delete, kill or reset actions it leaves unguarded.
 
 Never cut: validation, error handling, security, or anything the user asked for.`;
+
+/**
+ * First 16 hex of sha256 of each procedure an earlier release seeded into the
+ * store. A seeded lens still holding one of them was never edited, so it takes
+ * the current text. Add the old hash here whenever a shipped procedure changes.
+ */
+const SHIPPED_PROCEDURES: Readonly<Record<string, readonly string[]>> = {
+  architect: ["c2e2d07ca8d94bc8"],
+  dev: ["a98537cbcd7a4d2b", "bded35890e81e4ed"],
+};
+
+function shippedProcedure(id: string, procedure: string): boolean {
+  const hash = createHash("sha256")
+    .update(procedure)
+    .digest("hex")
+    .slice(0, 16);
+  return SHIPPED_PROCEDURES[id]?.includes(hash) ?? false;
+}
 
 /** The three defaults as first shipped, so an unedited install can take the skill text. */
 const PREVIOUS_DEFAULTS: readonly Pick<
@@ -324,11 +344,16 @@ export function applyDefaultProcedures(
     // changed nothing, including the name. Otherwise keep their words and
     // only fill what is empty.
     const untouched =
-      previous !== undefined &&
-      lens.name === fresh.name &&
-      lens.role === previous.role &&
-      lens.focus === previous.focus &&
-      sameChecklist(lens.checklist, previous.checklist);
+      (previous !== undefined &&
+        lens.name === fresh.name &&
+        lens.role === previous.role &&
+        lens.focus === previous.focus &&
+        sameChecklist(lens.checklist, previous.checklist)) ||
+      (lens.name === fresh.name &&
+        lens.role === fresh.role &&
+        lens.focus === fresh.focus &&
+        sameChecklist(lens.checklist, fresh.checklist) &&
+        shippedProcedure(lens.id, lens.procedure));
     if (untouched) {
       return {
         ...fresh,
@@ -343,6 +368,29 @@ export function applyDefaultProcedures(
       checks: lens.checks.length > 0 ? lens.checks : fresh.checks,
     };
   });
+}
+
+/**
+ * What the host follows while a lens is active. A custom lens with no written
+ * procedure still has its role, focus and checklist (lenses.ts); those are the
+ * procedure then, so a lens never reaches the agent as a bare name.
+ */
+export function lensProcedure(
+  lens: Pick<
+    LensDefinition,
+    "role" | "focus" | "tone" | "checklist" | "procedure"
+  >,
+): string {
+  if (lens.procedure.trim()) return lens.procedure;
+  return [
+    lens.role,
+    lens.focus,
+    lens.tone,
+    ...lens.checklist.map((item) => `- ${item}`),
+  ]
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** What seeding reads. `PrismWorkspace` from Core satisfies this. */

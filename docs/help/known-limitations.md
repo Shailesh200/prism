@@ -1,6 +1,6 @@
 ---
 title: Known limitations
-description: "What Prism cannot do, stated plainly — languages, static analysis, heuristics."
+description: "What Prism cannot do: languages, static analysis limits and heuristics."
 ---
 
 What Prism cannot do, stated plainly. A tool that hides its limits is a tool you
@@ -8,13 +8,13 @@ cannot calibrate against.
 
 ## Language coverage
 
-TypeScript and JavaScript are fully analysed: imports, symbols, references,
+Prism analyses the languages it has a plugin for: imports, symbols, references,
 graphs.
 
-Prism 2.0 analyses nothing else. In a Python, Go or Rust repository the tools
-answer `PRISM_UNSUPPORTED` ("language not supported in 2.0"), the prompt hook
-adds one note instead of a pack, and the receipt lists such files as
-`unsupported_language`. Mixed repositories are analysed for their TS/JS files.
+In a repository written in a language Prism does not analyse yet, the tools
+answer `PRISM_UNSUPPORTED`, the prompt hook adds one note instead of a pack, and
+the receipt lists such files as `unsupported_language`. In a mixed repository,
+Prism analyses the files it has a plugin for.
 
 ## Static analysis, and what that misses
 
@@ -68,8 +68,6 @@ By design. There is no account, no sync and no server.
 - **Run background agents.** Background jobs were removed (ADR-0064).
 - **Dump file bodies from Prepare.** `prepare_change` returns paths, symbols,
   and why — never source. Open the files yourself.
-- **Upload the Envelope.** The ledger is local JSONL. It never holds source
-  and it is never sent anywhere.
 - **Resolve a finding because a file was edited.** Only a re-scan that drops
   the fingerprint closes it.
 - **Write AGENTS.md into git.** Living AGENTS.md stays under `~/.prism`.

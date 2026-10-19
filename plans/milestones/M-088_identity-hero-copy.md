@@ -2,12 +2,28 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **Done**, not owner-verified |
 | Branch | `milestone/M-088-identity-hero-copy` (from latest `main`) |
 | Depends on | M-087 Verified |
 | Unlocks | M-089 |
 | Packages | `README.md`, root `package.json`, every package `package.json` `description`, `apps/website`, `packages/mcp-server` (`branding.ts`), `packages/app-shell`, `packages/dispatch-hub` (copy strings only), `AGENTS.md`, `CLAUDE.md`, `plans/PRD.md`, `plans/architecture/01_HLD.md` |
 | ADR | [ADR-0060](../adr/0060-prism-keeps-its-name.md) |
+
+
+## Status (17 Oct 2026)
+
+- **Done:**
+  - Prismate is gone from code. The only hit left is the banned-word check in `mcp-server/src/branding.test.ts`.
+  - The website hero, SEO, OG image and `llms.txt` use the new line: "Your agent's second pair of eyes. Know before you ship." (`apps/website/lib/seo.ts`). That line replaced "Faster agent sessions. Fewer broken builds." (ADR-0060 / Q-7) on 16–17 Oct.
+  - The hero features are Prepare and Lens Review.
+- **Done later on 17 Oct:**
+  - `README.md` now uses the new headline and intro. It has no TS/JS-only claim, no Node minimum, and the published install form.
+  - The root, `cli`, `mcp-server` and `intelligence` package descriptions are updated.
+  - ADR-0060 now has a hero-line amendment.
+- **Left:**
+  - The MCP server's own description in `mcp-server/src/branding.ts` still says "Local context and change checks for coding agents." A test pins it, and the round 4 worker is editing that package.
+  - The README hero image (`assets/readme-hero-*.png`) still shows "Help your AI agent get it right."
+- Not verified by the owner.
 
 ## 1. Goal
 

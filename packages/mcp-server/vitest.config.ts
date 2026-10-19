@@ -4,10 +4,13 @@ export default defineConfig({
   test: {
     name: "@repo-prism/mcp-server",
     include: ["src/**/*.test.ts"],
-    // The receipt, lens and snapshot tests index real fixtures and run git.
-    // Alone they take a second or two; under the full parallel suite they
-    // passed 5s. Same reasoning as core's config.
-    testTimeout: 30_000,
-    hookTimeout: 30_000,
+    // Suites that index a real repository, spawn git or run a repo's own
+    // checks live in *.integration.test.ts (plan P22). Unit tests keep
+    // vitest's 5 s default: one that needs more is an integration test.
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "src/**/*.integration.test.ts",
+    ],
   },
 });

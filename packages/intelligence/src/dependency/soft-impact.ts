@@ -8,6 +8,7 @@ import {
   linkWorkspaceDeps,
   parseBundlerConfig,
   parseCiWorkflow,
+  parseCssImports,
   parseDockerfile,
   parseEnvFile,
   parseEslintConfig,
@@ -73,6 +74,7 @@ export function buildSoftImpactIndex(
   /** Source file contents for env-key / usage-ref scanning (lazy-filled). */
   const sourceContents = new Map<string, string>();
 
+  const pathSet = new Set(allPaths);
   const hasEnv = allPaths.some((p) => isEnvFile(basenameOf(p)));
   const sourcePaths = allPaths.filter((p) => /\.[cm]?[jt]sx?$/i.test(p));
 
@@ -91,6 +93,12 @@ export function buildSoftImpactIndex(
 
   for (const path of allPaths) {
     const base = basenameOf(path);
+
+    if (/\.(?:css|scss|less|pcss)$/i.test(base)) {
+      const source = readText(root, path);
+      if (source) parseCssImports(path, source, pathSet, edges, seen);
+      continue;
+    }
 
     if (
       isVitestConfig(base) ||

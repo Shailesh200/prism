@@ -2,11 +2,16 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **Deferred** |
 | Branch | `milestone/M-080-agent-cli-ia` |
 | Depends on | M-079 Verified |
 | Packages | `mcp-server`, `cli`, `dispatch-hub` |
-| How | [IMPLEMENTATION_prism-2.0.md](./IMPLEMENTATION_prism-2.0.md) §4.7, §5 M-080 |
+| How | [IMPLEMENTATION_prism-2.0.md](../archive/milestones/IMPLEMENTATION_prism-2.0.md) §4.7, §5 M-080 |
+
+
+## Status (17 Oct 2026)
+
+Deferred (Focus Reset §12.1). There is no HTTP `/mcp` in the code today; MCP is stdio, with the daemon behind it. The `app.prismate.io` URL is cancelled (ADR-0060). The `dispatch-hub` package it names is deleted. If HTTP MCP comes back, the daemon (`packages/daemon`) is the host.
 
 ## 1. Goal
 

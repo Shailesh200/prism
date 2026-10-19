@@ -22,6 +22,7 @@ import {
 } from "@repo-prism/checks";
 import type { PrismWorkspace } from "@repo-prism/core";
 import {
+  findingsFromReceiptParts,
   isSupportedSourcePath,
   isTestPath,
   ok,
@@ -37,8 +38,13 @@ import {
   DEFAULT_LENSES,
   readLensStore,
 } from "@repo-prism/shared/lens-store";
-import { withBaselineTree } from "./baseline.js";
+import { withBaselineCopy } from "./baseline.js";
 import { evaluateLensChecks, gatherLensSignals } from "./lens-checks.js";
+import {
+  proofCandidates,
+  selectProof,
+  type ProofCandidates,
+} from "./receipt-proof.js";
 
 /** Dirty files a receipt looks at; the rest are counted, not analysed. */
 export const RECEIPT_FILE_CAP = 25;
@@ -48,8 +54,40 @@ export const RECEIPT_TEST_CAP = 60;
 export const HIGH_BLAST_RISK = 60;
 /** Each check command is killed after this long (plan §5.7). */
 export const RECEIPT_CHECK_TIMEOUT_MS = 60_000;
-/** All checks of one receipt together stop after this long (plan §5.7). */
-export const RECEIPT_TOTAL_TIMEOUT_MS = 120_000;
+/**
+ * All checks of one receipt, baseline reruns included, stop this long after
+ * they start (plan §5.7; round 5 made it hard and 95 s). It sits under the
+ * stop-wait hook's 110 s wait (`STOP_WAIT_MS` in plugin/hooks/prism-hook.mjs)
+ * with room for the structural receipt and the wake, so the agent always
+ * gets a final verdict; a check cut short reads `timeout`.
+ */
+export const RECEIPT_TOTAL_TIMEOUT_MS = 95_000;
+
+/**
+ * A runner that never runs past `deadline` (round 5): each step's own limit
+ * is clipped to the time left, and a step with no time left is not started.
+ * Before, the total was only checked between packages, so one package's
+ * typecheck, lint and test could each still take their full 60 s (B3: four
+ * receipts ran their checks for 109-143 s against a 120 s "limit").
+ */
+export function deadlineRunner(
+  deadline: number,
+  stepMs: number,
+  now: () => number,
+  runner: (timeoutMs: number) => VerifyRunner,
+): VerifyRunner {
+  return async (cwd, step) => {
+    const left = deadline - now();
+    if (left <= 0) {
+      return {
+        ok: false,
+        timedOut: true,
+        output: "not run: the receipt's total time limit was reached",
+      };
+    }
+    return runner(Math.min(stepMs, left))(cwd, step);
+  };
+}
 
 const SOURCE_FILE = /\.(tsx?|jsx?|mts|cts|mjs|cjs)$/i;
 
@@ -74,6 +112,8 @@ export function folderExistedAtHead(root: string, path: string): boolean {
 
 export type BuildReceiptOptions = {
   readonly preExistingChanges?: readonly string[];
+  /** Review these paths instead of the working-tree diff. */
+  readonly changedPaths?: readonly string[];
   /** False → analyse only, run nothing (`not_proven(skipped_offline)`). */
   readonly runChecks?: boolean;
   /** Injectable for tests and the benchmark. */
@@ -91,6 +131,11 @@ export type BuildReceiptOptions = {
   readonly env?: NodeJS.ProcessEnv;
   readonly checkTimeoutMs?: number;
   readonly totalTimeoutMs?: number;
+  /**
+   * Aborted when a newer change in the workspace starts its checks (round 2):
+   * the running commands are killed and the receipt ends `superseded`.
+   */
+  readonly signal?: AbortSignal;
 };
 
 /**
@@ -110,6 +155,8 @@ export type CheckPlan = {
   readonly sessionPaths: readonly string[];
   readonly tests: readonly string[];
   readonly sourcesWithoutTests: readonly string[];
+  /** Checks that could prove the change, for the settled receipt (P11). */
+  readonly proofCandidates: ProofCandidates | null;
 };
 
 /**
@@ -223,11 +270,12 @@ export async function buildStructuralReceipt(
     if (!indexed.ok) return indexed;
   }
 
-  const guard = await workspace.guardSession(
-    options.preExistingChanges
+  const guard = await workspace.guardSession({
+    ...(options.preExistingChanges
       ? { preExistingChanges: options.preExistingChanges }
-      : undefined,
-  );
+      : {}),
+    ...(options.changedPaths ? { changedPaths: options.changedPaths } : {}),
+  });
   if (!guard.ok) return guard;
 
   const root = workspace.rootPath;
@@ -240,8 +288,17 @@ export async function buildStructuralReceipt(
   const dependents = new Set<string>();
   const testFiles = new Set<string>();
   const sourcesWithoutTests: string[] = [];
+  const reachedBySource = new Map<string, readonly string[]>();
   const flags: ReceiptFlag[] = [];
-  const touched = new Set(files.map((f) => f.path));
+  // Every changed path, new and deleted ones too: the ranked files above are
+  // only those the index knows (website round: 1 of 7 files listed).
+  const ranked = new Set(guard.value.files.map((f) => f.path));
+  const allTouched = [
+    ...guard.value.files.map((f) => f.path),
+    // Unsupported languages are listed (and counted) on their own.
+    ...sessionPaths.filter((p) => !ranked.has(p) && !unsupported.includes(p)),
+  ];
+  const touched = new Set(allTouched);
 
   for (const file of files) {
     for (const flag of file.flags) {
@@ -270,6 +327,8 @@ export async function buildStructuralReceipt(
     for (const test of reached) testFiles.add(test);
     if (reached.length === 0 && SOURCE_FILE.test(file.path)) {
       sourcesWithoutTests.push(file.path);
+    } else if (reached.length > 0) {
+      reachedBySource.set(file.path, reached);
     }
   }
 
@@ -301,11 +360,10 @@ export async function buildStructuralReceipt(
     ...(reason ? { reason } : {}),
     checksState,
     touched: {
-      files: changedPaths,
-      totalFiles: guard.value.files.length,
+      files: allTouched.slice(0, RECEIPT_FILE_CAP),
+      totalFiles: allTouched.length,
       dependents: dependents.size,
-      truncated:
-        guard.value.truncated || guard.value.files.length > files.length,
+      truncated: allTouched.length > RECEIPT_FILE_CAP,
     },
     checks: [],
     testMode: files.length === 0 ? "none" : "skipped",
@@ -325,6 +383,16 @@ export async function buildStructuralReceipt(
     receipt.lensFindings = lensFindings;
     receipt.durationMs = Math.max(0, Math.round(now() - started));
   }
+  receipt.findings = findingsFromReceiptParts({
+    flags: receipt.flags,
+    lensFindings: receipt.lensFindings,
+  });
+  const candidates =
+    verdict === "not_proven" || checksState === "pending"
+      ? proofCandidates(workspace, reachedBySource, sourcesWithoutTests)
+      : null;
+  const proof = selectProof(candidates, receipt, root, options.env);
+  if (proof) receipt.proof = proof;
   return ok({
     receipt,
     plan:
@@ -335,6 +403,7 @@ export async function buildStructuralReceipt(
             sessionPaths,
             tests: selectedTests,
             sourcesWithoutTests,
+            proofCandidates: candidates,
           }
         : null,
   });
@@ -343,7 +412,8 @@ export async function buildStructuralReceipt(
 /**
  * The checks pass: run the scoped commands, tell caused failures from ones
  * already there, and settle the verdict. Each command stops at 60 s and the
- * whole pass at 120 s; a stopped check reads `timeout`, never a hang.
+ * whole pass, baseline included, at 95 s; a stopped check reads `timeout`,
+ * never a hang.
  */
 export async function completeReceipt(
   structural: StructuralReceipt,
@@ -353,17 +423,33 @@ export async function completeReceipt(
   if (!plan) return receipt;
   const now = options.now ?? Date.now;
   const started = now();
-  const run =
-    options.run ??
-    verifyRunnerWithTimeout(options.checkTimeoutMs ?? RECEIPT_CHECK_TIMEOUT_MS);
+  const deadline =
+    started + (options.totalTimeoutMs ?? RECEIPT_TOTAL_TIMEOUT_MS);
+  // One hard deadline for the checks and the baseline reruns after them.
+  const run = deadlineRunner(
+    deadline,
+    options.checkTimeoutMs ?? RECEIPT_CHECK_TIMEOUT_MS,
+    now,
+    (timeoutMs) =>
+      options.run ?? verifyRunnerWithTimeout(timeoutMs, options.signal),
+  );
   const packageRun = await runPackageChecks(
     plan.root,
     plan.files,
     plan.tests,
     run,
     now,
-    started + (options.totalTimeoutMs ?? RECEIPT_TOTAL_TIMEOUT_MS),
+    deadline,
   );
+  if (options.signal?.aborted) {
+    return {
+      ...receipt,
+      checksState: "done",
+      verdict: "not_proven",
+      reason: "superseded",
+      durationMs: now() - started,
+    };
+  }
   const causes =
     options.baseline === false
       ? new Map<PackageCheck, Cause>()
@@ -397,16 +483,17 @@ export async function completeReceipt(
   const testsRan = checks.some(
     (c) => isTestCheck(c.name) && c.status === "passed",
   );
-  const { reason: _previous, ...base } = receipt;
-  return {
+  const { reason: _previous, proof: _staleProof, ...base } = receipt;
+  const lensFindings = base.lensFindings
+    ? settleRunFindings(base.lensFindings)
+    : undefined;
+  const settled = {
     ...base,
-    ...(base.lensFindings
-      ? { lensFindings: settleRunFindings(base.lensFindings) }
-      : {}),
+    ...(lensFindings ? { lensFindings } : {}),
     generatedAt: new Date().toISOString(),
     verdict,
     ...(reason ? { reason } : {}),
-    checksState: "done",
+    checksState: "done" as const,
     checks,
     testMode: packageRun.testMode,
     notProven: notProvenRows(
@@ -415,6 +502,20 @@ export async function completeReceipt(
       reason,
     ),
     durationMs: receipt.durationMs + Math.max(0, Math.round(now() - started)),
+  };
+  const proof = selectProof(
+    plan.proofCandidates,
+    settled,
+    plan.root,
+    options.env,
+  );
+  return {
+    ...settled,
+    findings: findingsFromReceiptParts({
+      flags: settled.flags,
+      lensFindings: settled.lensFindings,
+    }),
+    ...(proof ? { proof } : {}),
   };
 }
 
@@ -465,10 +566,11 @@ export async function buildChangeReceipt(
 const REASON_TEXT: Partial<Record<NotProvenReason, string>> = {
   no_node_modules: "dependencies are not installed, so its tests did not run",
   unknown_runner: "its tests did not run",
-  skipped_offline: "checks were not run",
+  skipped_offline: "checks were not asked for (offline or turned off)",
   still_running: "its tests are still running",
   timeout: "its tests timed out",
   already_failing: "its tests were already failing",
+  superseded: "a newer change replaced it before its tests finished",
 };
 
 function notProvenRows(
@@ -624,9 +726,9 @@ type PackageCheck = {
 type Cause = NonNullable<ChangeReceipt["checks"][number]["cause"]>;
 
 /**
- * Re-run each failed check with the session's edits put back, and say
- * whether the change caused the failure (M-092). One baseline pass covers
- * every failed package.
+ * Re-run each failed check with the session's edits put back, in a
+ * throwaway copy, and say whether the change caused the failure (M-092).
+ * One baseline pass covers every failed package.
  */
 async function classifyFailures(
   root: string,
@@ -643,13 +745,14 @@ async function classifyFailures(
   for (const check of failed) {
     byPkg.set(check.pkg, [...(byPkg.get(check.pkg) ?? []), check]);
   }
-  const baseline = await withBaselineTree(
+  const baseline = await withBaselineCopy(
     root,
     sessionPaths,
-    async () => {
+    async (copyRoot) => {
       const out = new Map<PackageCheck, CheckStepResult | "no-tests">();
       for (const group of byPkg.values()) {
-        const { cwd, tests } = group[0]!;
+        const { pkg, tests } = group[0]!;
+        const cwd = pkg ? join(copyRoot, pkg) : copyRoot;
         const existing = tests.filter((t) => existsSync(join(cwd, t)));
         const scoped = await resolveScopedPlan(cwd, existing);
         const names = new Set(group.map((c) => c.step));

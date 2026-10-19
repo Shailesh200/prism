@@ -21,6 +21,7 @@ import { ORIENTATION_TOOLS } from "./tools/orientation.js";
 import { prepareChange } from "./tools/prepare.js";
 import { graph } from "./tools/graph.js";
 import { guardSession } from "./tools/guard.js";
+import { habits } from "./tools/habits.js";
 import { reviewWith } from "./tools/lenses.js";
 import { agentsMd } from "./tools/agents-md.js";
 import { listFindings } from "./tools/findings.js";
@@ -39,17 +40,12 @@ export type ToolSelection = {
   readonly unknownExtraTools: readonly string[];
 };
 
-/** The default nine plus any opt-in tools named in `extraTools`. */
+/** Every tool is on. `extraTools` only reports names that are not tools. */
 export function selectTools(extraTools: readonly string[] = []): ToolSelection {
-  const optIn = new Set<string>(OPT_IN_TOOL_NAMES);
-  const visible = new Set<string>(DEFAULT_TOOL_NAMES);
-  const unknownExtraTools: string[] = [];
-  for (const name of extraTools) {
-    if (optIn.has(name)) visible.add(name);
-    else if (!visible.has(name)) unknownExtraTools.push(name);
-  }
+  const known = new Set<string>([...DEFAULT_TOOL_NAMES, ...OPT_IN_TOOL_NAMES]);
+  const unknownExtraTools = extraTools.filter((name) => !known.has(name));
   return {
-    tools: TOOLS.filter((tool) => visible.has(tool.name)),
+    tools: TOOLS.filter((tool) => known.has(tool.name)),
     unknownExtraTools,
   };
 }
@@ -58,6 +54,7 @@ export const TOOLS: readonly ToolDefinition<never>[] = [
   prepareChange,
   graph,
   guardSession,
+  habits,
   reviewWith,
   agentsMd,
   listFindings,
@@ -67,5 +64,5 @@ export const TOOLS: readonly ToolDefinition<never>[] = [
   ...IMPACT_TOOLS,
 ] as unknown as readonly ToolDefinition<never>[];
 
-/** Every registered tool name: the default nine plus the opt-in tools. */
+/** Every registered tool name. */
 export const TOOL_NAMES: readonly string[] = TOOLS.map((tool) => tool.name);

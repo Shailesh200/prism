@@ -4,9 +4,10 @@
  * Dry run unless `--yes` (plan C-3, PRUNE-1…3). Under `~/.prism/workspaces`
  * it only ever touches three kinds of thing: empty workspace folders, the
  * index cache of a workspace whose checkout is gone, and receipt history
- * beyond the last 20 receipts of a workspace. Lenses, config, the Envelope
- * ledger, prepare history, the hook snapshot, the last 20 receipts and the
- * index of a live checkout are never candidates.
+ * beyond the last 20 receipts of a workspace. Lenses, config,
+ * prepare history, the hook snapshot, the last 20 receipts and the
+ * index of a live checkout are never candidates. Session stores under
+ * `~/.prism/sessions` older than 24 h are pruned (P4). Feedback rows older than 30 d are pruned (P6).
  */
 
 import {
@@ -18,15 +19,19 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { ok } from "@repo-prism/shared";
+import { err, ok, prismError, PrismErrorCode } from "@repo-prism/shared";
 import { prismHomeDir } from "@repo-prism/shared/prism-home";
 import { paint, renderHeading } from "../output.js";
 import type { CommandHandler } from "../runtime.js";
+import { pruneFeedback } from "@repo-prism/shared/feedback-store";
+import { pruneSessionStores } from "@repo-prism/shared/session-store";
 
 export type PruneReason =
   | "empty workspace folder"
   | "checkout no longer on disk"
-  | "receipts beyond the last 20";
+  | "receipts beyond the last 20"
+  | "session store older than 24h"
+  | "feedback older than 30d";
 
 export type PruneItem = {
   readonly path: string;
@@ -86,6 +91,15 @@ function isEmptyTree(path: string): boolean {
   }
 }
 
+export function planSessionPrune(home: string): PruneItem[] {
+  const deleted = pruneSessionStores({ ...process.env, PRISM_HOME: home });
+  return deleted.map((path) => ({
+    path,
+    reason: "session store older than 24h" as const,
+    bytes: 0,
+  }));
+}
+
 export function planPrune(home: string): PruneItem[] {
   const root = join(home, "workspaces");
   if (!existsSync(root)) return [];
@@ -98,6 +112,20 @@ export function planPrune(home: string): PruneItem[] {
       continue;
     }
     const checkout = recordedRoot(dir);
+    const feedbackFile = join(dir, "feedback.jsonl");
+    if (checkout && existsSync(feedbackFile)) {
+      const dropped = pruneFeedback(checkout, {
+        ...process.env,
+        PRISM_HOME: home,
+      });
+      if (dropped > 0) {
+        items.push({
+          path: feedbackFile,
+          reason: "feedback older than 30d",
+          bytes: 0,
+        });
+      }
+    }
     const cache = join(dir, "cache");
     if (checkout && !existsSync(checkout) && existsSync(cache)) {
       items.push({
@@ -139,7 +167,7 @@ export function planPrune(home: string): PruneItem[] {
       }
     }
   }
-  return items;
+  return [...items, ...planSessionPrune(home)];
 }
 
 export function applyPrune(items: readonly PruneItem[]): void {
@@ -165,12 +193,12 @@ function formatBytes(bytes: number): string {
 export const dataCommand: CommandHandler = async (context) => {
   const action = context.args.positionals[0] ?? "prune";
   if (action !== "prune") {
-    return ok({
-      data: { error: `unknown action: ${action}` },
-      findings: true,
-      human: () =>
-        `prism data: unknown action "${action}". Try: prism data prune`,
-    });
+    return err(
+      prismError(
+        PrismErrorCode.VALIDATION,
+        `Unknown action "${action}". Usage: prism data prune [--yes]`,
+      ),
+    );
   }
   const home = prismHomeDir();
   const items = planPrune(home);

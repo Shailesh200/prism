@@ -2,7 +2,7 @@
   "name": "prism",
   "private": true,
   "version": "0.0.0",
-  "description": "Prism — local context and change checks for coding agents",
+  "description": "Prism — your agent's second pair of eyes: local software intelligence that catches what the agent missed",
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -25,7 +25,7 @@
   "scripts": {
     "build": "moon run :build",
     "typecheck": "moon run :typecheck",
-    "lint": "oxlint . && node scripts/check-no-silent-catch.mjs && node scripts/check-deleted-names.mjs && node scripts/check-lockstep.mjs && node scripts/check-no-published-refs.mjs",
+    "lint": "oxlint . && node scripts/check-no-silent-catch.mjs && node scripts/check-deleted-names.mjs && node scripts/check-lockstep.mjs && node scripts/check-no-published-refs.mjs && node scripts/check-docs-tools.mjs",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "test": "moon run :test",
@@ -35,6 +35,7 @@
     "bench": "node scripts/bench/run.mjs",
     "bench:check": "node scripts/bench/check.mjs",
     "bench:orientation": "bun scripts/bench/agent-orientation.ts",
+    "bench:release-gate": "node scripts/bench/release-gate.mjs",
     "dev:link": "node scripts/dev-link.mjs",
     "dev:unlink": "node scripts/dev-unlink.mjs",
     "moon": "moon",

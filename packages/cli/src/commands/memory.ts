@@ -37,7 +37,8 @@ export const rememberCommand: CommandHandler = async (context) => {
   });
   return ok({
     data: item,
-    human: () => `Remembered ${item.id}: ${item.text}`,
+    human: () =>
+      `${item.existing ? "Already remembered" : "Remembered"} ${item.id}: ${item.text}`,
   });
 };
 

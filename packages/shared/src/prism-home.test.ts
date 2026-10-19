@@ -4,6 +4,7 @@ import {
   mkdtemp,
   readFile,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -61,6 +62,15 @@ describe("workspace prism home", () => {
     await expect(access(join(repo, ".prism"))).rejects.toMatchObject({
       code: "ENOENT",
     });
+  });
+
+  it("keys a symlinked path and its target to one store", async () => {
+    const repo = await mkdtemp(join(tmpdir(), "prism-key-"));
+    temps.push(repo);
+    const link = `${repo}-link`;
+    await symlink(repo, link);
+    temps.push(link);
+    expect(workspaceKey(link)).toBe(workspaceKey(repo));
   });
 
   it("migrates symbol-anchored memories on rename (M-075)", async () => {
@@ -123,6 +133,13 @@ describe("workspace prism home", () => {
     expect((await loadWorkspaceMemories(repo, env)).map((m) => m.text)).toEqual(
       ["use lruCache, never a Map", "tests live beside the source"],
     );
+    const again = await rememberWorkspaceMemory(
+      repo,
+      { text: " tests live beside the source ", path: "src" },
+      env,
+    );
+    expect(again).toMatchObject({ id: added.id, existing: true });
+    expect(await loadWorkspaceMemories(repo, env)).toHaveLength(2);
     expect(await forgetWorkspaceMemory(repo, added.id!, env)).toBe(1);
     expect(await forgetWorkspaceMemory(repo, "LRUCACHE", env)).toBe(1);
     expect(await loadWorkspaceMemories(repo, env)).toEqual([]);

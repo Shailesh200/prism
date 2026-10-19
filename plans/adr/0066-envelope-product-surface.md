@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Status | **Accepted** (owner, 2026-10-10) |
+| Status | **Superseded** by [ADR-0068](./0068-envelope-removed.md) (2026-10-17). Accepted (owner, 2026-10-10) |
 | Date | 2026-10-10 |
-| Milestone | [M-094 Envelope v2](../milestones/M-094_envelope-v2.md); calibration in [M-098](../milestones/M-098_real-agent-proof.md) |
+| Milestone | [M-094 Envelope v2](../archive/milestones/M-094_envelope-v2.md); calibration in [M-098](../milestones/M-098_real-agent-proof.md) |
 | Program | [PROGRAM_focus-reset.md](../milestones/PROGRAM_focus-reset.md) §6 |
 
 ## Context

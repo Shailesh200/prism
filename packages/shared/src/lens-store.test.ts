@@ -10,6 +10,7 @@ import {
   applyDefaultProcedures,
   DEFAULT_LENSES,
   lensIdFromName,
+  lensProcedure,
   removeLens,
   updateLens,
   loadLenses,
@@ -116,6 +117,38 @@ describe("lens facts ignore fixtures", () => {
 });
 
 describe("lens store", () => {
+  it("a custom lens without a procedure reaches the agent as its role, focus and checklist", () => {
+    const text = lensProcedure({
+      role: "Performance reviewer",
+      focus: "Find repeated work inside loops.",
+      tone: "",
+      checklist: ["Each finding names the loop."],
+      procedure: "",
+    });
+    expect(text).toBe(
+      "Performance reviewer\nFind repeated work inside loops.\n- Each finding names the loop.",
+    );
+    const dev = DEFAULT_LENSES.find((lens) => lens.id === "dev")!;
+    expect(lensProcedure(dev)).toBe(dev.procedure);
+  });
+
+  it("Architect's review step carries the Dev lens's lean pass", () => {
+    const architect = DEFAULT_LENSES.find((lens) => lens.id === "architect")!;
+    const dev = DEFAULT_LENSES.find((lens) => lens.id === "dev")!;
+    // The same minimal-code questions, asked of a change under review.
+    expect(dev.procedure).toMatch(/Does this need to exist\?/);
+    expect(architect.procedure).toMatch(/lean pass/);
+    for (const item of [
+      /dead code/,
+      /an option nobody sets/,
+      /an abstraction with one use/,
+      /helper the repo already has/,
+      /near-copies/,
+    ])
+      expect(architect.procedure).toMatch(item);
+    expect(architect.procedure.length).toBeLessThanOrEqual(2500);
+  });
+
   it("seeds Architect, QA, and Dev, each with its own cited facts", async () => {
     const { source, env } = await setup();
     const views = await loadLenses(source, env);
@@ -336,6 +369,48 @@ describe("lens store", () => {
     expect(upgraded!.role).toBe(renamed.role);
   });
 
+  it("an unedited seeded lens holding a procedure an earlier release shipped takes the current text", () => {
+    const architect = DEFAULT_LENSES.find((lens) => lens.id === "architect")!;
+    const seeded = {
+      ...architect,
+      seededDefault: true,
+      procedure: SHIPPED_2_0_ARCHITECT,
+    };
+    expect(applyDefaultProcedures([seeded])[0]!.procedure).toBe(
+      architect.procedure,
+    );
+    const edited = {
+      ...seeded,
+      procedure: `${SHIPPED_2_0_ARCHITECT}\n7. Mine.`,
+    };
+    expect(applyDefaultProcedures([edited])[0]!.procedure).toBe(
+      edited.procedure,
+    );
+  });
+
+  it("an unedited seeded Dev lens takes the round 4 safety-check step", () => {
+    const dev = DEFAULT_LENSES.find((lens) => lens.id === "dev")!;
+    expect(dev.procedure).toContain(
+      "7. Removing a safety check (a confirmation, a guard): a setting already controls it? Change the setting. Otherwise list the delete, kill or reset actions it leaves unguarded.",
+    );
+    const seeded = { ...dev, seededDefault: true, procedure: SHIPPED_2_0_DEV };
+    expect(applyDefaultProcedures([seeded])[0]!.procedure).toBe(dev.procedure);
+  });
+
+  it("an unedited seeded Dev lens takes the round 5 bug-fix step", () => {
+    const dev = DEFAULT_LENSES.find((lens) => lens.id === "dev")!;
+    expect(dev.procedure).toContain(
+      "5. A bug fix: fix it where it breaks. The cause is in shared code? Fix it there, once. Leave working code beside it as it is.",
+    );
+    expect(dev.procedure).not.toContain("find the callers");
+    const round4 = SHIPPED_2_0_DEV.replace(
+      "\n\nNever cut:",
+      "\n7. Removing a safety check (a confirmation, a guard): a setting already controls it? Change the setting. Otherwise list the delete, kill or reset actions it leaves unguarded.\n\nNever cut:",
+    );
+    const seeded = { ...dev, seededDefault: true, procedure: round4 };
+    expect(applyDefaultProcedures([seeded])[0]!.procedure).toBe(dev.procedure);
+  });
+
   it("CL-5: refuses an unknown check id and lists the valid ones", async () => {
     const { source, env } = await setup();
     await expect(
@@ -356,3 +431,11 @@ describe("lens store", () => {
     );
   });
 });
+
+/** The Architect procedure Prism 2.0 seeded into lens stores. */
+const SHIPPED_2_0_ARCHITECT =
+  "You are the Architect lens: the senior pass on structure. Use it for a new feature, a plan, or a pull request. Read the repo's shape before you propose anything.\n\n1. A recorded decision (an ADR or a package boundary) already covers this? Follow it, and cite it.\n2. A package already owns this work? Put the change there. Do not open a new package or a parallel abstraction.\n3. The change would add a dependency between packages, or a cycle? Do not, unless the task requires it. Name the edge if you must add one.\n4. The smallest design that fits the layers this repo already has. No new framework.\n5. On a pull request, read the code the change touches, not only the diff. Say what breaks across packages, which decision it contradicts, and what to do instead.\n\nNever cut: an accepted decision, an off-limits path, or a boundary the repo already enforces.";
+
+/** The Dev procedure Prism 2.0 seeded into lens stores (before round 4). */
+const SHIPPED_2_0_DEV =
+  "You are the Dev lens, for a daily fix. Finish the task with the smallest complete change.\n\n1. Does this need to exist? Skip options and flexibility nobody asked for, and name what you skipped.\n2. A helper, pattern, or type already in this codebase does it? Use that, the way the files beside it do.\n3. Can one line say it? One line.\n4. Otherwise the minimum that works, in the house style of the nearby files. No wrapper, config, or code for later.\n5. A bug fix: find the callers, then fix the root cause once in the shared code.\n6. New logic \u2014 a branch, a loop, money, or security \u2014 leaves one small test. A typo or a comment does not.\n\nNever cut: validation, error handling, security, or anything the user asked for.";

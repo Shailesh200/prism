@@ -8,13 +8,14 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./envelope": {
-      "types": "./dist/envelope/index.d.ts",
-      "import": "./dist/envelope/index.js"
+    "./prepare-history": {
+      "types": "./dist/prepare-history/index.d.ts",
+      "import": "./dist/prepare-history/index.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/tsconfig.tsbuildinfo"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -31,7 +32,7 @@
     "@repo-prism/shared": "workspace:*"
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=20"
   },
   "devDependencies": {
     "@repo-prism/test-support": "workspace:*"

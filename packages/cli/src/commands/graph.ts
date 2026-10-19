@@ -1,14 +1,15 @@
 /**
  * `prism graph` (M-095, ADR-0063): the daemon that keeps each repository's
- * graph fresh. `status` (default), `serve`, `stop`, `refresh`, and `export`
+ * graph fresh. `status` (default), `serve`, `stop`, `refresh`, `map`, and `export`
  * (graph.json). The HTML page, the markdown report, `open` and the git-hook writer
  * were deleted in 2.0 (§0.4 #35, #37).
  */
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  daemonBuildIdFor,
   type DaemonStatus,
   daemonStatus,
   ensureDaemon,
@@ -28,20 +29,41 @@ import type { CommandHandler } from "../runtime.js";
  */
 export function daemonLaunch(
   env: NodeJS.ProcessEnv = process.env,
-): { command: string; args: string[] } | string {
+): { command: string; args: string[]; buildId?: string } | string {
   const here = dirname(fileURLToPath(import.meta.url));
   const resolved = resolvePrismBin({
     env,
     packCandidates: [
       resolve(here, "../../../mcp-server/dist/bin.js"),
       resolve(here, "../../mcp-server/dist/bin.js"),
+      // `npm i -g @repo-prism/cli`: the server is the CLI's own dependency.
+      resolve(here, "../../node_modules/@repo-prism/mcp-server/dist/bin.js"),
     ],
   });
   if (!resolved.ok)
     return `no Prism server found (${resolved.tried.join("; ")}). Run \`prism install <editor> --local <checkout>\``;
-  return isNodeScript(resolved.bin)
-    ? { command: process.execPath, args: [resolved.bin, "--daemon"] }
-    : { command: resolved.bin, args: ["--daemon"] };
+  // `prism-mcp` on PATH is usually a symlink to the server's bin.js (npm's
+  // global bin, node_modules/.bin). Taken as a native binary it launched with
+  // no build id, so a daemon from another build was never replaced (round 4
+  // fresh-copy QA: start.test failed once the CLI depended on the server).
+  const bin = realBin(resolved.bin);
+  if (!isNodeScript(bin)) return { command: bin, args: ["--daemon"] };
+  // The build id lets ensureDaemon replace a daemon from another build.
+  const buildId = daemonBuildIdFor(join(dirname(bin), "daemon-attach.js"));
+  return {
+    command: process.execPath,
+    args: [bin, "--daemon"],
+    ...(buildId ? { buildId } : {}),
+  };
+}
+
+/** The file a launcher path points at; the path itself when it cannot be read. */
+export function realBin(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
 }
 
 function renderStatus(status: DaemonStatus | null, reason: string | null) {
@@ -143,7 +165,11 @@ export const graphCommand: CommandHandler = async (context) => {
         ),
       );
     }
-    await warmDaemonWorkspace({ root, env: { ...env, PRISM_DAEMON: "1" } });
+    await warmDaemonWorkspace({
+      root,
+      env: { ...env, PRISM_DAEMON: "1" },
+      ...(launch.buildId ? { buildId: launch.buildId } : {}),
+    });
     const status = await daemonStatus({ env: { ...env, PRISM_DAEMON: "1" } });
     return ok({
       data: {
@@ -180,6 +206,33 @@ export const graphCommand: CommandHandler = async (context) => {
     });
   }
 
+  if (action === "map") {
+    const opened = await context.open();
+    if (!opened.ok) return opened;
+    const scope = context.args.option("scope") ?? undefined;
+    const budgetRaw = context.args.option("budget");
+    const maxTokens = budgetRaw ? Number(budgetRaw) : undefined;
+    const map = opened.value.repoMap({
+      ...(scope ? { scope } : {}),
+      ...(maxTokens !== undefined && Number.isFinite(maxTokens)
+        ? { maxTokens }
+        : {}),
+      refresh: context.args.flag("refresh"),
+    });
+    if (!map.ok) return map;
+    return ok({
+      data: {
+        snapshotKey: map.value.snapshotKey,
+        tokens: map.value.tokenEstimate,
+        kept: map.value.kept,
+        total: map.value.total,
+        truncated: map.value.truncated,
+        fromCache: map.value.fromCache,
+      },
+      human: () => map.value.text,
+    });
+  }
+
   if (action === "export") {
     const opened = await context.open();
     if (!opened.ok) return opened;
@@ -204,7 +257,7 @@ export const graphCommand: CommandHandler = async (context) => {
   return err(
     prismError(
       PrismErrorCode.VALIDATION,
-      `Unknown action "${action}". Try: prism graph status | serve | stop | refresh | export`,
+      `Unknown action "${action}". Try: prism graph status | serve | stop | refresh | map | export`,
     ),
   );
 };

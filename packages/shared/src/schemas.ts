@@ -43,6 +43,7 @@ export const PrismErrorSchema = z.object({
     PrismErrorCode.IO_ERROR,
     PrismErrorCode.UNSUPPORTED,
     PrismErrorCode.CANCELLED,
+    PrismErrorCode.YES_REQUIRED,
   ]),
   message: z.string().min(1),
   details: JsonValueSchema.optional(),
@@ -501,15 +502,28 @@ export const TestImpactItemSchema = BlastRadiusItemSchema.extend({
 
 export type TestImpactItem = z.infer<typeof TestImpactItemSchema>;
 
+/** A ready command for the tests one package owns (plan P10). Never executed. */
+export const TestRunSchema = z.object({
+  /** Repo-relative directory to run it from (`.` is the root). */
+  cwd: z.string().min(1),
+  command: z.string().min(1),
+  argv: z.array(z.string().min(1)).min(1),
+  /** `files`: exactly these tests; `script`: the package's whole test script (runner unknown). */
+  scope: z.enum(["files", "script"]),
+  runner: TestRunnerSchema.optional(),
+  tests: z.array(RepoRelativePathSchema),
+});
+
+export type TestRun = z.infer<typeof TestRunSchema>;
+
 export const TestImpactReportSchema = z.object({
   origin: ChangeOriginSchema,
   /** Test files that import the changed symbol or a symbol that reaches it. */
   tests: z.array(TestImpactItemSchema),
-  /** Detected runner; absent when unknown (then `unknownRunner` is true). */
-  runner: TestRunnerSchema.optional(),
-  /** Command that runs exactly `tests` (never executed by Prism). */
-  runCommand: z.string().min(1).optional(),
-  unknownRunner: z.literal(true).optional(),
+  /** One command per package that owns reached tests (plan P10). */
+  run: z.array(TestRunSchema),
+  /** Why some or all reached tests have no command (no runner, no test script). */
+  runNote: z.string().min(1).optional(),
 });
 
 export type TestImpactReport = z.infer<typeof TestImpactReportSchema>;
@@ -562,13 +576,36 @@ export const ChangeReviewReportSchema = z.object({
 
 export type ChangeReviewReport = z.infer<typeof ChangeReviewReportSchema>;
 
-/** Above this many changed paths, `review_changes` analyses only the top ones. */
+/** Above this many changed paths, `guard_session {review:true}` analyses only the top ones. */
 export const REVIEW_LARGE_DIFF = 300;
 /** How many paths a large diff analyses, riskiest first. */
 export const REVIEW_ANALYSED_CAP = 100;
 
+/**
+ * Structured finding (plan P18): what goes wrong, where, how to fix, and
+ * the risk of skipping it. Producers map into this; free-form findings are gone.
+ */
+export const FindingRiskSchema = z.enum(["low", "med", "high"]);
+export type FindingRisk = z.infer<typeof FindingRiskSchema>;
+
+export const FindingSchema = z.object({
+  what: z.string().min(1),
+  where: z.string().min(1),
+  /** Concrete remediation, capped for token budget (FND-2). */
+  fix: z.string().min(1).max(160),
+  riskIfSkipped: FindingRiskSchema,
+  /** Producers that agree on this finding (feeds P11 multi-source). */
+  sources: z.array(z.string().min(1)).min(1),
+});
+export type Finding = z.infer<typeof FindingSchema>;
+
 /** What a Guard flag is warning about (M-072). */
-export const GUARD_CHECK_KINDS = ["duplicate", "orphan", "boundary"] as const;
+export const GUARD_CHECK_KINDS = [
+  "duplicate",
+  "orphan",
+  "boundary",
+  "slow-type",
+] as const;
 export type GuardCheckKind = (typeof GUARD_CHECK_KINDS)[number];
 export const GuardCheckKindSchema = z.enum(GUARD_CHECK_KINDS);
 
@@ -605,6 +642,8 @@ export const GuardSessionSchema = z.object({
   sessionPaths: z.array(RepoRelativePathSchema),
   totalDirty: z.number().int().nonnegative(),
   truncated: z.boolean(),
+  /** Every flag above as a structured finding (plan P18), riskiest first. */
+  findings: z.array(FindingSchema),
 });
 export type GuardSession = z.infer<typeof GuardSessionSchema>;
 
@@ -1594,13 +1633,43 @@ export const CodeExplorerReportSchema = z.object({
 
 export type CodeExplorerReport = z.infer<typeof CodeExplorerReportSchema>;
 
-/** One file in a `prepare_change` pack (paths + names + why, never a body). */
+/** Exported symbol signature + 1-based line anchor (P2). */
+export const ContextSignatureSchema = z.object({
+  name: z.string().min(1),
+  kind: z.string().min(1),
+  /** One-line declaration, clipped; never a body. */
+  signature: z.string().min(1),
+  /** 1-based declaration line (`path:line` anchor). */
+  line: z.number().int().positive(),
+});
+export type ContextSignature = z.infer<typeof ContextSignatureSchema>;
+
+/** Optional top-1 body when the symbol spans ≤ 40 lines (P2). */
+export const ContextBodySchema = z.object({
+  name: z.string().min(1),
+  line: z.number().int().positive(),
+  endLine: z.number().int().positive(),
+  text: z.string().min(1),
+});
+export type ContextBody = z.infer<typeof ContextBodySchema>;
+
+/**
+ * One file in a `prepare_change` pack (P2): path, signatures + line anchors,
+ * why. A body is allowed only for the top-ranked file's top symbol when it
+ * spans ≤ 40 lines; otherwise agents fetch via `graph {mode:"symbol", body:true}`.
+ */
 export const ContextFileSchema = z.object({
   path: z.string().min(1),
   symbols: z.array(z.string()),
+  signatures: z.array(ContextSignatureSchema).default([]),
   why: z.array(z.string()),
+  /** How sure Prism is about this pick (plan P9). Omitted on legacy rows. */
+  confidence: ImpactConfidenceSchema.optional(),
+  /** The top pick, ahead of the next by a clear margin (round 4). */
+  lead: z.literal(true).optional(),
   tokenWeight: z.number().int().nonnegative(),
   provenance: SignalProvenanceSchema,
+  body: ContextBodySchema.optional(),
 });
 export type ContextFile = z.infer<typeof ContextFileSchema>;
 
@@ -1609,6 +1678,11 @@ export const ContextPackSchema = z.object({
   files: z.array(ContextFileSchema),
   tokenEstimate: z.number().int().nonnegative(),
   tests: z.array(z.string()),
+  /**
+   * Ready commands for the first tests (token fix 1), from `cwd`. Never run
+   * by Prism. Absent when no package can run them.
+   */
+  run: z.array(z.object({ cwd: z.string(), command: z.string() })).optional(),
   truncated: z.boolean(),
   totalCount: z.number().int().nonnegative(),
 });
@@ -1668,7 +1742,7 @@ export const PrepareNoteSchema = z.object({
 export type PrepareNote = z.infer<typeof PrepareNoteSchema>;
 
 /**
- * One Envelope query: pack + reuse + House Style. `order` is M-076 (work
+ * One Prepare answer: pack + reuse + House Style. `order` is M-076 (work
  * order). `workingSet` stays null. `notes` is M-075 (memories + rationale_for).
  */
 export const PrepareChangeSchema = z.object({
@@ -1685,19 +1759,41 @@ export const PrepareChangeSchema = z.object({
   ambiguous: PrepareAmbiguousSchema.nullable(),
   /** Present when the response was cut to fit its token budget (M-093). */
   trimmed: PrepareTrimmedSchema.optional(),
+  /**
+   * Present when the index behind this answer was capped (round 4): files
+   * outside the analysed set are missing, so no pick is confident.
+   */
+  partialIndex: z
+    .object({
+      analyzed: z.number().int().nonnegative(),
+      total: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 export type PrepareChange = z.infer<typeof PrepareChangeSchema>;
 
 /** Whole-response token budget (M-093). Was a 4,000 map-token pack budget. */
 export const DEFAULT_PREPARE_BUDGET = PREPARE_RESPONSE_BUDGET;
 
-/** Map tokens for path + symbol names + why — never a file body. */
+/** Map tokens for path + signatures + why (+ optional body). */
 export function prepareMapTokenWeight(
   path: string,
   symbols: readonly string[],
   why: readonly string[],
+  signatures: readonly {
+    readonly signature: string;
+    readonly line: number;
+  }[] = [],
+  bodyText?: string,
 ): number {
-  const chars = [path, ...symbols, ...why].join(" ").length;
+  const parts = [
+    path,
+    ...symbols,
+    ...why,
+    ...signatures.map((s) => `${s.signature}:${s.line}`),
+  ];
+  if (bodyText) parts.push(bodyText);
+  const chars = parts.join(" ").length;
   return Math.max(1, Math.ceil(chars / 4));
 }
 
@@ -1714,6 +1810,13 @@ export const FindingRefSchema = z.object({
   fingerprint: z.string().min(1),
 });
 export type FindingRef = z.infer<typeof FindingRefSchema>;
+
+/** A `list_findings` row: the structured finding plus its mute/queue keys. */
+export const ListedFindingSchema = FindingSchema.extend({
+  id: z.string().min(1),
+  fingerprint: z.string().min(1),
+});
+export type ListedFinding = z.infer<typeof ListedFindingSchema>;
 
 /** One muted finding, by fingerprint (M-074 B1). */
 export const FindingMuteSchema = z.object({

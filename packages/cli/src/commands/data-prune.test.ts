@@ -47,10 +47,9 @@ function library() {
   // No recorded root: kept.
   write(join(ws("unknown"), "cache", "index.sqlite"), "?");
 
-  // Never candidates: lenses, config, ledger, prepare history.
+  // Never candidates: lenses, config, prepare history.
   write(join(home, "lenses", "security.md"), "# lens");
   write(join(home, "config.json"), "{}");
-  write(join(home, "envelope-ledger.jsonl"), "{}\n");
   write(join(home, "prepare-history.json"), "[]");
   return { home, ws };
 }
@@ -69,7 +68,7 @@ describe("prism data prune (C-3)", () => {
     ]);
   });
 
-  it("PRUNE-2: --yes removes exactly the plan and keeps lenses, config, ledger and the last 20 receipts", () => {
+  it("PRUNE-2: --yes removes exactly the plan and keeps lenses, config and the last 20 receipts", () => {
     const { home, ws } = library();
     applyPrune(planPrune(home));
     expect(existsSync(ws("empty"))).toBe(false);
@@ -90,7 +89,6 @@ describe("prism data prune (C-3)", () => {
     for (const file of [
       "lenses/security.md",
       "config.json",
-      "envelope-ledger.jsonl",
       "prepare-history.json",
     ]) {
       expect(existsSync(join(home, file)), file).toBe(true);

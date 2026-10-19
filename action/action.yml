@@ -44,9 +44,9 @@ inputs:
     required: false
     default: "."
   node-version:
-    description: Node.js version for setup-node (Prism 2 requires Node 24)
+    description: Node.js version for setup-node (Prism 2 requires Node 20 or newer)
     required: false
-    default: "24"
+    default: "20"
 
 outputs:
   review-path:

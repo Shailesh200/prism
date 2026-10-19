@@ -10,12 +10,15 @@ import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@repo-prism/core";
-import { ok } from "@repo-prism/shared";
+import { err, ok, prismError, PrismErrorCode } from "@repo-prism/shared";
 import { workspaceCacheDir } from "@repo-prism/shared/prism-home";
 import { readInstallRecord } from "@repo-prism/shared/prism-bin";
+import { habitsDir, readHabits } from "@repo-prism/shared/habits";
+import { resolveStrength } from "@repo-prism/shared/user-config";
 import { stopDaemon } from "@repo-prism/daemon";
 import { INSTALL_HOSTS, type InstallHost } from "../install/hosts.js";
-import { runInstall, sourceLayout } from "./install.js";
+import { hookConfigChecks } from "../install/hook-health.js";
+import { defaultLayout, runInstall, sourceLayout } from "./install.js";
 import { paint, renderFields, renderHeading, type Style } from "../output.js";
 import {
   isPrismSourceRepo,
@@ -42,6 +45,25 @@ export function isShallowGitRepository(rootPath: string): boolean | null {
   }
 }
 
+/** Habit skills (plan P15): readable, with the old store migrated. */
+export async function habitsChecks(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<Check[]> {
+  const file = await readHabits(env);
+  if (!file.ok) {
+    return [{ label: "Habits", status: "fail", detail: file.error.message }];
+  }
+  const count = file.value.habits.length;
+  if (count === 0) return [];
+  return [
+    {
+      label: "Habits",
+      status: "ok",
+      detail: `${count} habit${count === 1 ? "" : "s"} in ${habitsDir(env)}`,
+    },
+  ];
+}
+
 type Check = {
   readonly label: string;
   readonly status: "ok" | "warn" | "fail";
@@ -61,6 +83,15 @@ const STATUS_MARK: Record<Check["status"], string> = {
 };
 
 export const doctorCommand: CommandHandler = async (context) => {
+  const topic = context.args.positionals[0];
+  if (topic !== undefined && topic !== "skills") {
+    return err(
+      prismError(
+        PrismErrorCode.VALIDATION,
+        `Unknown topic "${topic}". Usage: prism doctor [skills]`,
+      ),
+    );
+  }
   const checks: Check[] = [];
 
   checks.push({
@@ -149,6 +180,18 @@ export const doctorCommand: CommandHandler = async (context) => {
       });
     }
   }
+
+  const strength = resolveStrength(context.workspace.path);
+  checks.push(
+    strength.ok
+      ? {
+          label: "Strength",
+          status: "ok",
+          detail: `${strength.value.strength} (${strength.value.source}); change with \`prism strength\``,
+        }
+      : { label: "Strength", status: "fail", detail: strength.error.message },
+  );
+  checks.push(...(await habitsChecks()));
 
   if (context.args.positionals[0] === "skills") {
     const skills = checkSkills(context.workspace.path);
@@ -248,8 +291,11 @@ export const doctorCommand: CommandHandler = async (context) => {
   });
 };
 
+/** Launches of anything but the local build: npx, or an npm install. */
 const published = () =>
-  scanSurfaces().filter((hit) => hit.kind === "published-npm");
+  scanSurfaces().filter(
+    (hit) => hit.kind === "published-npm" || hit.kind === "npm-install",
+  );
 
 /**
  * The install record, the bin it names, and (for a local build) the
@@ -271,7 +317,11 @@ async function installChecks(fix: boolean): Promise<Check[]> {
       },
     ];
   const record = read.record;
-  const broken = !existsSync(record.bin) || published().length > 0;
+  // An npm install runs the published server by design; only a local build
+  // must not reference it.
+  const broken =
+    !existsSync(record.bin) ||
+    (record.source !== undefined && published().length > 0);
   const fixed: Check[] = [];
   if (fix) {
     await stopDaemon({ env: process.env });
@@ -282,7 +332,7 @@ async function installChecks(fix: boolean): Promise<Check[]> {
     });
     const layout = record.source
       ? sourceLayout(record.source)
-      : "no local source recorded";
+      : defaultLayout();
     if (broken && typeof layout !== "string") {
       const hosts = record.hosts.filter((host): host is InstallHost =>
         (INSTALL_HOSTS as readonly string[]).includes(host),
@@ -297,7 +347,7 @@ async function installChecks(fix: boolean): Promise<Check[]> {
       fixed.push({
         label: "Fix",
         status: "ok",
-        detail: `rewrote ${hosts.join(", ")} to the local build ${layout.bin}`,
+        detail: `rewrote ${hosts.join(", ")} to ${layout.source ? "the local build" : "the installed server"} ${layout.bin}`,
       });
     } else if (broken) {
       fixed.push({
@@ -336,5 +386,7 @@ async function installChecks(fix: boolean): Promise<Check[]> {
           },
     );
   }
+  // Round 4: hook configs an older release wrote (`--fix` updates them).
+  checks.push(...hookConfigChecks(current, { fix }));
   return [...fixed, ...checks];
 }

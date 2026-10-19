@@ -17,6 +17,7 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -66,9 +67,23 @@ export function useLocalPrismStore(
 }
 
 /** Stable, filesystem-safe key for a workspace root (ADR-0054). */
+/**
+ * One spelling per repository: symlinks resolved (macOS `/tmp` is
+ * `/private/tmp`), so a hook that sees either path reaches the same store
+ * and the daemon opens the repository once. A path that does not exist yet
+ * is only made absolute.
+ */
+export function canonicalRoot(workspaceRoot: string): string {
+  try {
+    return realpathSync.native(workspaceRoot);
+  } catch {
+    return resolve(workspaceRoot);
+  }
+}
+
 export function workspaceKey(workspaceRoot: string): string {
   return createHash("sha256")
-    .update(resolve(workspaceRoot))
+    .update(canonicalRoot(workspaceRoot))
     .digest("hex")
     .slice(0, 24);
 }
@@ -568,7 +583,11 @@ async function writeMemoryRows(
   await writeFile(path, `${JSON.stringify({ items }, null, 2)}\n`, "utf8");
 }
 
-/** Save one memory. Same row shape Dispatch wrote, so old files stay valid. */
+/**
+ * Save one memory. Same row shape Dispatch wrote, so old files stay valid.
+ * The same text with the same anchors is not stored twice: the existing row
+ * comes back with `existing: true`.
+ */
 export async function rememberWorkspaceMemory(
   workspaceRoot: string,
   input: {
@@ -579,9 +598,17 @@ export async function rememberWorkspaceMemory(
     readonly source?: string;
   },
   env: NodeJS.ProcessEnv = process.env,
-): Promise<WorkspaceMemory> {
+): Promise<WorkspaceMemory & { readonly existing?: true }> {
   migrateLegacyMemoryFile(workspaceRoot, env);
   const path = workspaceMemoryPath(workspaceRoot, env);
+  const rows = await readMemoryRows(path);
+  const text = input.text.trim();
+  const symbol = input.symbol?.trim() || undefined;
+  const anchor = input.path?.trim() || undefined;
+  const same = parseMemoryFile(JSON.stringify({ items: rows })).find(
+    (m) => m.text === text && m.symbol === symbol && m.path === anchor,
+  );
+  if (same) return { ...same, existing: true };
   const item = {
     id: createHash("sha256")
       .update(`${Date.now()}:${Math.random()}:${input.text}`)
@@ -594,7 +621,7 @@ export async function rememberWorkspaceMemory(
     ...(input.symbol?.trim() ? { symbol: input.symbol.trim() } : {}),
     ...(input.path?.trim() ? { path: input.path.trim() } : {}),
   };
-  await writeMemoryRows(path, [...(await readMemoryRows(path)), item]);
+  await writeMemoryRows(path, [...rows, item]);
   return item;
 }
 

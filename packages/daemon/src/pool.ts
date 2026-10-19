@@ -4,11 +4,13 @@
  * what an MCP process no longer has to build for itself.
  */
 
+import { execFile } from "node:child_process";
 import { existsSync, type FSWatcher, statSync, watch } from "node:fs";
 import { stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { Prism, readChangedPaths, type PrismWorkspace } from "@repo-prism/core";
 import { readGitHead } from "@repo-prism/shared/git-head";
+import { canonicalRoot } from "@repo-prism/shared/prism-home";
 import {
   type PrismError,
   PrismErrorCode,
@@ -70,6 +72,49 @@ export function needsPollingFallback(error: unknown): boolean {
 export const POLL_INTERVAL_MS = 2_000;
 /** Quiet time after a checkout event before the one batched reindex. */
 export const CHECKOUT_SETTLE_MS = 300;
+/**
+ * A checkout that moved more files than this is a full reindex (the content
+ * cache still skips unchanged files); anything smaller goes through the
+ * incremental watch path like a burst of saves (token fix 2).
+ */
+export const CHECKOUT_INCREMENTAL_MAX = 2_000;
+
+/**
+ * Files that differ between two commits, relative to `root` and limited to
+ * it, or null when git cannot say (unknown commit, not a repository).
+ */
+export function diffCommitPaths(
+  root: string,
+  from: string,
+  to: string,
+): Promise<string[] | null> {
+  return new Promise((done) => {
+    execFile(
+      "git",
+      [
+        "-C",
+        root,
+        "diff",
+        "--name-only",
+        "--no-renames",
+        "--relative",
+        from,
+        to,
+      ],
+      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, timeout: 15_000 },
+      (error, stdout) => {
+        // An unreachable commit is an answer: fall back to a full reindex.
+        if (error) return done(null);
+        done(
+          stdout
+            .split("\n")
+            .map((p) => p.trim())
+            .filter(Boolean),
+        );
+      },
+    );
+  });
+}
 
 export type PoolOptions = {
   readonly debounceMs: number;
@@ -83,6 +128,12 @@ export type PoolOptions = {
   readonly changedPaths?: (root: string) => readonly string[] | null;
   readonly pollIntervalMs?: number;
   readonly checkoutSettleMs?: number;
+  /** Injectable for tests: files that differ between two commits. */
+  readonly diffCommits?: (
+    root: string,
+    from: string,
+    to: string,
+  ) => Promise<string[] | null>;
 };
 
 type Entry = {
@@ -97,6 +148,13 @@ type Entry = {
   /** Pending batched reindex after a checkout; events are dropped meanwhile. */
   checkout?: ReturnType<typeof setTimeout> | undefined;
   switching: boolean;
+  /** HEAD the index reflects; a checkout is diffed against it. */
+  head: string | null;
+  /** Paths the watcher reported since `head`: a forced checkout reverts them. */
+  touched: Set<string>;
+  /** A full checkout reindex is running; another checkout waits for it. */
+  checkoutRunning: boolean;
+  checkoutAgain: boolean;
   lastUsed: number;
   failed?: string;
   reindexStartedAt: number | null;
@@ -154,35 +212,107 @@ export function createWorkspacePool(options: PoolOptions): WorkspacePool {
       return;
     }
     if (entry.reindexStartedAt === null) entry.reindexStartedAt = Date.now();
+    if (entry.touched.size <= CHECKOUT_INCREMENTAL_MAX) entry.touched.add(rel);
     workspace.notifyWatchPaths(
       gone ? { deletedPaths: [rel] } : { changedPaths: [rel] },
     );
   };
 
-  /** One full reindex for a checkout, however many files it rewrote. */
+  /**
+   * A checkout (token fix 2): the files that differ between the indexed HEAD
+   * and the new one, plus what is dirty now and what the watcher saw since,
+   * go through the incremental watch path. The last index keeps answering,
+   * marked stale, until that lands. Only a move too large to diff, or one
+   * git cannot diff, is a full reindex, and those run one at a time.
+   */
+  const handleCheckout = async (
+    entry: Entry,
+    workspace: PrismWorkspace,
+  ): Promise<void> => {
+    if (entry.checkoutRunning) {
+      entry.checkoutAgain = true;
+      return;
+    }
+    entry.checkoutRunning = true;
+    try {
+      do {
+        entry.checkoutAgain = false;
+        const begun = Date.now();
+        const to = readGitHead(entry.root)?.sha ?? null;
+        const from = entry.head;
+        const moved =
+          from && to
+            ? from === to
+              ? []
+              : await (options.diffCommits ?? diffCommitPaths)(
+                  entry.root,
+                  from,
+                  to,
+                )
+            : null;
+        const dirty = moved === null ? null : changedPathsOf(entry.root);
+        const paths =
+          moved === null || dirty === null
+            ? null
+            : [...new Set([...moved, ...dirty, ...entry.touched])].filter(
+                (rel) => !isIgnoredPath(rel),
+              );
+        entry.head = to;
+        entry.touched.clear();
+        if (paths !== null && paths.length <= CHECKOUT_INCREMENTAL_MAX) {
+          entry.switching = false;
+          const changedPaths: string[] = [];
+          const deletedPaths: string[] = [];
+          for (const rel of paths) {
+            (existsSync(join(entry.root, rel))
+              ? changedPaths
+              : deletedPaths
+            ).push(rel);
+          }
+          if (paths.length > 0) {
+            entry.reindexStartedAt = begun;
+            workspace.notifyWatchPaths({ changedPaths, deletedPaths });
+          }
+          recordEvent({
+            event: "watch.checkout",
+            outcome: "ok",
+            workspace: entry.root,
+            durationMs: Date.now() - begun,
+            detail: { mode: "incremental", files: paths.length },
+          });
+          continue;
+        }
+        const result = await workspace.reindex();
+        if (!result.ok) throw new Error(result.error.message);
+        entry.lastReindexMs = Date.now() - begun;
+        recordEvent({
+          event: "watch.checkout",
+          outcome: "ok",
+          workspace: entry.root,
+          durationMs: entry.lastReindexMs,
+          detail: {
+            mode: "full",
+            reason: paths === null ? "no diff" : `${paths.length} files`,
+          },
+        });
+        entry.switching = false;
+        await options.onIndexed?.(workspace);
+      } while (entry.checkoutAgain);
+    } catch (error) {
+      indexedHookFailed(entry.root, error);
+    } finally {
+      entry.checkoutRunning = false;
+      entry.switching = false;
+    }
+  };
+
+  /** Settle a burst of checkout events into one {@link handleCheckout}. */
   const scheduleCheckout = (entry: Entry, workspace: PrismWorkspace): void => {
     entry.switching = true;
     if (entry.checkout) clearTimeout(entry.checkout);
     entry.checkout = setTimeout(() => {
       entry.checkout = undefined;
-      const begun = Date.now();
-      void workspace
-        .reindex()
-        .then(async (result) => {
-          if (!result.ok) throw new Error(result.error.message);
-          entry.lastReindexMs = Date.now() - begun;
-          recordEvent({
-            event: "watch.checkout",
-            outcome: "ok",
-            workspace: entry.root,
-            durationMs: entry.lastReindexMs,
-          });
-          await options.onIndexed?.(workspace);
-        })
-        .catch((error: unknown) => indexedHookFailed(entry.root, error))
-        .finally(() => {
-          entry.switching = false;
-        });
+      void handleCheckout(entry, workspace);
     }, options.checkoutSettleMs ?? CHECKOUT_SETTLE_MS);
     entry.checkout.unref?.();
   };
@@ -323,6 +453,7 @@ export function createWorkspacePool(options: PoolOptions): WorkspacePool {
     }
     log(`indexed ${entry.root} in ${Date.now() - started}ms`);
     entry.workspace = opened.value;
+    entry.head = readGitHead(entry.root)?.sha ?? null;
     await options
       .onIndexed?.(opened.value)
       .catch((error: unknown) => indexedHookFailed(entry.root, error));
@@ -345,7 +476,8 @@ export function createWorkspacePool(options: PoolOptions): WorkspacePool {
       .sort((a, b) => a.lastUsed - b.lastUsed)[0];
 
   const entryFor = (rawRoot: string): Entry => {
-    const root = resolve(rawRoot);
+    // Both spellings of a symlinked path are one repository: one index.
+    const root = canonicalRoot(rawRoot);
     const existing = entries.get(root);
     if (existing) {
       existing.lastUsed = Date.now();
@@ -371,6 +503,10 @@ export function createWorkspacePool(options: PoolOptions): WorkspacePool {
       reindexStartedAt: null,
       lastReindexMs: null,
       switching: false,
+      head: null,
+      touched: new Set(),
+      checkoutRunning: false,
+      checkoutAgain: false,
       heldChanged: new Set(),
       heldDeleted: new Set(),
     };

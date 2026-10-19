@@ -8,11 +8,11 @@
  * file someone forgot to add to the second list.
  */
 
-export type SkillId =
-  | "prism-review-pr"
-  | "prism-safe-change"
-  | "prism-onboard"
-  | "prism-lens";
+/**
+ * One skill. Every skill's description is listed to the model on every call,
+ * so five overlapping skills cost ~1.9k chars of fixed overhead per turn.
+ */
+export type SkillId = "prism";
 
 export type CommandId = "prism-review" | "prism-check" | "prism-graph";
 
@@ -41,7 +41,7 @@ export function pluginDefinition(version: string): PluginDefinition {
     name: "prism",
     version,
     description:
-      "Local context and change checks for coding agents. Composed with the connectors your editor already has.",
+      "Local software intelligence that catches what your coding agent missed. Composed with the connectors your editor already has.",
     author: { name: "Prism", url: "https://www.prismhq.in" },
     homepage: "https://www.prismhq.in",
     repository: "https://github.com/Shailesh200/prism",
@@ -55,12 +55,7 @@ export function pluginDefinition(version: string): PluginDefinition {
       "code-review",
       "mcp",
     ],
-    skills: [
-      "prism-review-pr",
-      "prism-safe-change",
-      "prism-onboard",
-      "prism-lens",
-    ],
+    skills: ["prism"],
     commands: ["prism-review", "prism-check", "prism-graph"],
   };
 }
@@ -134,7 +129,16 @@ export function claudeHooks(): Record<string, unknown> {
           hooks: [command("after-edit", 5)],
         },
       ],
-      Stop: [{ hooks: [command("stop", 120)] }],
+      // Same plan as `prism install` (shared/hook-config CLAUDE_HOOK_PLAN;
+      // the cli contract test holds them together).
+      Stop: [
+        {
+          hooks: [
+            command("stop", 120),
+            { ...command("stop-wait", 120), asyncRewake: true },
+          ],
+        },
+      ],
     },
   };
 }
@@ -209,7 +213,16 @@ export function devClaudeHooks(target: {
           hooks: [command("after-edit", 5)],
         },
       ],
-      Stop: [{ hooks: [command("stop", 120)] }],
+      // Same plan as `prism install` (shared/hook-config CLAUDE_HOOK_PLAN;
+      // the cli contract test holds them together).
+      Stop: [
+        {
+          hooks: [
+            command("stop", 120),
+            { ...command("stop-wait", 120), asyncRewake: true },
+          ],
+        },
+      ],
     },
   };
 }

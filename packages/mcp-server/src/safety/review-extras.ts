@@ -1,5 +1,5 @@
 /**
- * What `review_changes` adds on top of Core's report (plan §5.1): the
+ * What `guard_session {review:true}` adds on top of Core's report (plan §5.1): the
  * data-backed lens findings and, on request, the PR-description facts. The
  * prose is the agent's; Prism supplies only what it measured, and never a
  * test run it did not see.
@@ -10,6 +10,7 @@ import { packageRootFor } from "@repo-prism/checks";
 import type { PrismWorkspace } from "@repo-prism/core";
 import {
   isTestPath,
+  shipVerdictLabel,
   type ChangeReceipt,
   type ChangeReviewReport,
   type LensFinding,
@@ -111,10 +112,7 @@ export function prDescriptionFor(
   const receipt = matchingReceipt(root, paths);
   const lastReceipt = receipt
     ? {
-        verdict:
-          receipt.verdict === "not_proven"
-            ? `not_proven(${receipt.reason ?? "untested"})`
-            : receipt.verdict,
+        verdict: shipVerdictLabel(receipt),
         ranAt: receipt.generatedAt,
       }
     : undefined;
@@ -151,7 +149,14 @@ export async function reviewLensFindings(
   report: ChangeReviewReport,
   paths: readonly string[],
   lensId: string | undefined,
-): Promise<{ findings: LensFinding[]; unknownLens?: string }> {
+  /** Full change set when `paths` is only the analysed slice (RC-3). */
+  diffPaths: readonly string[] = paths,
+): Promise<{
+  findings: LensFinding[];
+  unknownLens?: string;
+  /** The named lens's display name, when one was named. */
+  lensName?: string;
+}> {
   const store = await readLensStore(workspace.rootPath);
   const lenses = applyDefaultProcedures(
     store.lenses.length > 0 ? store.lenses : DEFAULT_LENSES,
@@ -206,12 +211,13 @@ export async function reviewLensFindings(
           })),
         )
     : [];
-  const signals = gatherLensSignals(workspace, paths);
+  const signals = gatherLensSignals(workspace, paths, diffPaths);
   return {
     findings: evaluateLensChecks(
       chosen,
       { ...base, flags: [...base.flags, ...flags] },
       signals,
     ),
+    ...(lensId && chosen[0] ? { lensName: chosen[0].name } : {}),
   };
 }

@@ -45,7 +45,16 @@ export function eventsPath(env: NodeJS.ProcessEnv = process.env): string {
   return join(prismHomeDir(env), "events.jsonl");
 }
 
-function rotate(path: string, maxBytes: number): void {
+/**
+ * Size-based rotation shared by every append-only log in `~/.prism`
+ * (events): at `maxBytes` the file moves to `.1`, older
+ * generations shift, and only `generations` files are kept in total.
+ */
+export function rotateLog(
+  path: string,
+  maxBytes: number,
+  generations: number = EVENTS_GENERATIONS,
+): void {
   let size: number;
   try {
     size = statSync(path).size;
@@ -54,8 +63,8 @@ function rotate(path: string, maxBytes: number): void {
     throw error;
   }
   if (size < maxBytes) return;
-  rmSync(`${path}.${EVENTS_GENERATIONS - 1}`, { force: true });
-  for (let n = EVENTS_GENERATIONS - 2; n >= 1; n -= 1) {
+  rmSync(`${path}.${generations - 1}`, { force: true });
+  for (let n = generations - 2; n >= 1; n -= 1) {
     try {
       renameSync(`${path}.${n}`, `${path}.${n + 1}`);
     } catch (error) {
@@ -92,7 +101,7 @@ export function recordEvent(
   };
   try {
     mkdirSync(prismHomeDir(options.env), { recursive: true, mode: 0o700 });
-    rotate(path, options.maxBytes ?? EVENTS_MAX_BYTES);
+    rotateLog(path, options.maxBytes ?? EVENTS_MAX_BYTES);
     appendFileSync(path, `${JSON.stringify(line)}\n`, { mode: 0o600 });
     return { written: true };
   } catch (error) {

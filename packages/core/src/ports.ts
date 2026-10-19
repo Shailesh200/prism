@@ -46,6 +46,8 @@ export type IndexWorkspaceOptions = {
   readonly extraIgnorePatterns?: readonly string[];
   /** The current snapshot's files, so a dirty run skips reloading the cache. */
   readonly priorFiles?: IndexSnapshot["files"];
+  /** Cap analysed files for a first answer (plan P19); package-first order. */
+  readonly maxAnalyzeFiles?: number;
 };
 
 export type IndexerPort = {

@@ -1,6 +1,6 @@
 ---
 title: Prepare a change
-description: "One call before you edit: the files to open, helpers to reuse, House Style, notes, and a work order — never file bodies."
+description: "One call before you edit: the files to open, helpers to reuse, House Style, notes and a work order. Never file bodies."
 ---
 
 > Ask Prism what to open. Do not dump the repo into the chat.
@@ -90,8 +90,8 @@ Every `prepare_change` answer carries a work order:
 | **needsSignOff** | High blast or shared ownership |
 | **advisory** | True — this does not block writes by default |
 
-The IDE hook that can **veto** a write stays off until an Accepted ADR arms
-it. Until then, the order is advice.
+The work order is advice (`hookArmed: false`) until an Accepted ADR in your
+repository arms the edit veto.
 
 ## A simple loop
 
@@ -115,5 +115,4 @@ it. Until then, the order is advice.
 
 [Before you edit](/docs/guides/before-you-edit) ·
 [Guard a session](/docs/guides/guard-a-session) ·
-[Envelope](/docs/guides/envelope) ·
 [Remember context](/docs/guides/remember-context)

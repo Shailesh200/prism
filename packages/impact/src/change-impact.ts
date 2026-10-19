@@ -22,7 +22,13 @@ import {
   type ImpactContext,
   type ResolvedSymbol,
 } from "./internal.js";
-import { runCommandFor } from "./test-runner.js";
+import { testRunPlan } from "./test-runner.js";
+
+/**
+ * Tests that changed with the file in at least this share of their commits
+ * join test_impact (P7). Below it, shared churn is mostly coincidence.
+ */
+export const CO_CHANGE_TEST_MIN_JACCARD = 0.2;
 
 /** Rename target — a change origin plus the proposed new name. */
 export type RenameTarget = BlastRadiusOrigin & { readonly newName?: string };
@@ -153,11 +159,27 @@ export function computeSafeDelete(
     context.softEdges,
   );
 
+  // An entry point is loaded from outside the import graph (a route, a
+  // package bin, "/sw.js"): no importers does not make it safe to delete.
+  const entryRole =
+    origin.kind === "file" ? context.entryRoles?.get(originPath) : undefined;
+
   const hardBlockers = affectedItems(hardMap);
   const softItems = affectedItems(softOnly);
-  // Q-022: medium+ soft blocks delete; low = warn only (not in softBlockers)
+  // Q-022: medium+ soft blocks delete; low = warn only (not in softBlockers).
+  // A config that only covers an entry point (tsconfig include, next.config
+  // globs over app/) does not depend on it: the entry role already says what
+  // deleting it means (website round).
+  // A config that matches the file only by a glob (tsconfig include,
+  // vitest include, a CI paths filter) does not depend on it either: the
+  // glob still holds once the file is gone (round 4, "too cautious").
   const softBlockers = softItems.filter(
-    (i) => (i.confidence ?? "medium") !== "low",
+    (i) =>
+      (i.confidence ?? "medium") !== "low" &&
+      !(
+        i.reason.startsWith("covers ") &&
+        (entryRole !== undefined || globOnly(i.evidence))
+      ),
   );
 
   const blockers = [...hardBlockers];
@@ -196,11 +218,6 @@ export function computeSafeDelete(
   const orphans =
     origin.kind === "file" ? computeOrphans(originPath, context) : [];
 
-  // An entry point is loaded from outside the import graph (a route, a
-  // package bin, "/sw.js"): no importers does not make it safe to delete.
-  const entryRole =
-    origin.kind === "file" ? context.entryRoles?.get(originPath) : undefined;
-
   const safe =
     hardBlockers.length === 0 &&
     !toolingCritical &&
@@ -217,6 +234,14 @@ export function computeSafeDelete(
     ...(toolingCritical ? { toolingCritical: true } : {}),
     ...(entryRole ? { entryRole } : {}),
   });
+}
+
+/** Evidence that names the file only through a glob or pattern, never by path. */
+function globOnly(evidence: readonly string[] | undefined): boolean {
+  if (!evidence || evidence.length === 0) return false;
+  const byPattern = evidence.some((e) => /^(?:glob|pattern): /.test(e));
+  const byPath = evidence.some((e) => e.startsWith("path: "));
+  return byPattern && !byPath;
 }
 
 /** Edit sites (declaration + references) and breaking hints for a rename. */
@@ -277,8 +302,8 @@ export function computeRenameImpact(
 /**
  * Tests reached by the symbol walk (plan §4.3): a test counts only when it
  * imports the changed symbol, or a symbol that reaches it. Filename/glob
- * (soft) matches are not evidence and are excluded. Adds `runCommand` when
- * the runner is known; never runs anything.
+ * (soft) matches are not evidence and are excluded. `run` holds one ready
+ * command per owning package (plan P10); Prism never runs it.
  */
 export function computeTestImpact(
   origin: BlastRadiusOrigin,
@@ -287,24 +312,50 @@ export function computeTestImpact(
   const result = computeAffected(origin, context);
   if (!result.ok) return result;
   const { originPath, affected } = result.value;
-  const tests = affectedItems(affected)
+  const tests: TestImpactReport["tests"] = affectedItems(affected)
     .filter((i) => isTestPath(i.path))
     .map((item) => {
       const via = affected.get(item.path)?.viaSymbol;
       return via ? { ...item, viaSymbol: via } : item;
     });
-  const runner = context.testRunner;
-  const runCommand = runner
-    ? runCommandFor(
-        runner,
-        tests.map((t) => t.path),
-      )
-    : undefined;
+  // A whole-file change also runs the tests git saw change with it (P7):
+  // a test that imports nothing from the file can still pin its behaviour.
+  if (origin.kind === "file" && context.coChange) {
+    const known = new Set(tests.map((t) => t.path));
+    for (const p of context.coChange(originPath)) {
+      if (p.jaccard < CO_CHANGE_TEST_MIN_JACCARD) break;
+      if (known.has(p.path) || !isTestPath(p.path)) continue;
+      tests.push({
+        path: p.path,
+        reason: `changed together with ${originPath} in ${p.together} commits`,
+        depth: 1,
+        category: "test",
+        lane: "test",
+        confidence: "medium",
+        evidence: [`co-change jaccard ${p.jaccard.toFixed(2)}`],
+      });
+    }
+  }
+  const plan = testRunPlan(
+    tests.map((t) => t.path),
+    context.testPackages ?? [],
+    context.packageManager ?? "npm",
+  );
+  const runNote =
+    plan.unrunnable.length > 0
+      ? `${plan.unrunnable.length} test${plan.unrunnable.length === 1 ? "" : "s"} with no runner Prism knows (vitest, jest, mocha, bun, node:test) and no test script in their package`
+      : plan.runs.some((r) => r.scope === "script")
+        ? "runner unknown for some packages: their whole test script runs"
+        : undefined;
   return ok({
     origin: { kind: origin.kind, id: origin.id, path: originPath },
     tests,
-    ...(runner ? { runner } : { unknownRunner: true as const }),
-    ...(runCommand ? { runCommand } : {}),
+    run: plan.runs.map((r) => ({
+      ...r,
+      argv: [...r.argv],
+      tests: [...r.tests],
+    })),
+    ...(runNote ? { runNote } : {}),
   });
 }
 

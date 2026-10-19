@@ -35,6 +35,7 @@ var CHANGE_VERBS = [
   "extract",
   "fix",
   "format",
+  "reformat",
   "generate",
   "handle",
   "hide",
@@ -373,7 +374,23 @@ function wantsChange(clause) {
   }
   return true;
 }
+var TRIVIAL =
+  /\b(?:typos?|spelling|misspell(?:ed|ing)?|whitespace|indentation|re-?indent|formatting|reformat|trailing (?:whitespace|spaces?|commas?)|semicolons?|lint (?:errors?|warnings?)|wording|comments?|docstrings?|log message|bump (?:the )?version|version bump|capitali[sz]ation|punctuation)\b/i;
+var NOT_TRIVIAL =
+  /\b(?:all|every|everywhere|across|each|codebase|whole|entire|repo|project|bug|crash\w*|broken|fails?|failing|exceptions?|regression|feature|endpoint|api|tests?|logic|behaviou?r|refactor\w*|migrat\w*|system|module|support|implement\w*)\b/i;
+function isTrivialChange(plain) {
+  return (
+    words(plain).length <= 14 && TRIVIAL.test(plain) && !NOT_TRIVIAL.test(plain)
+  );
+}
 function classifyPrompt(prompt) {
+  const verdict = classifyBase(prompt);
+  if (verdict.kind === "change" && isTrivialChange(stripCode(prompt.trim()))) {
+    return { kind: "trivial", rule: "trivial" };
+  }
+  return verdict;
+}
+function classifyBase(prompt) {
   const text = prompt.trim();
   if (text.length < 2) return { kind: "chitchat", rule: "empty" };
   if (isNonEnglish(text)) return { kind: "non_english", rule: "language" };
@@ -407,4 +424,4 @@ function classifyPrompt(prompt) {
 }
 var NON_ENGLISH_NOTE =
   "Prism understands English prompts only in 2.0; no pack added.";
-export { isNonEnglish, classifyPrompt, NON_ENGLISH_NOTE };
+export { isTrivialChange, isNonEnglish, classifyPrompt, NON_ENGLISH_NOTE };

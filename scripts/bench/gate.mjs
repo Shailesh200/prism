@@ -10,9 +10,19 @@
  * or freshness p95 rises > 15%; any budgets.json ceiling exceeded (bench:check
  * already enforces that, so it is reported, not re-derived); B1 tokens rise > 5%.
  * A file missing on either side is reported as "skipped", never as a pass.
+ *
+ * Release rules (plan P14), warn-only unless `--release`:
+ *   GATE-T1  B1 with/without token ratio > 1.0 fails.
+ *   GATE-T2  B6 proof (docs/benchmarks/2.x.json) missing, under 10 sessions per
+ *            arm, with-Prism median tokens or cost above without, or success
+ *            lower fails.
+ *   GATE-T3  the published proof names a private repo fails.
+ *   GATE-T4  the published .md does not regenerate byte-identical from the JSON.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { DOC, RAW } from "./b6-report.mjs";
+import { releaseChecks } from "./release-gate.mjs";
 
 const arg = (n, f) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -130,14 +140,14 @@ ceiling(
   "C14.prompt.p95",
   "B8-hook-latency.json",
   (r) => r.events?.prompt?.p95,
-  4500,
+  1000,
   " ms",
 );
 ceiling(
   "C14.stop.p95",
   "B8-hook-latency.json",
   (r) => r.events?.stop?.p95,
-  2500,
+  1000,
   " ms",
 );
 ceiling(
@@ -147,14 +157,28 @@ ceiling(
   1717986918,
   " B",
 );
+ceiling(
+  "C14.largeRss",
+  "B9-budgets-large.json",
+  (r) => r.peakRssBytes,
+  3221225472,
+  " B",
+);
+
+const release = process.argv.includes("--release");
+const b1Current = load(curDir, "B1-orientation.json");
+const rawB6 = existsSync(RAW) ? JSON.parse(readFileSync(RAW, "utf8")) : null;
+const docB6 = existsSync(DOC) ? readFileSync(DOC, "utf8") : null;
+for (const r of releaseChecks({ b1: b1Current, raw: rawB6, doc: docB6 })) {
+  results.push(release || r.status !== "fail" ? r : { ...r, status: "warn" });
+}
 
 for (const r of results) {
-  const detail =
-    r.status === "skipped" ? r.why : `${r.before} → ${r.after} (${r.rule})`;
+  const detail = r.why ? r.why : `${r.before} → ${r.after} (${r.rule})`;
   console.log(`${r.status.padEnd(7)} ${r.id.padEnd(24)} ${detail}`);
 }
 const failed = results.filter((r) => r.status === "fail");
 console.log(
-  `gate: ${failed.length ? `FAIL (${failed.length})` : "pass"}; ${results.filter((r) => r.status === "skipped").length} skipped`,
+  `gate: ${failed.length ? `FAIL (${failed.length})` : "pass"}; ${results.filter((r) => r.status === "skipped").length} skipped; ${results.filter((r) => r.status === "warn").length} release warnings${release ? "" : " (warn-only without --release)"}`,
 );
 process.exit(failed.length ? 1 : 0);

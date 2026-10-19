@@ -1,4 +1,4 @@
 {
   "title": "Help",
-  "pages": ["faq", "troubleshooting", "known-limitations"]
+  "pages": ["troubleshooting", "faq", "known-limitations"]
 }

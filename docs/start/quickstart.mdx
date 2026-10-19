@@ -1,0 +1,104 @@
+---
+title: Quickstart
+description: "Install Prism, ask your agent for a change, and read the verdict."
+---
+
+Your agent starts in the right files and every change gets a verdict.
+
+**Needs:** Node.js, a git repository, and one agent: Claude Code, Cursor, Codex or opencode.
+
+## 1. Install and connect your agent
+
+```bash
+npm i -g @repo-prism/cli
+cd your-repo
+prism start
+```
+
+`prism start` finds the coding agents on this machine, shows the files it will change, and asks before it writes anything.
+
+- On yes, it backs up each file to `~/.prism-backups/<time>/`, installs Prism, and indexes the repo.
+- `--dry-run` only shows the list. `--yes` skips the question.
+- Running it again changes nothing.
+
+Coming from 1.x? Your old data moves to the same backup folder.
+
+To connect one agent only, name it: `prism install claude` (or `cursor`,
+`codex`, `opencode`). Add `--project` to write the config into this repository
+instead of your home. To add the MCP server by hand, see
+[Install](/docs/start/install).
+
+<Callout tone="info" title="Tip">
+  `prism doctor` shows which directory Prism treats as the workspace, your
+  strength setting, and what is installed for each agent.
+</Callout>
+
+## 2. Ask your agent for a change
+
+Open your agent in the repository and ask in plain words. You never type tool
+names.
+
+**Agent**
+
+```text
+You: Add VAT to invoice totals.
+Claude Code: Starting in invoice.ts and totals.ts, then running their tests.
+```
+
+**Terminal** (the same file list, without an agent; shortened)
+
+```bash
+prism prepare "add VAT to invoice totals"
+```
+
+```text
+Prepare: add VAT to invoice totals
+…
+PATH                     WHY
+src/billing/invoice.ts   matches invoice, total; seed file
+src/billing/totals.ts    matches total; import distance 1
+src/checkout/summary.ts  import distance 1
+…
+```
+
+Before it edits, your agent gets the few files that matter, what to reuse and
+the house style. Paths only, never file bodies.
+
+## 3. Read the verdict
+
+When the session ends, Prism runs the checks that reach the change and gives
+a verdict: **SHIP**, **NOT PROVEN** or **NO-SHIP**. In Claude Code it comes back
+in the agent's reply. A check that was already failing is reported on its own
+line and does not block. For the other agents, see
+[Install](/docs/start/install).
+
+Receipts are kept. List them, or show the newest:
+
+```bash
+prism receipts
+prism receipts show 1
+```
+
+What each line means: [Receipt](/docs/guides/receipt).
+
+## Explore from the terminal
+
+The same answers your agent uses, without an agent:
+
+| Command | Answers |
+|---|---|
+| `prism overview` | What this project is: frameworks, domains, landmarks to read first |
+| `prism blast src/some/file.ts` | What a change to this file would break |
+| `prism explain src/some/directory` | What belongs together |
+| `prism prepare "<task>"` | Which files to read before a change |
+
+Every command and flag: [CLI reference](/docs/reference/cli-commands).
+
+## Next
+
+| You want | Go to |
+|---|---|
+| Task recipes | [Guides](/docs/guides/understand-a-repo) |
+| Prepare / Guard | [Prepare](/docs/guides/prepare-a-change) · [Guard](/docs/guides/guard-a-session) |
+| Every command | [CLI reference](/docs/reference/cli-commands) |
+| Something looks wrong | [Troubleshooting](/docs/help/troubleshooting) |

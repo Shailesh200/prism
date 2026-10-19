@@ -6,8 +6,8 @@
 | Branch | `milestone/M-077-prism-2.0` (from latest `main`) |
 | Depends on | M-076 Verified |
 | Packages | none (docs / plan only) |
-| Program | [PROGRAM_prism-2.0.md](../../milestones/PROGRAM_prism-2.0.md) |
-| Implementation | [IMPLEMENTATION_prism-2.0.md](../../milestones/IMPLEMENTATION_prism-2.0.md) |
+| Program | [PROGRAM_prism-2.0.md](./PROGRAM_prism-2.0.md) |
+| Implementation | [IMPLEMENTATION_prism-2.0.md](./IMPLEMENTATION_prism-2.0.md) |
 | ADR | [ADR-0057](../../adr/0057-prism-intelligence-unified-product.md) **Accepted** |
 
 ## 1. Goal

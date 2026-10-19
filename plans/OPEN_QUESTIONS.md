@@ -8,7 +8,7 @@ Resolve these with the owner before or during the indicated milestone. Record an
 | Q-002 | Cache location: `.prism/` in workspace vs XDG cache dir? | M-008 | **Resolved:** `<workspace>/.prism/cache/index.sqlite` ([ADR-0010](./adr/0010-sqlite-cache-location.md)) |
 | Q-003 | Publish scope: GitHub org name / npm scope `@prism` availability? | M-001 / GA | **Resolved:** `@prism` org/scope unavailable; publish under npm org **`repo-prism`** as `@repo-prism/*` |
 | Q-004 | Cursor extension: separate VSIX vs single VS Code extension? | M-032 | **Resolved:** single implementation + Cursor packaging overlay ([ADR-0020](./adr/0020-cursor-packaging-overlay.md)) |
-| Q-005 | First non-TS language after GA path: Python or Go? | M-034 | **Open** — M-034 deferred post-GA (owner, 2026-08-05); decide when the milestone is revived |
+| Q-005 | First non-TS language after GA path: Python or Go? | M-034 | **Open** — M-034 deferred post-GA (owner, 2026-08-05); decide when the milestone is revived. 2.0 analyzes TS/JS only (unified plan §4.6), but the website and docs must not claim TS/JS-only or a Node minimum (owner, 17 Oct 2026) |
 | Q-006 | Hash algorithm: BLAKE3 (native) vs SHA-256 (pure)? | M-005 | **Resolved: SHA-256** ([ADR-0006](./adr/0006-content-hash-sha256.md)) |
 | Q-007 | Map library: React Flow vs custom Canvas? | M-018 | **Resolved: React Flow** (`@xyflow/react`, shipped in `@repo-prism/ui` since M-018). Custom canvas was not attempted; nothing since has argued for it |
 | Q-008 | Docs framework: VitePress vs Astro? | M-038 | **Resolved: VitePress** (owner, 2026-08-05); plain Markdown `/docs` is the source, the site renders it |
@@ -27,13 +27,21 @@ Resolve these with the owner before or during the indicated milestone. Record an
 | Q-021 | Multi-domain monorepo: single stack winner vs per-package? | M-041 / M-013 | **Resolved:** per-package profiles + workspace rollup; package-scoped utilities; additive domains ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md) D5) |
 | Q-022 | Soft blast signals: do medium-confidence config/CI hits **block** Safe Delete, or only warn? | M-049 | **Decided (ADR-0027):** medium+ blocks; low = warn only |
 | Q-023 | Blast vs Change Review risk band thresholds (60/20 vs 70/35) — unify to which? | M-049 | **Decided (ADR-0027):** unify to Blast **60/20** (High ≥60, Mid ≥20) everywhere. **Enforced in code M-051:** single `riskToBand` / `riskBandDescriptor` in `@repo-prism/shared`; the duplicated per-screen thresholds are gone |
-| Q-024 | Which public repo is the `/demo/<fixture>` canned index? | M-086 | **Owner will name later.** Do not invent a fixture in the plan. |
-| Q-025 | `/demo` v1 = precomputed snapshot vs live browser index? | M-086 | **Discuss later.** Recommended default remains a frozen snapshot (ADR-0057). |
+| Q-024 | Which public repo is the `/demo/<fixture>` canned index? | M-086 | **Closed (17 Oct 2026):** `/demo` is out of scope for 2.0 (unified plan C-13; M-086 obsolete). Reopen with any future demo. |
+| Q-025 | `/demo` v1 = precomputed snapshot vs live browser index? | M-086 | **Closed (17 Oct 2026):** no `/demo` in 2.0. |
 | Q-026 | Public identity: domain / GitHub / npm? | M-077 / M-086 | **Locked 2026-09-19 (relocked):** `prismate.io`, GitHub org `prismate`, npm `@prismate`. Cutover steps run in M-086. Q-003 (`@repo-prism`) is the old publish scope (one major of shims). |
 | Q-027 | Public tagline / hero copy? | M-077 / M-086 | **Locked 2026-09-19:** PROGRAM §0.1. Kicker `this/self · Local First · No account`. Hero: “A teammate meant for you. / Intelligent enough for all you want to do.” Teammate name in copy is Prism. It/it’s, not he/him. |
 
 | Q-028 | Which three public TypeScript repos does the M-079 replay benchmark use? | M-079 | **Open.** Owner may name them; otherwise pick by the criteria in [M-079](./archive/milestones/M-079_safety-layer.md) (public, TS, offline tests < ~5 min, ≥ 500 files, history with reverts/fix-ups). |
 
 **2026-10-10 (owner, program Approved):** Q-026 and Q-027 are closed by [ADR-0060](./adr/0060-prism-keeps-its-name.md). Q-026: no rename; Prism stays on `@repo-prism/*`, `prismhq.repo-prism`, `prismhq.in`, GitHub `Shailesh200/prism`. Q-027: **"Faster agent sessions. Fewer broken builds."** Q-028 is closed by the repo list in [PROGRAM_focus-reset §15](./milestones/PROGRAM_focus-reset.md). Node pin is 24.18.1. Envelope moves into Core.
+
+**2026-10-17 (plans brought in line with the code):** Envelope was removed entirely, so Q-5 in PROGRAM_focus-reset ("Envelope moves into Core") no longer applies. The hero line that replaced Q-027's answer is **"Your agent's second pair of eyes. Know before you ship."**, with Prepare and Lens Review as the hero features (website, 16–17 Oct). The name stays Prism, the site stays `prismhq.in`, and npm stays `@repo-prism/*`.
+
+| ID | Question | Needed by | Default if unanswered |
+|---|---|---|---|
+| Q-029 | Record the Envelope removal in an ADR (or amend ADR-0067) and mark ADR-0066 Superseded? | 2.0.0 release | **Closed (2026-10-17):** [ADR-0068](./adr/0068-envelope-removed.md) records the removal; ADR-0066 is Superseded |
+| Q-030 | Amend ADR-0060 and update `README.md` to the new hero line, dropping "TypeScript or JavaScript" from the README intro? | 2.0.0 release | **Closed (2026-10-17):** ADR-0060 amended; README and package descriptions updated. The README hero image still shows the old line |
+| Q-031 | Which open checks block 2.0.0: ACT-1 (real fork PR) and the CI OS install matrix, both of which need a push? | 2.0.0 release | **Open.** They are not run locally |
 
 Update this file when questions are decided; link ADRs.

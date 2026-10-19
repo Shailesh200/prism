@@ -74,6 +74,10 @@
     "QueueFindingArgs",
     "formatWorkOrderPrompt",
     "appendWorkOrderToPrd",
-    "formatWorkOrderForPrd"
+    "formatWorkOrderForPrd",
+    "ENVELOPE_LEDGER_REL",
+    "review_changes",
+    "prism envelope",
+    "@repo-prism/core/envelope"
   ]
 }

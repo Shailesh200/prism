@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-description: "Doctor first — then install, wrong workspace, slow indexing, unavailable signals, MCP issues, error codes."
+description: "Run prism doctor first. Then install, wrong workspace, slow indexing, unavailable signals, MCP issues and error codes."
 ---
 
 ## Start here
@@ -20,9 +20,11 @@ build. `prism stats --since 1d` shows hook and tool timings and outcomes.
 
 ## Doctor says "server … is missing" or "published package referenced"
 
-The editor configs point at a server that is not there, or at `npx`/`@latest`.
-Run `prism doctor --fix`, or `prism install <editor>` again. Install never
-writes `npx` into a config.
+The editor configs point at a server that is not there, or (when Prism was
+installed from a source checkout) at `npx`/`@latest`. Run `prism doctor --fix`,
+or `prism install <editor>` again: install writes the path of the local server,
+not `npx`. A hand-written `npx` config from [Install](/docs/start/install) is
+fine for a normal install.
 
 ## Prism is analysing the wrong repository
 
@@ -66,8 +68,8 @@ lower, an exclude pattern is too broad — a `**/dist/**` that also matches
 Either no index, or the index found nothing.
 
 `prism doctor` distinguishes them. No index means indexing failed or never ran;
-zero files means everything was excluded or nothing is TypeScript or
-JavaScript, the only languages Prism 2.0 analyses.
+zero files means everything was excluded or no file is in a language Prism
+analyses yet (see [known limitations](/docs/help/known-limitations)).
 
 ## A result says a signal is unavailable
 
@@ -95,7 +97,7 @@ met. That is the gate firing, not a failure.
 ## JSON output has an error in it
 
 By design. In `--json` mode both success and failure go to stdout in the same
-envelope, so a script reading one stream never misses a failure:
+wrapper, so a script reading one stream never misses a failure:
 
 ```json
 { "ok": false, "error": { "code": "PRISM_INVALID_PATH", "message": "…" } }
@@ -107,8 +109,9 @@ The client never started the server, or started it and cached a failure. Toggle
 the prism server off and on in the client's MCP settings (or restart the client) with the
 project folder open, then watch the client's MCP logs for the launch error.
 After an update, a running session cannot swap binaries mid-chat — restart the
-client once so the newer package loads. Confirm Node 24+ with `node -v`; an old
-Node fails before any tool registers.
+client once so the newer package loads. `prism doctor --surfaces` shows the
+Node each client launches; a Node that is too old fails before any tool
+registers.
 
 ## An MCP tool says an index is required
 
@@ -145,17 +148,16 @@ Click **Skip**, then retry what you asked for. It appears once per session.
 
 ## The agent asks for a tool that is not listed
 
-The server registers nine tools by default. The others (graphs, findings,
-`agents_md`, and more) are opt-in: list them in `extraTools` in
-`~/.prism/config.json`. See [Usage](/docs/usage) and the
+Every tool is registered, including `receipt`. An unknown name is a tool from an older Prism, or a typo. See [Usage](/docs/usage) and the
 [MCP reference](/docs/reference/mcp-tools).
 
 ## A tool from an older Prism is gone
 
 Prism 2.0 has nine default tools; older tool names were removed with no
 aliases, and an old name gets the standard unknown-tool error. See
-[MCP tools](/docs/reference/mcp-tools). Installing 2.0 over 1.x wipes the 1.x
-data once and keeps your lenses. `prism data prune` lists empty workspace
+[MCP tools](/docs/reference/mcp-tools). Installing 2.0 over 1.x moves the 1.x
+data once to `~/.prism-backups/<time>/1x/` (nothing is deleted) and keeps your
+lenses; delete that folder when you no longer need it. `prism data prune` lists empty workspace
 folders, caches of deleted checkouts, and untracked worktrees;
 `prism data prune --yes` removes them.
 
@@ -175,8 +177,9 @@ Every error reads `PRISM_X: what happened. What to do.`
 | `PRISM_ANALYZER_FAILED` | Analysis of a file failed | Usually a parse error in that file; the rest still works |
 | `PRISM_GRAPH_ERROR` | The graph query could not run | Rerun; if it repeats, `prism index` |
 | `PRISM_IO_ERROR` | A file could not be read or written | Check permissions and free disk space |
-| `PRISM_UNSUPPORTED` | Not supported in 2.0 (e.g. a language other than TS/JS) | See [known limitations](/docs/help/known-limitations) |
+| `PRISM_UNSUPPORTED` | Not supported yet (e.g. a language Prism does not analyse) | See [known limitations](/docs/help/known-limitations) |
 | `PRISM_CANCELLED` | The operation was cancelled | Rerun it |
+| `PRISM_YES_REQUIRED` | `prism start --json` would change agent configs, and JSON output cannot ask first (exit 1; the planned changes are in `error.details.plan`) | Rerun with `--yes`, or use `--dry-run` to only list them |
 | `PRISM_UNKNOWN` | An unexpected failure | Open an issue with `prism doctor` output |
 
 ## The editors launch different Prism builds

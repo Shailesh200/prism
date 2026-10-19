@@ -4,6 +4,8 @@ import {
   absoluteUrl,
   articleJsonLd,
   brandedTitle,
+  breadcrumbJsonLd,
+  techArticleJsonLd,
   buildSitemap,
   docsPriority,
   faqJsonLd,
@@ -33,13 +35,22 @@ describe("seo", () => {
     const urls = buildSitemap({
       docsUrls: ["/docs", "/docs/start/install", "/admin/docs/overview"],
       postSlugs: ["1-8-0-console"],
+      changelogPages: 3,
     }).map((entry) => entry.url);
 
     expect(urls).toContain("https://www.prismhq.in");
     expect(urls).toContain("https://www.prismhq.in/install");
     expect(urls).toContain("https://www.prismhq.in/docs");
     expect(urls).toContain("https://www.prismhq.in/docs/start/install");
-    expect(urls).toContain("https://www.prismhq.in/whats-new/1-8-0-console");
+    expect(urls).toContain("https://www.prismhq.in/changelog");
+    expect(urls).toContain("https://www.prismhq.in/open-source");
+    expect(urls).toContain("https://www.prismhq.in/product/habits");
+    expect(urls).toContain("https://www.prismhq.in/install/cursor");
+    expect(urls).toContain("https://www.prismhq.in/changelog/1-8-0-console");
+    expect(urls).toContain("https://www.prismhq.in/changelog/page/2");
+    expect(urls).toContain("https://www.prismhq.in/changelog/page/3");
+    expect(urls).not.toContain("https://www.prismhq.in/changelog/page/1");
+    expect(urls.some((url) => url.includes("/whats-new"))).toBe(false);
     expect(urls.some((url) => url.includes("/admin"))).toBe(false);
     expect(urls.some((url) => url.includes("/features"))).toBe(false);
     expect(new Set(urls).size).toBe(urls.length);
@@ -66,6 +77,35 @@ describe("seo", () => {
     expect(
       meta.twitter && "card" in meta.twitter ? meta.twitter.card : undefined,
     ).toBe("summary_large_image");
+  });
+
+  it("gives every page the share image and the feed link", () => {
+    const meta = pageMetadata({ title: "Prepare", path: "/product/prepare" });
+    expect(meta.openGraph?.images).toEqual([
+      expect.objectContaining({ url: "/opengraph-image", width: 1200 }),
+    ]);
+    expect(meta.alternates?.types).toEqual({
+      "application/rss+xml": "https://www.prismhq.in/whats-new/rss.xml",
+    });
+  });
+
+  it("builds breadcrumbs and docs TechArticles", () => {
+    const crumbs = breadcrumbJsonLd([
+      { name: "Product", path: "/product/prepare" },
+      { name: "Prepare", path: "/product/prepare" },
+    ]);
+    expect(crumbs.itemListElement).toEqual([
+      expect.objectContaining({ position: 1, item: "https://www.prismhq.in" }),
+      expect.objectContaining({ position: 2, name: "Product" }),
+      expect.objectContaining({ position: 3, name: "Prepare" }),
+    ]);
+    const article = techArticleJsonLd({
+      title: "Usage",
+      url: "/docs/usage",
+      dateModified: new Date("2026-10-16T00:00:00Z"),
+    });
+    expect(article["@type"]).toBe("TechArticle");
+    expect(article.dateModified).toBe("2026-10-16T00:00:00.000Z");
   });
 
   it("noindexes pages that must stay out of Search", () => {
@@ -103,9 +143,9 @@ describe("seo", () => {
 
     const article = articleJsonLd({
       title: "Console",
-      url: "/whats-new/1-8-0-console",
+      url: "/changelog/1-8-0-console",
     });
     expect(article["@type"]).toBe("Article");
-    expect(article.url).toBe("https://www.prismhq.in/whats-new/1-8-0-console");
+    expect(article.url).toBe("https://www.prismhq.in/changelog/1-8-0-console");
   });
 });

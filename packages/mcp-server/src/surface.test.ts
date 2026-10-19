@@ -66,12 +66,8 @@ afterAll(async () => {
 });
 
 describe("default MCP surface", () => {
-  it("is smaller than the full pack", () => {
-    expect(registered.size).toBeLessThan(KNOWN.size);
-  });
-
-  it("registers exactly the nine default tools (§0.3)", () => {
-    expect(registered.size).toBe(9);
+  it("registers every current tool", () => {
+    expect([...registered].sort()).toEqual([...TOOL_NAMES].sort());
     expect([...registered].sort()).toEqual([...DEFAULT_TOOL_NAMES].sort());
   });
 

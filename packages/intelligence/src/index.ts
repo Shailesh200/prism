@@ -104,6 +104,11 @@ export { buildWorkOrder, isWorkOrderHookArmed } from "./prepare/work-order.js";
 export { collectRationale } from "./semantic/rationale.js";
 export { checkGuardSession, type GuardCheckInput } from "./guard/session.js";
 export {
+  newSlowTypeExports,
+  publishesToJsr,
+  slowTypeExports,
+} from "./guard/slow-types.js";
+export {
   listFindings,
   findingStillOpen,
   listUnusedExportFindings,
@@ -115,3 +120,25 @@ export {
   computeFindingFingerprint,
   normalizeFindingTitle,
 } from "./findings/index.js";
+
+export {
+  buildRepoMap,
+  mergeMapEntries,
+  type BuildRepoMapInput,
+  type MapFileEntry,
+  type MapSignature,
+} from "./map/build.js";
+export {
+  MAP_DEFAULT_BUDGET,
+  mapHasNoBodies,
+  renderMapFile,
+  renderRepoMap,
+} from "./map/render.js";
+export {
+  changedPaths,
+  mapCachePaths,
+  readMapCache,
+  snapshotKey,
+  writeMapCache,
+  type MapCachePayload,
+} from "./map/cache.js";

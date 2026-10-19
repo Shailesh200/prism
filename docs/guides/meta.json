@@ -1,17 +1,18 @@
 {
-  "title": "Guides",
+  "title": "Using Prism",
   "pages": [
-    "understand-a-repo",
     "prepare-a-change",
     "before-you-edit",
     "guard-a-session",
     "review-a-pr",
-    "findings",
-    "envelope",
-    "graph",
+    "hooks-and-strength",
     "receipt",
+    "lenses",
+    "habits-and-skills",
     "remember-context",
-    "delete-safely",
-    "wire-into-ci"
+    "understand-a-repo",
+    "graph",
+    "findings",
+    "delete-safely"
   ]
 }

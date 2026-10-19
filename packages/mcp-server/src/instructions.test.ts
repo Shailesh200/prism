@@ -3,10 +3,8 @@ import { DEFAULT_TOOL_NAMES } from "./tools.js";
 import { PROMPT_NAMES, SERVER_INSTRUCTIONS } from "./instructions.js";
 
 describe("server instructions (M-091)", () => {
-  it("stays under 1.5 KB", () => {
-    expect(Buffer.byteLength(SERVER_INSTRUCTIONS, "utf8")).toBeLessThanOrEqual(
-      1536,
-    );
+  it("stays under 1k characters (token fix 3: resent on every call)", () => {
+    expect(SERVER_INSTRUCTIONS.length).toBeLessThan(1000);
   });
 
   it("routes a change through prepare, blast, guard and the stop verdict", () => {
@@ -19,7 +17,7 @@ describe("server instructions (M-091)", () => {
     // Plan §5.7 verdicts. The bare word "receipt" is a tool name (opt-in), so
     // the default instructions describe the verdict without naming it.
     expect(SERVER_INSTRUCTIONS).toMatch(
-      /verdict on your change: proven, not proven \(with the reason\) or failed/,
+      /verdict on your change: SHIP, NOT PROVEN \(with the cheapest proof\) or NO-SHIP/,
     );
     expect(SERVER_INSTRUCTIONS).toMatch(/inferred edges are hints/i);
     expect(SERVER_INSTRUCTIONS).toMatch(/Never call mcp_auth for Prism/);

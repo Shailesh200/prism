@@ -15,7 +15,7 @@ candidate file list
     │  hash contents
     ▼
 changed files only
-    │  parse (Oxc for TS/JS)
+    │  parse (language plugins)
     ▼
 symbols · imports · diagnostics
     │  persist
@@ -49,12 +49,12 @@ of the parser.
 
 ## Parsing
 
-Files in a supported language go to a language plugin. For TypeScript and
-JavaScript that is Oxc, which produces symbols, imports and diagnostics.
+Files in a language with a plugin go to that plugin, which produces symbols,
+imports and diagnostics. For TypeScript and JavaScript that is Oxc.
 
-Files in other languages are recorded but not parsed, so they have structure,
-size and churn but no symbol-level detail. See
-[known limitations](../reference/known-limitations.md).
+Files with no plugin are recorded but not parsed, so they have structure, size
+and churn but no symbol-level detail. See
+[known limitations](/docs/help/known-limitations).
 
 Parsing never executes the code.
 
@@ -73,9 +73,9 @@ Three graphs, all over the same store:
 
 | Graph | Edges are |
 |---|---|
-| [Dependency](../concepts/graphs.md) | imports and re-exports |
-| [Knowledge](../concepts/graphs.md) | semantic relationships between symbols |
-| [Feature](../concepts/graphs.md) | inferred membership of a capability |
+| [Dependency](/docs/concepts/graphs) | imports and re-exports |
+| [Knowledge](/docs/concepts/graphs) | semantic relationships between symbols |
+| [Feature](/docs/concepts/graphs) | inferred membership of a capability |
 
 ## Deriving
 
@@ -84,7 +84,7 @@ repository. An answer that needed to re-read files could disagree with the one
 next to it.
 
 Each derived value carries its
-[provenance](../concepts/signal-provenance.md): measured, estimated, or
+[provenance](/docs/concepts/signal-provenance): measured, estimated, or
 unavailable.
 
 ## Crossing the boundary
@@ -104,4 +104,4 @@ a reindex is picked up by the next pass rather than dropped.
 
 ## Related
 
-[The repository index](../concepts/repository-index.md) · [Architecture overview](./overview.md) · [Packages](./packages.md)
+[The repository index](/docs/concepts/repository-index) · [Architecture overview](./overview.md) · [Packages](./packages.md)

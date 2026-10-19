@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { LensFindingSchema } from "./lenses.js";
+import { FindingSchema } from "./schemas.js";
 
 /**
  * The change receipt (ADR-0058 §2): a verdict on what an agent changed —
@@ -27,6 +28,7 @@ export const RECEIPT_FLAG_KINDS = [
   "orphan",
   "boundary",
   "high-blast",
+  "slow-type",
 ] as const;
 export const ReceiptFlagSchema = z.object({
   path: z.string().min(1),
@@ -63,9 +65,44 @@ export const NOT_PROVEN_REASONS = [
   "already_failing",
   /** Only files Prism 2.0 does not analyse (TS/JS only) changed. */
   "unsupported_language",
+  /** A newer change in the workspace replaced this one before its checks finished. */
+  "superseded",
 ] as const;
 export const NotProvenReasonSchema = z.enum(NOT_PROVEN_REASONS);
 export type NotProvenReason = z.infer<typeof NotProvenReasonSchema>;
+
+/**
+ * The cheapest check that would turn a `not_proven` receipt into a proof
+ * (plan P11): a ready command, never executed by Prism.
+ */
+export const ReceiptProofSchema = z.object({
+  command: z.string().min(1),
+  /** Repo-relative directory to run it from (`.` is the root). */
+  cwd: z.string().min(1),
+  /** Median recorded duration of this check in earlier receipts. */
+  estimateMs: z.number().int().nonnegative().optional(),
+  /** The not-proven files a pass would prove. */
+  proves: z.array(z.string().min(1)).min(1),
+});
+export type ReceiptProof = z.infer<typeof ReceiptProofSchema>;
+
+/**
+ * What Prism did for this session (plan P13): tokens it put into context,
+ * the estimated saving against reading the covered files without Prism
+ * (null until calibrated, ADR-0066; negative = Prism cost more), NO-SHIP
+ * issues the agent fixed before this stop, and proofs Prism suggested.
+ */
+export const SessionValueSchema = z.object({
+  /** Written by receipts before the token ledger was removed; read-only now. */
+  tokensIn: z.number().int().nonnegative().optional(),
+  filesCovered: z.number().int().nonnegative(),
+  estimatedSaved: z.number().int().nullable(),
+  issuesCaught: z.number().int().nonnegative(),
+  checksSuggested: z.number().int().nonnegative(),
+  /** Files session memory gained since this session's previous receipt (round 2). */
+  filesRemembered: z.number().int().nonnegative().optional(),
+});
+export type SessionValue = z.infer<typeof SessionValueSchema>;
 
 export const ChangeReceiptSchema = z.object({
   /** Stable id: the same session and the same diff give the same id (R-C3). */
@@ -101,12 +138,30 @@ export const ChangeReceiptSchema = z.object({
   lenses: z.array(ReceiptLensLineSchema).optional(),
   /** Data-backed lens checks on this change (plan §5.3). */
   lensFindings: z.array(LensFindingSchema).optional(),
+  /** Structured findings (plan P18): what / where / fix / risk / sources. */
+  findings: z.array(FindingSchema).optional(),
+  /** For `not_proven`: the cheapest runnable check that would prove it (P11). */
+  proof: ReceiptProofSchema.optional(),
   /** The agent session this receipt closes, when the host gave one. */
   sessionId: z.string().min(1).optional(),
-  /** What Prism put into context this session (M-094), as one line. */
-  envelope: z.string().min(1).optional(),
+  /** What Prism did for this session (plan P13). */
+  value: SessionValueSchema.optional(),
   /** `daemon` when the daemon built it, `inproc` for the fallback (§2.1). */
   mode: z.enum(["daemon", "inproc"]).optional(),
+  /**
+   * The previous change's checks, finished after its own stop said
+   * `still_running`. The stop hook answers inside 1 s and the checks take
+   * longer, so without this the verdict they reach is never shown.
+   */
+  earlier: z
+    .object({
+      id: z.string().min(1),
+      verdict: z.enum(["proven", "not_proven", "failed"]),
+      reason: NotProvenReasonSchema.optional(),
+      /** The finished receipt's summary line, without the `Prism receipt:` prefix. */
+      summary: z.string().min(1),
+    })
+    .optional(),
   durationMs: z.number().int().nonnegative(),
 });
 export type ChangeReceipt = z.infer<typeof ChangeReceiptSchema>;
@@ -123,4 +178,34 @@ export function preexistingFailures(receipt: ChangeReceipt): ReceiptCheck[] {
   return receipt.checks.filter(
     (c) => c.status === "failed" && c.cause === "already-failing",
   );
+}
+
+/** The verdict a receipt opens with (plan P11). */
+export type ShipVerdict = "SHIP" | "NO-SHIP" | "NOT PROVEN";
+
+/** Changed paths a lens declared off-limits (a failing `off_limits_touched`). */
+export function offLimitsTouched(receipt: ChangeReceipt): string[] {
+  return (receipt.lensFindings ?? [])
+    .filter((f) => f.check === "off_limits_touched" && f.status === "fail")
+    .flatMap((f) => f.evidence);
+}
+
+/**
+ * `NO-SHIP` only for a failure this change caused (an already-failing check
+ * never counts) or an off-limits path touched; `SHIP` when proven; otherwise
+ * `NOT PROVEN`.
+ */
+export function shipVerdict(receipt: ChangeReceipt): ShipVerdict {
+  if (receipt.verdict === "failed" || offLimitsTouched(receipt).length > 0) {
+    return "NO-SHIP";
+  }
+  return receipt.verdict === "proven" ? "SHIP" : "NOT PROVEN";
+}
+
+/** `SHIP`, `NO-SHIP` or `NOT PROVEN (reason)`: one short label. */
+export function shipVerdictLabel(receipt: ChangeReceipt): string {
+  const verdict = shipVerdict(receipt);
+  return verdict === "NOT PROVEN"
+    ? `NOT PROVEN (${receipt.reason ?? "untested"})`
+    : verdict;
 }

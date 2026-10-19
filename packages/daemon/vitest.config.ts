@@ -4,8 +4,7 @@ export default defineConfig({
   test: {
     name: "@repo-prism/daemon",
     include: ["src/**/*.test.ts"],
-    // The server tests index a real fixture through Core.
-    testTimeout: 30_000,
-    hookTimeout: 30_000,
+    // vitest's 5 s default (plan P22): the server tests index one small
+    // fixture and wait on outcomes, not sleeps.
   },
 });

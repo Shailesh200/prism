@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  feedReleases,
   parseChangelog,
   releaseChips,
   releaseDek,
@@ -78,14 +79,14 @@ describe("parseChangelog", () => {
     expect(releaseDek(release!)).toBe("Queue a teammate from chat.");
   });
 
-  it("tags Envelope / Prepare / Guard as Intelligence", () => {
+  it("tags Prepare / Guard as Intelligence", () => {
     const [release] = parseChangelog(`# Changelog
 
 ## 1.12.0 — Agent-native
 
 ### Intelligence
 
-- Envelope receipts and prepare_change packs.
+- prepare_change packs.
 
 ### MCP
 
@@ -105,5 +106,78 @@ describe("parseChangelog", () => {
 `);
     expect(releaseTags(release!)).toEqual(["Dispatch"]);
     expect(releaseChips(release!)).toEqual(["Dispatch"]);
+  });
+
+  it("joins a wrapped bullet and keeps section prose", () => {
+    const [release] = parseChangelog(`# Changelog
+
+## 1.0.5
+
+- **Extension:** walkthrough
+  parity and the delete intent.
+
+## 1.0.0
+
+### What you can do with it
+
+See the repository. A map at four zoom levels.
+
+Then judge the codebase.
+
+- **VS Code** — the full UI.
+`);
+    expect(release?.version).toBe("1.0.5");
+    expect(release?.bullets).toEqual([
+      "**Extension:** walkthrough parity and the delete intent.",
+    ]);
+    const stable = parseChangelog(`# Changelog
+
+## 1.0.0
+
+### What you can do with it
+
+See the repository. A map at four zoom levels.
+
+Then judge the codebase.
+
+- **VS Code** — the full UI.
+`)[0];
+    expect(stable?.sections[0]?.intro).toBe(
+      "See the repository. A map at four zoom levels.\n\nThen judge the codebase.",
+    );
+    expect(stable?.sections[0]?.bullets).toEqual([
+      "**VS Code** — the full UI.",
+    ]);
+  });
+});
+
+describe("feedReleases", () => {
+  it("puts 2.0.0 first when the file has no 2.0.0 heading", () => {
+    const releases = feedReleases(`# Changelog
+
+## 1.12.0 — Agent-native
+
+- Prepare
+`);
+    expect(releases[0]?.version).toBe("2.0.0");
+    expect(releases[1]?.version).toBe("1.12.0");
+    expect(releases[0]?.bullets).toEqual([
+      "Clarity, reliability and precision.",
+    ]);
+  });
+
+  it("does not duplicate a 2.0.0 heading", () => {
+    const releases = feedReleases(`# Changelog
+
+## 2.0.0 — Clarity
+
+- Receipts
+
+## 1.12.0
+
+- Prepare
+`);
+    expect(releases.map((r) => r.version)).toEqual(["2.0.0", "1.12.0"]);
+    expect(releases[0]?.bullets).toEqual(["Receipts"]);
   });
 });

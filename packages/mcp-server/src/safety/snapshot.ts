@@ -13,7 +13,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import type { PrismWorkspace } from "@repo-prism/core";
-import { readLastPrepareChange } from "@repo-prism/core/envelope";
+import { readLastPrepareChange } from "@repo-prism/core/prepare-history";
 import {
   isAcceptedWorkOrderVetoAdr,
   isFixturePath,
@@ -203,9 +203,8 @@ async function orientationText(
         .join(", ")}.`,
     );
   }
-  lines.push(
-    "When you stop, Prism runs the checks this change reaches and prints a receipt.",
-  );
+  // The receipt line depends on the host (a stop hook or not): the session
+  // hook adds it.
   return clip(lines.join("\n"), ORIENTATION_MAX);
 }
 

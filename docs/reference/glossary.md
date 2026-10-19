@@ -23,10 +23,6 @@ that impact analysis is computed from. See [graphs](/docs/concepts/graphs).
 conventions. See
 [DNA and stack](/docs/concepts/dna-and-stack).
 
-**Envelope** — A local JSONL ledger of Prism tool calls: tool, counts,
-truncated, bytes. Never source. Shown by `prism stats`. See
-[Envelope](/docs/concepts/envelope).
-
 **Estimated** — Inferred rather than measured. Directionally useful; not precise.
 Marked as such wherever it appears. See
 [signal provenance](/docs/concepts/signal-provenance).
@@ -50,7 +46,7 @@ Returned by Prepare. See [Prepare a change](/docs/guides/prepare-a-change).
 matters; neither metric alone identifies it.
 
 **Index** — Prism's parsed copy of your repository, in
-`.prism/cache/index.sqlite`. Every answer derives from it. See
+`~/.prism/workspaces/<key>/cache/index.sqlite`. Every answer derives from it. See
 [the repository index](/docs/concepts/repository-index).
 
 **Knowledge graph** — Semantic relationships beyond imports: what a symbol is,
@@ -89,7 +85,7 @@ work order. CLI `prism prepare`. See
 [signal provenance](/docs/concepts/signal-provenance).
 
 **Receipt** — What the stop hook prints when the agent stops: the checks the
-change reached, and whether it is proven, unproven, or failed.
+change reached, and a verdict: SHIP, NOT PROVEN or NO-SHIP.
 
 **Surface** — A way of using Prism: the MCP server and hooks, the CLI, the GitHub
 Action. All of them consume the same engine and compute nothing themselves.

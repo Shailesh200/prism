@@ -13,9 +13,7 @@ skills say.
 
 | Skill | For |
 |---|---|
-| `prism-review-pr` | Review a change with its blast radius, then post it with your GitHub and issue-tracker tools |
-| `prism-safe-change` | Check what depends on code before editing, renaming or deleting it |
-| `prism-onboard` | Get oriented in an unfamiliar repository |
+| `prism` | Before an edit, rename or delete; orienting in a new repo; reviewing a PR or diff; lenses; habits |
 
 Commands: `/prism-review`, `/prism-check`. Checking a change for regressions
 is the receipt's job: the stop hook runs the tests the change reaches.
@@ -29,7 +27,7 @@ it there. Skills name capabilities by role — "your GitHub tools" — never by 
 name, because Prism cannot know whether GitHub reaches you as a plugin, an MCP
 server, or the `gh` CLI.
 
-Two skills need no connector at all: `prism-safe-change` and `prism-onboard`.
+Editing, renaming and orienting need no connector at all.
 
 ## Hooks
 

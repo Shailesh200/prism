@@ -2,12 +2,24 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **Built, not verified** — B3 replay open (round 4) |
 | Branch | `milestone/M-092-receipt-v2` (from latest `main`) |
 | Depends on | M-091 Verified |
 | Unlocks | M-093 |
 | Packages | `mcp-server/src/safety` (`receipt.ts`, `hook-command.ts`, `snapshot.ts`), `plugin/hooks/prism-hook.mjs`, `shared/src/receipt.ts`, `checks`, `cli` (`prism receipts`), `action/render-comment.mjs` |
 | ADR | none new (ADR-0058 §2 stands) |
+
+
+## Status (17 Oct 2026)
+
+- **Built:**
+  - Baseline-aware verdict with session scope.
+  - Verdict first: `SHIP` / `NOT PROVEN` / `NO-SHIP` with the cheapest proof (next plan P11).
+  - Structured findings (P18).
+  - `prism receipts` with `--as markdown|svg` (`cli/src/commands/receipts.ts`).
+  - The PR comment in `action/render-comment.mjs`.
+- **Round 3:** the baseline re-run now happens in a throwaway copy, so it can no longer overwrite the agent's edits (change report, round 3, item 3a).
+- **Round 4 (running):** the B3 replay benchmark, which has been skipped since round 2 because this checkout has no script to re-create it.
 
 ## 1. Goal
 
@@ -29,7 +41,7 @@ The receipt is correct, scoped to the session, and blocks the agent only for fai
 
 ## 3. Out of scope
 
-- The Envelope footer (M-094).
+- ~~The Envelope footer (M-094).~~ Dropped *(Envelope removed 17 Oct 2026)*.
 - New check kinds.
 
 ## 4. DoD

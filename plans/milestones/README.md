@@ -2,7 +2,7 @@
 
 Critical-path milestones have full specs here. Summaries for other milestones live in the Master Plan §15.
 
-Verified milestone docs M-000 → M-079 moved to [`../archive/milestones/`](../archive/milestones/); the links below point there. New milestones start from [`TEMPLATE.md`](./TEMPLATE.md).
+Verified milestone docs M-000 → M-079 moved to [`../archive/milestones/`](../archive/milestones/); the links below point there. On 17 Oct 2026, the obsolete and absorbed docs (M-058 → M-063, M-078, M-081, M-082, M-084 → M-086, M-094, PROGRAM/IMPLEMENTATION_prism-2.0) moved there too. Live status: [`../PROGRESS.md`](../PROGRESS.md). New milestones start from [`TEMPLATE.md`](./TEMPLATE.md).
 
 | ID | File |
 |---|---|
@@ -40,22 +40,24 @@ Verified milestone docs M-000 → M-079 moved to [`../archive/milestones/`](../a
 | M-071 | [M-071_finding-loop.md](../archive/milestones/M-071_finding-loop.md) — `queue_finding` + fingerprinted re-scan loop |
 | M-072 | [M-072_prism-guard.md](../archive/milestones/M-072_prism-guard.md) — `guard_session` + VS Code/Cursor panel |
 | M-073 | [M-073_agents-md-working-set.md](../archive/milestones/M-073_agents-md-working-set.md) — Living AGENTS.md (`~/.prism` only) + Working Set on `JobRecord` |
-| Program | [PROGRAM_focus-reset.md](./PROGRAM_focus-reset.md) — Focus Reset: Prepare · Envelope · Graph (M-087 → M-100) |
-| M-087 | [M-087_focus-reset-plan.md](./M-087_focus-reset-plan.md) — the plan (docs only) |
-| M-088 | [M-088_identity-hero-copy.md](./M-088_identity-hero-copy.md) — Prism stays; DevX hero |
-| M-089 | [M-089_one-build-everywhere.md](./M-089_one-build-everywhere.md) — workspace build on every host |
-| M-090 | [M-090_hygiene.md](./M-090_hygiene.md) — branches, stashes, worktrees, data prune, plans archive |
-| M-091 | [M-091_surface-cut.md](./M-091_surface-cut.md) — 6 default tools, Dispatch off MCP |
-| M-092 | [M-092_receipt-v2.md](./M-092_receipt-v2.md) — baseline-aware, session-scoped receipt |
-| M-093 | [M-093_prepare-v2.md](./M-093_prepare-v2.md) — budget, replay eval, auto-Prepare |
-| M-094 | [M-094_envelope-v2.md](./M-094_envelope-v2.md) — sessions, budgets, receipt footer |
-| M-095 | [M-095_graph-daemon.md](./M-095_graph-daemon.md) — always-fresh local daemon |
-| M-096 | [M-096_graph-artifact-tool.md](./M-096_graph-artifact-tool.md) — `graph` tool + `graph.html` |
-| M-097 | [M-097_first-run.md](./M-097_first-run.md) — 60-second report card |
-| M-098 | [M-098_real-agent-proof.md](./M-098_real-agent-proof.md) — Claude Code A/B |
-| M-099 | [M-099_delete-dispatch.md](./M-099_delete-dispatch.md) — delete Dispatch + dead UI |
-| M-100 | [M-100_relaunch.md](./M-100_relaunch.md) — README, docs, website, Marketplace |
+| M-080 | [M-080_agent-cli-ia.md](./M-080_agent-cli-ia.md) — HTTP `/mcp`. **Deferred** |
+| M-083 | [M-083_engine-merge.md](./M-083_engine-merge.md) — engine package merge. **Deferred** until after 2.0 |
+| Program | [PROGRAM_focus-reset.md](./PROGRAM_focus-reset.md) — Focus Reset (M-087 → M-100). Approved 2026-10-10; partly superseded (Envelope removed, 2.0 unified plan) |
+| M-087 | [M-087_focus-reset-plan.md](./M-087_focus-reset-plan.md) — the plan; umbrella branch, **In Progress** |
+| M-088 | [M-088_identity-hero-copy.md](./M-088_identity-hero-copy.md) — Prism stays; hero copy. **Partly done** (README behind) |
+| M-089 | [M-089_one-build-everywhere.md](./M-089_one-build-everywhere.md) — workspace build on every host. **Built, not verified** |
+| M-090 | [M-090_hygiene.md](./M-090_hygiene.md) — branches, stashes, worktrees, data prune, plans archive. **Done** |
+| M-091 | [M-091_surface-cut.md](./M-091_surface-cut.md) — 9 default tools (2.0), Dispatch off MCP. **Done** |
+| M-092 | [M-092_receipt-v2.md](./M-092_receipt-v2.md) — baseline-aware, session-scoped receipt. **Built, not verified** |
+| M-093 | [M-093_prepare-v2.md](./M-093_prepare-v2.md) — budget, replay eval, auto-Prepare. **Built, not verified** |
+| M-094 | [M-094_envelope-v2.md](../archive/milestones/M-094_envelope-v2.md) — **Obsolete**: Envelope removed 17 Oct 2026 |
+| M-095 | [M-095_graph-daemon.md](./M-095_graph-daemon.md) — always-fresh local daemon. **Built, not verified** |
+| M-096 | [M-096_graph-artifact-tool.md](./M-096_graph-artifact-tool.md) — `graph` tool + `graph.json` export (`graph.html` deleted in 2.0). **Done** |
+| M-097 | [M-097_first-run.md](./M-097_first-run.md) — first run, re-scoped to `prism start`. **Built, not verified** |
+| M-098 | [M-098_real-agent-proof.md](./M-098_real-agent-proof.md) — Claude Code + opencode A/B. **Open (round 4)** |
+| M-099 | [M-099_delete-dispatch.md](./M-099_delete-dispatch.md) — delete Dispatch + dead UI. **Done** (`f45ccb7`) |
+| M-100 | [M-100_relaunch.md](./M-100_relaunch.md) — README, docs, website. **Built, not deployed** |
 | M-074 | [M-074_bloat-job-cost.md](../archive/milestones/M-074_bloat-job-cost.md) — `duplicate_implementation` + `wrapper_over_existing` findings, mute list, `list_findings`, Pulse token-cost chart |
 | M-075 | [M-075_symbol-memory-adr.md](../archive/milestones/M-075_symbol-memory-adr.md) — symbol-anchored `remember`, ADR/`WHY:` `rationale_for` edges, `prepare_change.notes` |
-| PROGRAM | [PROGRAM_agent-native-iris.md](./PROGRAM_agent-native-iris.md) — Cut 1 approved 2026-09-11. First engineering milestone: [M-069](../archive/milestones/M-069_agent-substrate.md). |
-| 3 prompts | [PROGRAM_agent-native-3-PHASES.md](./PROGRAM_agent-native-3-PHASES.md) — Phase 1 started (`go ahead with phase 1`). |
+| PROGRAM | [PROGRAM_agent-native-iris.md](./PROGRAM_agent-native-iris.md) — Cuts 1–3 done (M-069 → M-076); Cut 4 set aside. First engineering milestone: [M-069](../archive/milestones/M-069_agent-substrate.md). |
+| 3 prompts | [PROGRAM_agent-native-3-PHASES.md](./PROGRAM_agent-native-3-PHASES.md) — all three phases done 2026-09-17. |

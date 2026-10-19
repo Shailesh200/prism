@@ -2,11 +2,13 @@
  * The receipt's baseline (M-092): run a check as if this session's edits had
  * not happened, to tell a failure the session caused from one already there.
  *
- * It does not use `git stash`, so neither the index nor the stash list is
- * touched. Each session file's current bytes are copied aside, the file is
- * put back to `HEAD` (or removed, if `HEAD` lacks it), the callback runs, and
- * every file is written back byte for byte. A manifest written before the
- * first change lets the next run finish a restore a crash interrupted.
+ * It runs in a throwaway copy, never in the live folder (round 3, owner
+ * decision 1): the agent or the user may be editing the live folder while
+ * the check runs. The copy is `HEAD` (checked out through its own index file,
+ * so the repository's index, stash and worktree list are untouched), plus
+ * every change that was already there before the session, with the session's
+ * files left at `HEAD`. Installed dependencies (`node_modules` folders) are
+ * linked in, not copied. The copy is removed when the callback ends.
  */
 
 import { execFileSync } from "node:child_process";
@@ -15,19 +17,24 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
-  writeFileSync,
+  symlinkSync,
 } from "node:fs";
-import { dirname, isAbsolute, join, normalize, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  normalize,
+  resolve,
+} from "node:path";
 import { workspacePrismDir } from "@repo-prism/shared/prism-home";
 
 type Entry = { readonly path: string; readonly existed: boolean };
 type Manifest = { readonly root: string; readonly entries: readonly Entry[] };
-
-function restoreDir(root: string, env: NodeJS.ProcessEnv): string {
-  return join(workspacePrismDir(root, env), "receipts", "baseline-restore");
-}
 
 function inside(root: string, rel: string): boolean {
   if (isAbsolute(rel)) return false;
@@ -37,36 +44,43 @@ function inside(root: string, rel: string): boolean {
   );
 }
 
-function headBytes(root: string, rel: string): Buffer | null {
-  try {
-    return execFileSync("git", ["show", `HEAD:./${rel}`], {
-      cwd: root,
-      stdio: ["ignore", "pipe", "ignore"],
-      maxBuffer: 64 * 1024 * 1024,
-    });
-  } catch {
-    return null;
-  }
+function git(
+  root: string,
+  args: readonly string[],
+  env?: NodeJS.ProcessEnv,
+): string {
+  return execFileSync("git", args, {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+    maxBuffer: 64 * 1024 * 1024,
+    ...(env ? { env } : {}),
+  });
 }
 
 function hasHead(root: string): boolean {
   try {
-    execFileSync("git", ["rev-parse", "--verify", "HEAD"], {
-      cwd: root,
-      stdio: "ignore",
-    });
+    git(root, ["rev-parse", "--verify", "HEAD"]);
     return true;
   } catch {
     return false;
   }
 }
 
-/** Put back any files a previous, interrupted baseline run left reverted. */
+/**
+ * Builds before round 3 reverted session files in the live folder and kept a
+ * manifest to finish an interrupted restore. Put back what such a run left
+ * reverted, once; nothing writes that manifest any more.
+ */
 export function recoverBaseline(
   root: string,
   env: NodeJS.ProcessEnv = process.env,
 ): number {
-  const dir = restoreDir(root, env);
+  const dir = join(
+    workspacePrismDir(root, env),
+    "receipts",
+    "baseline-restore",
+  );
   const manifestPath = join(dir, "manifest.json");
   if (!existsSync(manifestPath)) return 0;
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Manifest;
@@ -89,7 +103,9 @@ export function recoverBaseline(
 
 /**
  * Why a baseline cannot be taken safely, or null when it can. Untracked-only
- * repositories, paths outside the root, directories and symlinks are refused.
+ * repositories, paths outside the root, directories and symlinks are refused,
+ * and so is Yarn Plug'n'Play: its dependency map is tied to the project's own
+ * folder, so a copy elsewhere cannot load the test runner.
  */
 export function baselineRefusal(
   root: string,
@@ -105,48 +121,81 @@ export function baselineRefusal(
       if (!st.isFile()) return `${rel} is not a regular file`;
     }
   }
+  if (existsSync(join(root, ".pnp.cjs"))) {
+    return "Yarn Plug'n'Play dependencies cannot be used from a copy";
+  }
   return null;
 }
 
+/** Paths changed against `HEAD` in the live folder (tracked and untracked). */
+function changedPaths(root: string): string[] {
+  const out = git(root, [
+    "--no-optional-locks",
+    "status",
+    "--porcelain=v1",
+    "-z",
+    "--untracked-files=all",
+    "--no-renames",
+  ]);
+  return out
+    .split("\0")
+    .filter((line) => line.length > 3)
+    .map((line) => line.slice(3));
+}
+
+/** Installed dependency folders git ignores: linked into the copy. */
+function dependencyFolders(root: string): string[] {
+  return git(root, [
+    "ls-files",
+    "--others",
+    "--ignored",
+    "--exclude-standard",
+    "--directory",
+  ])
+    .split("\n")
+    .map((line) => line.replace(/\/$/, ""))
+    .filter((path) => basename(path) === "node_modules");
+}
+
 /**
- * Run `fn` with `paths` put back to `HEAD`, then restore them. Returns null
- * (and runs nothing) when `baselineRefusal` refuses.
+ * Run `fn` in a throwaway copy of `root` where `paths` are as at `HEAD`, then
+ * remove the copy. `fn` gets the copy's root. Returns null (and runs nothing)
+ * when `baselineRefusal` refuses. The live folder is only read.
  */
-export async function withBaselineTree<T>(
+export async function withBaselineCopy<T>(
   root: string,
   paths: readonly string[],
-  fn: () => Promise<T>,
+  fn: (copyRoot: string) => Promise<T>,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<T | null> {
   recoverBaseline(root, env);
   if (baselineRefusal(root, paths) !== null) return null;
-  const dir = restoreDir(root, env);
-  mkdirSync(dir, { recursive: true });
-  const entries: Entry[] = paths.map((path) => ({
-    path,
-    existed: existsSync(join(root, path)),
-  }));
-  entries.forEach((entry, i) => {
-    if (entry.existed)
-      copyFileSync(join(root, entry.path), join(dir, String(i)));
-  });
-  writeFileSync(
-    join(dir, "manifest.json"),
-    JSON.stringify({ root, entries } satisfies Manifest),
-  );
+  const temp = mkdtempSync(join(tmpdir(), "prism-baseline-"));
+  const copy = join(temp, "tree");
   try {
-    for (const entry of entries) {
-      const target = join(root, entry.path);
-      const head = headBytes(root, entry.path);
-      if (head === null) {
-        rmSync(target, { force: true });
-      } else {
-        mkdirSync(dirname(target), { recursive: true });
-        writeFileSync(target, head);
+    const gitEnv = { ...process.env, GIT_INDEX_FILE: join(temp, "index") };
+    git(root, ["read-tree", "HEAD"], gitEnv);
+    git(root, ["checkout-index", "--all", `--prefix=${copy}/`], gitEnv);
+    const session = new Set(paths);
+    // What was already changed before the session stays changed.
+    for (const rel of changedPaths(root)) {
+      if (session.has(rel) || !inside(root, rel)) continue;
+      const from = join(root, rel);
+      const to = join(copy, rel);
+      if (!existsSync(from)) rmSync(to, { force: true });
+      else if (lstatSync(from).isFile()) {
+        mkdirSync(dirname(to), { recursive: true });
+        copyFileSync(from, to);
       }
     }
-    return await fn();
+    for (const rel of dependencyFolders(root)) {
+      const to = join(copy, rel);
+      if (existsSync(to)) continue;
+      mkdirSync(dirname(to), { recursive: true });
+      symlinkSync(join(root, rel), to, "dir");
+    }
+    return await fn(copy);
   } finally {
-    recoverBaseline(root, env);
+    rmSync(temp, { recursive: true, force: true });
   }
 }

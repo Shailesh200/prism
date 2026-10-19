@@ -2,11 +2,16 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **Deferred** |
 | Branch | `milestone/M-083-engine-merge` |
 | Depends on | M-082 Verified |
 | Packages | `engine` (folders) + shims from analyzer / indexer / graph-engine / intelligence / impact / navigation / repository-map |
-| How | [IMPLEMENTATION_prism-2.0.md](./IMPLEMENTATION_prism-2.0.md) §5 M-083 |
+| How | [IMPLEMENTATION_prism-2.0.md](../archive/milestones/IMPLEMENTATION_prism-2.0.md) §5 M-083 |
+
+
+## Status (17 Oct 2026)
+
+Deferred until after 2.0 (Focus Reset §12.1). The engine packages are still separate: `analyzer`, `indexer`, `graph-engine`, `intelligence`, `impact`, `navigation`. `repository-map` was deleted in 2.0. No work has been done on this.
 
 ## 1. Goal
 
