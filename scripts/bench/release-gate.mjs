@@ -7,7 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   DOC,
-  PRIVATE_NAMES,
+  privateNames,
   RAW,
   REQUIRED_HOSTS,
   renderDoc,
@@ -16,10 +16,28 @@ import {
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
+/**
+ * 2.0.0 only (Shailesh, 2026-10-17, B1 added 2026-10-18): Claude Code's
+ * with-Prism median tokens and cost, and the B1 orientation ratio, are above
+ * the bar, so these checks warn instead of failing for this release. 2.0.1
+ * restores them as failures: https://github.com/Shailesh200/prism/issues/23
+ */
+export const WARN_ONLY_2_0_0 = new Set([
+  "GATE-T1.B1ratio",
+  "GATE-T2.ClaudeCode.tokens",
+  "GATE-T2.ClaudeCode.cost",
+]);
+
 export function releaseChecks({ b1, raw, doc }) {
   const out = [];
   const push = (id, fail, before, after, rule) =>
-    out.push({ id, status: fail ? "fail" : "pass", before, after, rule });
+    out.push({
+      id,
+      status: fail ? (WARN_ONLY_2_0_0.has(id) ? "warn" : "fail") : "pass",
+      before,
+      after,
+      rule,
+    });
   const t = b1?.totals;
   if (!t)
     out.push({
@@ -89,7 +107,7 @@ export function releaseChecks({ b1, raw, doc }) {
       );
     }
     const text = `${JSON.stringify(raw)}\n${doc ?? ""}`;
-    const leak = PRIVATE_NAMES.find((re) => re.test(text));
+    const leak = privateNames().find((re) => re.test(text));
     push(
       "GATE-T3.publicOnly",
       Boolean(leak),

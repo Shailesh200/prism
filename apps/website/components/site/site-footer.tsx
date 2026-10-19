@@ -13,9 +13,8 @@ export function SiteFooter() {
           <div>
             <Logo />
             <p className="blurb">
-              Your agent’s second pair of eyes. Know before you ship. Local
-              software intelligence that catches what the agent missed. Free,
-              MIT, runs on your machine.
+              Software intelligence for coding agents. Prepare, lenses, and
+              review, on your machine. Free, MIT.
             </p>
             <StarButton size="sm" />
           </div>
@@ -32,7 +31,11 @@ export function SiteFooter() {
         </div>
         <div className="base">
           <span>MIT licence · prismhq.in</span>
-          <a href={GITHUB}>github.com/Shailesh200/prism</a>
+          <span className="mine">
+            <a href="https://shaileshjha.in">shaileshjha.in</a>
+            <a href="mailto:hello@shaileshjha.in">hello@shaileshjha.in</a>
+            <a href={GITHUB}>github.com/Shailesh200/prism</a>
+          </span>
         </div>
       </Container>
     </footer>

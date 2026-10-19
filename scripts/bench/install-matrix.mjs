@@ -79,6 +79,36 @@ const SAMPLE_HOOK_PAYLOAD = JSON.stringify({
   session_id: "b10-install-matrix",
 });
 
+/**
+ * The `prism-hook.mjs` path inside a settings value. A command string such as
+ * `node /…/prism-hook.mjs` yields the path, including a Windows `D:\…` path.
+ */
+function hookPathFrom(text) {
+  const win = text.match(/[A-Za-z]:\\(?:[^"'\r\n])*prism-hook\.mjs/);
+  if (win) return win[0];
+  const unix = text.match(/\/[^"'\s]*prism-hook\.mjs/);
+  return unix ? unix[0] : null;
+}
+
+/** A hook command path from settings, including Windows `D:\…` paths. */
+function hookCommand(value) {
+  if (typeof value === "string") {
+    return hookPathFrom(value);
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = hookCommand(item);
+      if (found) return found;
+    }
+  } else if (value && typeof value === "object") {
+    for (const item of Object.values(value)) {
+      const found = hookCommand(item);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 function fireHook(home, host, env) {
   if (host !== "claude") {
     return { skipped: true, reason: "no SessionStart hook for this host" };
@@ -95,10 +125,7 @@ function fireHook(home, host, env) {
   if (existsSync(settingsPath)) {
     try {
       const settings = JSON.parse(readFileSync(settingsPath, "utf8"));
-      const hooks = settings?.hooks;
-      const blob = JSON.stringify(hooks ?? {});
-      const match = blob.match(/(\/[^"'\s]+prism-hook\.mjs)/);
-      if (match) settingsHook = match[1];
+      settingsHook = hookCommand(settings?.hooks);
     } catch {
       /* ignore */
     }
@@ -142,6 +169,8 @@ for (const host of hostFilter) {
   const home = mkdtempSync(join(tmpdir(), `prism-b10-${host}-`));
   const env = {
     HOME: home,
+    // Node's homedir() on Windows reads USERPROFILE, not HOME.
+    USERPROFILE: home,
     PRISM_HOME: join(home, ".prism"),
     PRISM_DAEMON: "0",
   };

@@ -139,6 +139,18 @@ export function registerTools(
       // The SDK has already validated `args` against `inputSchema` by here.
       async (rawArgs: unknown) => {
         const started = Date.now();
+        const note = (ok: boolean, code?: string) => {
+          reportUsage(
+            {
+              surface: "mcp",
+              name: tool.name,
+              result: ok ? "ok" : "failed",
+              ms: Date.now() - started,
+              ...(code ? { code } : {}),
+            },
+            env,
+          );
+        };
         const { maxTokens, offset, ...args } = (rawArgs ?? {}) as {
           maxTokens?: number;
           offset?: number;
@@ -153,16 +165,7 @@ export function registerTools(
         } else {
           const ready = await session.ready();
           if (!ready.ok) {
-            reportUsage(
-              {
-                surface: "mcp",
-                name: tool.name,
-                result: "failed",
-                code: ready.error.code,
-                ms: Date.now() - started,
-              },
-              env,
-            );
+            note(false, ready.error.code);
             throw toMcpError(ready.error);
           }
           try {
@@ -172,30 +175,13 @@ export function registerTools(
               args as Parameters<typeof tool.call>[1],
             );
           } catch (cause) {
-            reportUsage(
-              {
-                surface: "mcp",
-                name: tool.name,
-                result: "failed",
-                ms: Date.now() - started,
-              },
-              env,
-            );
+            note(false);
             throw toMcpErrorFromThrown(cause);
           }
         }
 
         if (!result.ok) {
-          reportUsage(
-            {
-              surface: "mcp",
-              name: tool.name,
-              result: "failed",
-              code: result.error.code,
-              ms: Date.now() - started,
-            },
-            env,
-          );
+          note(false, result.error.code);
           throw toMcpError(result.error);
         }
         let value = result.value;
@@ -207,15 +193,7 @@ export function registerTools(
               { workspaceRoot: root, env, tools: offered },
             );
           } catch (cause) {
-            reportUsage(
-              {
-                surface: "mcp",
-                name: tool.name,
-                result: "failed",
-                ms: Date.now() - started,
-              },
-              env,
-            );
+            note(false);
             throw toMcpErrorFromThrown(cause);
           }
         }
@@ -225,15 +203,7 @@ export function registerTools(
           offset ?? 0,
         ).value;
         const text = serialiseForMcp(fitted);
-        reportUsage(
-          {
-            surface: "mcp",
-            name: tool.name,
-            result: "ok",
-            ms: Date.now() - started,
-          },
-          env,
-        );
+        note(true);
         return {
           content: [{ type: "text" as const, text }],
         };

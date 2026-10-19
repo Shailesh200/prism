@@ -1,11 +1,15 @@
 name: publish-npm
 
-# Publishing is an explicit act: it fires when a `prism-npm-v*` tag is pushed.
-# Cut a release with: bump versions -> commit -> tag prism-npm-vX.Y.Z -> push tag.
+# A merge to main publishes npm when package code changed. A README, the docs,
+# or the website alone does not. The website deploy is Vercel's, on the same
+# push, and it builds only when apps/website or docs changed
+# (apps/website/vercel.json). The two start together; neither waits for the other.
+# A prism-npm-v* tag or a manual run publishes the same way.
 # Auth: npm trusted publishing (OIDC) first, then optional NPM_TOKEN.
 
 on:
   push:
+    branches: [main]
     tags:
       - "prism-npm-v*"
   workflow_dispatch:
@@ -19,9 +23,39 @@ permissions:
   id-token: write
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.gate.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: gate
+        run: |
+          set -euo pipefail
+          # A tag or a manual run is an explicit publish. A branch push
+          # publishes only when package code changed.
+          if [ "${{ github.event_name }}" != "push" ] || [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          before="${{ github.event.before }}"
+          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git cat-file -e "${before}^{commit}" 2>/dev/null; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          decision=$(git diff --name-only "$before" "${{ github.sha }}" | node scripts/release-paths.mjs publish)
+          echo "publish=${decision}" >> "$GITHUB_OUTPUT"
+
   publish:
-    # Disabled until Release 2.0.0 (plan §3.0: local build only).
-    if: false
+    needs: gate
+    if: needs.gate.outputs.publish == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

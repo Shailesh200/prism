@@ -25,7 +25,6 @@ import {
   PRISM_CURSOR_INSTALL_URL,
   PRISM_MCP_JSON_STRING,
   PRISM_OPENCODE_JSON_STRING,
-  PRISM_RECEIPT_CONFIG,
 } from "@/lib/mcp-install";
 import { installLinkAttrs } from "@/lib/pulse";
 import { breadcrumbJsonLd, pageMetadata } from "@/lib/seo";
@@ -132,7 +131,7 @@ export default async function AgentInstallPage({ params }: Props) {
           lede={agent.lede}
           actions={
             <div className="grid w-full gap-4">
-              <Command cmd="npm install -g @repo-prism/cli" />
+              <Command cmd="npm install -g @prismapp/cli" />
               <Command cmd={`prism install ${agent.client}`} />
               {agent.notes && (
                 <Window title="~/northwind">
@@ -157,13 +156,9 @@ export default async function AgentInstallPage({ params }: Props) {
                 Or add the MCP server yourself.
               </h2>
               <p className="lede text-lg">
-                Paste this into {agent.name}’s MCP config. It starts the
-                published Prism server with <code>npx</code>. By hand you get
-                the MCP tools, not {extra}.
-              </p>
-              <p className="mt-4 text-ink2">
-                Without hooks, turn on the <code>receipt</code> tool so the
-                agent can ask for a receipt before it says it is done.
+                Paste this one entry into {agent.name}’s MCP config. It starts
+                the latest Prism server with <code>npx</code> and turns on the
+                receipt tool. By hand you get the MCP tools, not {extra}.
               </p>
             </div>
             <div className="grid min-w-0 gap-5">
@@ -179,25 +174,19 @@ export default async function AgentInstallPage({ params }: Props) {
                     href={PRISM_CURSOR_INSTALL_URL}
                     {...installLinkAttrs(PRISM_CURSOR_INSTALL_URL)}
                   >
-                    Add to Cursor
+                    Add the server
                   </Button>
                   <p className="text-[15px] text-ink3">
-                    Opens Cursor and asks before it adds the server.
+                    Opens your editor and asks before it adds the server.
                   </p>
                 </div>
               ) : null}
-              <ConfigBlock
-                lang="json"
-                path="~/.prism/config.json"
-                text={PRISM_RECEIPT_CONFIG}
-                footer="Add to the file if it already has settings."
-              />
             </div>
           </Container>
         </section>
 
         <section className="sec">
-          <Container className="grid2 items-start">
+          <Container className="grid2 table-lead items-start">
             <div>
               <h2 className="d3 mb-5">What install writes</h2>
               <div className="card tcard">

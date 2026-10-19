@@ -26,7 +26,10 @@ import {
   type WorkspaceSession,
 } from "./session.js";
 import { registerTools } from "./tool-registry.js";
-import { loadUserConfigSync } from "@repo-prism/shared/user-config";
+import {
+  extraToolsFromEnv,
+  loadUserConfigSync,
+} from "@repo-prism/shared/user-config";
 import { selectTools } from "./tools.js";
 import {
   createWorkspaceBinding,
@@ -117,9 +120,6 @@ export function createPrismMcpServer(
       if (binding.applyHints(hints)) {
         const root = binding.current();
         process.stderr.write(`prism-mcp: workspace ${root} (from mcp roots)\n`);
-        // A folder opened or switched after startup gets its own index.
-        // The daemon writes it under ~/.prism/workspaces/<key> and does not
-        // block this handshake.
         void startDaemonFor(root, options.env ?? process.env).catch(
           () => undefined,
         );
@@ -165,15 +165,16 @@ export function createPrismMcpServer(
   const daemon = daemonAttach(env);
   const userConfig = loadUserConfigSync(env);
   if (!userConfig.ok) {
-    // Registered tools stay the full set; `prism doctor` reports
+    // Registered tools fall back to the default nine; `prism doctor` reports
     // the same error with its code.
     process.stderr.write(
       `prism: ${userConfig.error.code}: ${userConfig.error.message}; using the default tools\n`,
     );
   }
-  const selection = selectTools(
-    userConfig.ok ? (userConfig.value.extraTools ?? []) : [],
-  );
+  const fromFile = userConfig.ok ? (userConfig.value.extraTools ?? []) : [];
+  const selection = selectTools([
+    ...new Set([...fromFile, ...extraToolsFromEnv(env)]),
+  ]);
   if (selection.unknownExtraTools.length > 0) {
     process.stderr.write(
       `prism: unknown extraTools ignored: ${selection.unknownExtraTools.join(", ")}\n`,

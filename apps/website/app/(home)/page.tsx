@@ -11,7 +11,7 @@ import { Pill } from "@/components/ui/pill";
 import { Failed, Ln, Proven, Typed, cells } from "@/components/ui/term";
 import { Bubble, ToolTag, Window } from "@/components/ui/window";
 import { SiteFooter } from "@/components/site/site-footer";
-import { PrepareDemo } from "@/components/site/demos";
+import { MatchCodeDemo, PrepareDemo } from "@/components/site/demos";
 import { SiteNav } from "@/components/site/site-nav";
 import { SITE_DESCRIPTION, pageMetadata } from "@/lib/seo";
 
@@ -36,15 +36,17 @@ function Hero() {
             className="block h-11 w-auto sm:h-14"
           />
           <h1 className="d1 hero-h mt-[22px] sm:mt-7">
-            Your agent starts <em>in the right files.</em>
+            Software intelligence <em>for your agent.</em>
           </h1>
-          <p className="hero-sub mt-4 mb-5 sm:mb-6">
-            Prism tells your agent which files to open, then checks the change.
+          <p className="hero-sub mt-3 mb-4">
+            Prepare the change, make it, then review and ship.
           </p>
-          <p className="lede hero-lede mb-7">
-            Ask for a change in plain words. Prism names the files, the tests,
-            and code already in the repo to reuse. After the edit, it says
-            whether the change is ready to ship. It runs on your machine.
+          <p className="lede hero-lede mb-6">
+            Prism is a one-stop software intelligence system that helps your AI
+            agents write better code. It prepares the files that need to be
+            edited. House style helps the agent make the smallest change that
+            matches this repo. Prism then reviews the code, finds bugs, and
+            gives you a ship or no-ship result.
           </p>
           <Command cmd={INSTALL_COMMAND} />
           <div className="hero-acts mt-5">
@@ -66,16 +68,23 @@ function Hero() {
               <Window title="Your agent" kind="chat">
                 <Bubble who="you">Add VAT to invoice totals</Bubble>
                 <Bubble who="prism">
-                  Open these files first.
+                  <span className="stage">Prepare</span>
+                  src/billing/invoice.ts
                   <br />
-                  1. src/billing/invoice.ts — the total is calculated here
+                  src/billing/totals.ts
+                  <span className="stage">Edit</span>
+                  Follow invoiceTotal in this repo.
                   <br />
-                  2. src/billing/totals.ts
-                  <br />
-                  Tests: test/invoice.test.ts, test/totals.test.ts
+                  Also used in src/checkout/summary.ts.
                 </Bubble>
                 <Bubble who="agent" name="Agent">
-                  I’ll start in those files, then run the tests.
+                  I’ll edit those files and update the code that calls them.
+                </Bubble>
+                <Bubble who="prism">
+                  <span className="stage">Review</span>
+                  No blocked files. The tests have not been run yet.
+                  <br />
+                  Receipt: NOT PROVEN
                 </Bubble>
               </Window>
             }
@@ -135,9 +144,8 @@ function Hero() {
             }
           />
           <p className="cap">
-            What you type, and what your agent gets before its first edit. After
-            the edit, a <Link href="/product/review">lens review</Link> and a
-            receipt check the work.
+            One conversation: the files to open, the edit, and a{" "}
+            <Link href="/product/receipts">receipt</Link>.
           </p>
         </div>
       </Container>
@@ -156,8 +164,8 @@ function FeatureBlock({
 }) {
   return (
     <section className="sec">
-      <Container className="grid2 grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)]">
-        <div>
+      <Container className="xrow grid2 grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)]">
+        <div className="xrow-copy">
           <h2 className="d2 mb-4">{title}</h2>
           <p className="lede">{lede}</p>
         </div>
@@ -176,12 +184,12 @@ const WHAT_IT_DOES = [
   {
     title: "How does this repo do it?",
     href: "/product/prepare",
-    body: "House style points at a file from your own code to copy, never a fixture or a test.",
+    body: "Match the code points at a file from your own code to copy, never a fixture or a test.",
   },
   {
     title: "What did the agent miss?",
     href: "/product/review",
-    body: "Review ranks this session’s changes by risk, and a lens adds checks like callers left behind and code no test covers.",
+    body: "Review reads the change and groups findings as Critical, High, Low, and Nit, then gives a Receipt.",
   },
   {
     title: "What breaks if I change this?",
@@ -201,7 +209,7 @@ const WHAT_IT_DOES = [
   {
     title: "How should the agent work?",
     href: "/product/lenses",
-    body: "A lens sets how the agent works and what review checks: Dev, Architect, QA or your own.",
+    body: "Dev follows the code already in the repo and the blast radius. QA and Architect check the change for bugs and structure.",
   },
   {
     title: "Can it run my routine?",
@@ -236,18 +244,19 @@ export default function HomePage() {
                   title: "Install",
                   body: (
                     <>
-                      One command. <code>prism start</code> connects the agents
-                      on your machine and maps your code.
+                      Install the CLI, then run <code>prism install all</code>.
+                      It connects every agent on this machine. Open the agent
+                      again.
                     </>
                   ),
                 },
                 {
-                  title: "Ask as usual",
-                  body: "Type your request in plain words. Prism adds the files, tests and code to reuse. No tool names needed.",
+                  title: "Match the code",
+                  body: "While the agent writes, Prism points at a file from your repo to copy. The new code follows that file.",
                 },
                 {
-                  title: "Review what it missed",
-                  body: "Ask for a review. A lens flags callers left behind and code no test covers. When the agent stops, the receipt says SHIP, NOT PROVEN or NO-SHIP.",
+                  title: "Review",
+                  body: "Guardrails, QA, and Architect. The receipt says SHIP, NOT PROVEN, or NO-SHIP.",
                 },
               ]}
             />
@@ -256,14 +265,21 @@ export default function HomePage() {
 
         <FeatureBlock
           title="Prepare, before the edit"
-          lede="Ask for a change and Prism adds the files to open, a signature for the top one, the tests and the command to run them."
+          lede="Names the files to open, the tests to run, and code already in the repo to reuse."
         >
           <PrepareDemo />
         </FeatureBlock>
 
         <FeatureBlock
+          title="Match the code, during the edit"
+          lede="Points at a file already in your repo to copy, so the new code looks like the rest. Never a fixture or a test."
+        >
+          <MatchCodeDemo />
+        </FeatureBlock>
+
+        <FeatureBlock
           title="Review, after the edit"
-          lede="The QA lens flags a changed function no test covers, callers the change left behind and tests that reach it but did not run. When your agent stops, Prism runs those tests. If one fails, the receipt says NO-SHIP."
+          lede="Guardrails, QA, and Architect. Findings are Critical, High, Low, or Nit. The receipt says whether to ship."
         >
           <ChatTerminalPair
             chat={
@@ -275,8 +291,8 @@ export default function HomePage() {
                 <Bubble who="prism">
                   <span className="r">Prism · NO-SHIP (1 check failed)</span>
                   <br />
-                  Prism receipt: changed 1 file, 5 dependents, 2 tests reach it
-                  — NO-SHIP
+                  Prism receipt: changed 1 file, 5 dependents, 2 tests reach it.
+                  NO-SHIP
                   <br />
                   <Proven />
                   <br />
@@ -295,8 +311,8 @@ export default function HomePage() {
                   <span className="w">Prism · NO-SHIP (1 check failed)</span>
                 </Ln>
                 <Ln>
-                  Prism receipt: changed 1 file, 5 dependents, 2 tests reach it
-                  — NO-SHIP
+                  Prism receipt: changed 1 file, 5 dependents, 2 tests reach it.
+                  NO-SHIP
                 </Ln>
                 <Ln>
                   <Proven />
@@ -406,9 +422,8 @@ export default function HomePage() {
               }
               title="Privacy is the default"
             >
-              Runs on your machine. No account, and your code stays here. Prism
-              can send which command or tool ran, and whether it worked.
-              `PRISM_PULSE=0` turns that off.
+              Runs on your machine. No account, and your code stays here. A usage ping sends the command or tool name and whether it worked.
+              The only network call is a daily update check you can turn off.
             </Card>
             <Card
               icon={

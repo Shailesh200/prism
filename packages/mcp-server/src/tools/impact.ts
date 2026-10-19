@@ -248,7 +248,6 @@ export async function runReview(
     report.value,
     analysed,
     args.lens,
-    paths,
   );
   if (lens.unknownLens) {
     return err(

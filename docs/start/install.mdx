@@ -26,17 +26,26 @@ read it) but not required.
 ## 2. Install and wire your agent
 
 ```bash
-npm install -g @repo-prism/cli
-prism install claude     # or: cursor, codex, opencode, all
+npm install -g @prismapp/cli
+prism install all
 ```
 
-`prism install` writes the MCP entry, the hooks or the rule line for each host,
-and records what it wrote in `~/.prism/install.json`, so `prism uninstall`
-removes exactly that and nothing else. The MCP entry launches the installed
-`prism-mcp` binary — never a registry download.
+The first command puts the `prism` command and the MCP server on this machine.
+Nothing is connected yet. `prism install all` writes each agent’s config so the
+agent starts that local server, and records what it wrote in
+`~/.prism/install.json`. `prism uninstall` removes exactly that and nothing
+else. Codex is skipped when `~/.codex` is not there. One agent only: `prism
+install claude`, `cursor`, `codex`, or `opencode`. Add `--project` to write
+into this repository instead of your home.
 
-Wiring a host by hand? Use `npx -y @repo-prism/mcp-server@2` as the server
-command; each agent’s [install page](/install) has the snippet.
+Quit the agent and open it again. The first time you use Prism in a
+repository, the index is built under `~/.prism/`. The server it starts is the
+installed binary, never a download on each launch.
+
+Wiring a host by hand? Use `npx -y @prismapp/mcp-server` as the server
+command, with no version so it stays on the latest release. Set
+`PRISM_EXTRA_TOOLS` to `receipt` on that same entry. Each agent’s
+[install page](/install) has the snippet.
 
 ## 3. Confirm it works
 
@@ -53,26 +62,29 @@ Something off? [Troubleshooting](/docs/help/troubleshooting).
 ## Upgrade
 
 ```bash
-npm install -g @repo-prism/cli
-prism upgrade            # optional: re-link every agent now
+npm install -g @prismapp/cli
+prism upgrade
 ```
 
-You do not need to run `prism install` again. Releases sometimes change the
-hooks Prism registers (2.0 adds a background Stop hook that reports the
-verdict when the checks finish). The next Claude Code session updates Prism's
-own entries in `settings.json`. It keeps your other hooks and writes a backup
-next to the file (`settings.json.prism-backup-<version>`). The new hooks
-apply from the session after that.
+The first command downloads the new CLI and server. The second rewrites the
+agent config from `~/.prism/install.json` and stops the daemon. The daemon
+starts again the next time an agent uses Prism. `prism upgrade` by itself does
+not download anything.
 
-If Prism's entries were edited by hand, or run from two places, Prism leaves
-the file alone. It prints one line, once a day, with the command to run:
-`prism install claude`, or `prism install claude --project` for a
-repository's settings. `prism doctor` shows the same check, and
-`prism doctor --fix` applies a safe update now. Set `PRISM_HOOK_REFRESH=0` to
-turn the automatic update off.
+Memories, receipts, and habits stay in `~/.prism`. `prism uninstall` removes
+the agent config and leaves them. `prism uninstall --purge` deletes that
+folder.
 
-opencode runs the new hook through its existing plugin file, so it needs
-nothing. Cursor and Codex have no Prism hooks to update.
+Publishing a version does not update machines that already have Prism. Once a
+day the running server asks npm which version is latest and, when a newer one
+exists, prints `update available: run prism upgrade`. It does not install that
+version.
+
+Prism does not rewrite `~/.claude` on its own. If a release changes those
+hooks, run `prism install claude` again. A project file at
+`.claude/settings.json` can update on the next session when Prism wrote it and
+nobody edited it by hand. Cursor and Codex have no Prism hooks to refresh.
+opencode keeps the plugin file it already has.
 
 ## What Prism writes
 
@@ -87,8 +99,9 @@ Nothing goes into your checkout. State lives in the machine-wide library:
   workspaces/<key>/
     cache/                the index
     hooks/snapshot.json   what hooks read (under their latency budget)
-    receipts/             the last 20 stop receipts
+    receipts/             receipts for this repository
     memory.json           notes saved with prism remember
+  skills/                 habits, one folder each
 ```
 
 `prism data prune` lists empty workspace folders, caches of deleted checkouts,

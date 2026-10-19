@@ -36,7 +36,7 @@ export function daemonLaunch(
     packCandidates: [
       resolve(here, "../../../mcp-server/dist/bin.js"),
       resolve(here, "../../mcp-server/dist/bin.js"),
-      // `npm i -g @repo-prism/cli`: the server is the CLI's own dependency.
+      // `npm i -g @prismapp/cli`: the server is bundled next to the CLI.
       resolve(here, "../../node_modules/@repo-prism/mcp-server/dist/bin.js"),
     ],
   });

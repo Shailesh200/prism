@@ -13,6 +13,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { userInfo } from "node:os";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const hook = join(repoRoot, "packages/plugin/hooks/prism-hook.mjs");
@@ -24,6 +25,19 @@ const repo = resolve(arg("repo"));
 const file = arg("file");
 if (!repo || !file)
   throw new Error("hook-latency: --repo and --file are required");
+// The session hook can refresh ~/.claude hooks: never on the real home.
+for (const key of ["HOME", "PRISM_HOME"]) {
+  const value = process.env[key];
+  const real = userInfo().homedir;
+  if (
+    !value ||
+    resolve(value) === real ||
+    resolve(value).startsWith(`${real}/`)
+  )
+    throw new Error(
+      `hook-latency: set ${key} to a throwaway folder (HOME=$(mktemp -d)), not the real home`,
+    );
+}
 const runs = Number(arg("runs", "20"));
 const stopRuns = Number(arg("stop-runs", "5"));
 const abs = join(repo, file);

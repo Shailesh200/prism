@@ -61,16 +61,9 @@ export const COMMANDS: readonly CommandSpec[] = [
     name: "start",
     group: "Set up",
     summary:
-      "Set up Prism for every coding agent found here (asks first), index this repo and show its map",
+      "Install Prism for every coding agent found here, index this repo and show its map",
     handler: startCommand,
-    options: [
-      {
-        flags: "--dry-run",
-        description:
-          "Only list the config files it would write and the 1.x data it would move",
-      },
-    ],
-    examples: ["prism start", "prism start --dry-run", "prism start --yes"],
+    examples: ["prism start"],
   },
   {
     name: "install",
@@ -101,7 +94,7 @@ export const COMMANDS: readonly CommandSpec[] = [
     ],
     examples: [
       "prism install claude",
-      "prism install cursor",
+      "prism install cursor --project",
       "prism install all --local ~/Prism",
     ],
   },
@@ -607,21 +600,20 @@ export const COMMANDS: readonly CommandSpec[] = [
     options: [
       {
         flags: "--step <text>",
-        description:
-          'add or edit: "source: action [| filter]" (repeatable, in order)',
+        description: 'add: "source: action [| filter]" (repeatable, in order)',
         repeatable: true,
       },
       {
         flags: "--output <format>",
-        description: "add or edit: standup, summary, checklist, table, or free",
+        description: "add: standup, summary, checklist, table, or free",
       },
       {
         flags: "--template <text>",
-        description: "add or edit: how to lay out the result",
+        description: "add: how to lay out the result",
       },
       {
         flags: "--description <text>",
-        description: "add or edit: one line about the habit",
+        description: "add: one line about the habit",
       },
     ],
     examples: [

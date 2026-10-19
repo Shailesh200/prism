@@ -89,51 +89,9 @@ const MD_END = "<!-- prism:end -->";
 const TOML_BEGIN = "# prism:begin (managed by `prism install`)";
 const TOML_END = "# prism:end";
 
-/**
- * One planned change from a dry pass of the host writers: a file whose
- * content would change, or a skill folder that differs from the pack.
- */
-export type PlannedWrite = {
-  readonly path: string;
-  readonly kind: "file" | "dir";
-  /** It exists now, so a real run would back it up first. */
-  readonly exists: boolean;
-};
-
-/**
- * Plan mode (`prism start` consent): while set, the writers below record what
- * they would change instead of changing it, and later reads see the earlier
- * planned text. Real code paths, no second copy of the per-host rules.
- */
-let planning: Map<string, { text?: string; write: PlannedWrite }> | null = null;
-
-/** Run `fn` with every write recorded, not made; returns the changes. */
-export function planWrites(fn: () => void): PlannedWrite[] {
-  const previous = planning;
-  planning = new Map();
-  try {
-    fn();
-    return [...planning.values()].map((entry) => entry.write);
-  } finally {
-    planning = previous;
-  }
-}
-
-/** File text as the writers see it: planned text first, then the disk. */
-function currentText(path: string): string | undefined {
-  const planned = planning?.get(path);
-  if (planned?.text !== undefined) return planned.text;
-  return existsSync(path) ? readFileSync(path, "utf8") : undefined;
-}
-
 /** Writes only when the content differs, so a second install touches nothing. */
 export function atomicWrite(path: string, text: string): void {
-  if (currentText(path) === text) return;
-  if (planning) {
-    const exists = existsSync(path);
-    planning.set(path, { text, write: { path, kind: "file", exists } });
-    return;
-  }
+  if (existsSync(path) && readFileSync(path, "utf8") === text) return;
   mkdirSync(dirname(path), { recursive: true });
   const tmp = `${path}.prism-${process.pid}.tmp`;
   writeFileSync(tmp, text);
@@ -141,8 +99,8 @@ export function atomicWrite(path: string, text: string): void {
 }
 
 function readJsonObject(path: string): Record<string, unknown> {
-  const text = currentText(path);
-  if (text === undefined) return {};
+  if (!existsSync(path)) return {};
+  const text = readFileSync(path, "utf8");
   if (text.trim() === "") return {};
   const raw = JSON.parse(text) as unknown;
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
@@ -227,7 +185,7 @@ export function writeBlock(
 ): void {
   const [begin, end] = markers(kind);
   const block = `${begin}\n${body.trim()}\n${end}`;
-  const text = currentText(path) ?? "";
+  const text = existsSync(path) ? readFileSync(path, "utf8") : "";
   const start = text.indexOf(begin);
   const stop = text.indexOf(end);
   const next =
@@ -314,25 +272,13 @@ function copySkills(target: InstallTarget, dest: string): InstallFile[] {
   const source = join(target.pack, "skills");
   if (!existsSync(source)) return [];
   for (const name of RETIRED_SKILLS) {
-    const old = join(dest, name);
-    if (planning) {
-      if (existsSync(old))
-        planning.set(old, { write: { path: old, kind: "dir", exists: true } });
-      continue;
-    }
-    rmSync(old, { recursive: true, force: true });
+    rmSync(join(dest, name), { recursive: true, force: true });
   }
   const files: InstallFile[] = [];
   for (const name of readdirSync(source)) {
     const to = join(dest, name);
     files.push({ kind: "file", path: to });
     if (sameTree(join(source, name), to)) continue;
-    if (planning) {
-      planning.set(to, {
-        write: { path: to, kind: "dir", exists: existsSync(to) },
-      });
-      continue;
-    }
     rmSync(to, { recursive: true, force: true });
     mkdirSync(dirname(to), { recursive: true });
     cpSync(join(source, name), to, { recursive: true });
@@ -380,13 +326,17 @@ function cursor(target: InstallTarget): HostResult {
   const files: InstallFile[] = [
     { kind: "json-key", path: mcpPath, key: ["mcpServers", "prism"] },
   ];
-  const rule =
-    target.scope === "project"
-      ? join(target.root, ".cursor", "rules", "prism.mdc")
-      : join(target.home, ".cursor", "rules", "prism.mdc");
-  atomicWrite(rule, cursorRule());
-  files.push({ kind: "file", path: rule });
-  return { files, notes: [] };
+  const notes: string[] = [];
+  if (target.scope === "project") {
+    const rule = join(target.root, ".cursor", "rules", "prism.mdc");
+    atomicWrite(rule, cursorRule());
+    files.push({ kind: "file", path: rule });
+  } else {
+    notes.push(
+      "Cursor: the Prism MCP server is on for every repo. The prepare/receipt rule is per repo: run `prism install cursor --project` in each repo that should have it.",
+    );
+  }
+  return { files, notes };
 }
 
 export function cursorRule(): string {

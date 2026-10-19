@@ -155,9 +155,8 @@ Every tool is registered, including `receipt`. An unknown name is a tool from an
 
 Prism 2.0 has nine default tools; older tool names were removed with no
 aliases, and an old name gets the standard unknown-tool error. See
-[MCP tools](/docs/reference/mcp-tools). Installing 2.0 over 1.x moves the 1.x
-data once to `~/.prism-backups/<time>/1x/` (nothing is deleted) and keeps your
-lenses; delete that folder when you no longer need it. `prism data prune` lists empty workspace
+[MCP tools](/docs/reference/mcp-tools). Installing 2.0 over 1.x wipes the 1.x
+data once and keeps your lenses. `prism data prune` lists empty workspace
 folders, caches of deleted checkouts, and untracked worktrees;
 `prism data prune --yes` removes them.
 
@@ -179,7 +178,6 @@ Every error reads `PRISM_X: what happened. What to do.`
 | `PRISM_IO_ERROR` | A file could not be read or written | Check permissions and free disk space |
 | `PRISM_UNSUPPORTED` | Not supported yet (e.g. a language Prism does not analyse) | See [known limitations](/docs/help/known-limitations) |
 | `PRISM_CANCELLED` | The operation was cancelled | Rerun it |
-| `PRISM_YES_REQUIRED` | `prism start --json` would change agent configs, and JSON output cannot ask first (exit 1; the planned changes are in `error.details.plan`) | Rerun with `--yes`, or use `--dry-run` to only list them |
 | `PRISM_UNKNOWN` | An unexpected failure | Open an issue with `prism doctor` output |
 
 ## The editors launch different Prism builds

@@ -1,7 +1,7 @@
 {
   "tag": "T1",
   "capturedAt": "2026-09-16T08:53:08.493Z",
-  "workspace": "/Users/shaileshjha/Prism",
+  "workspace": "~/Prism",
   "pipe": {
     "items": 50,
     "totalCount": 60,

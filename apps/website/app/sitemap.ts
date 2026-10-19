@@ -4,6 +4,9 @@ import { changelogEntries, pageCount } from "@/lib/changelog-pages";
 import { buildSitemap } from "@/lib/seo";
 import type { MetadataRoute } from "next";
 
+/** Literal: Next reads this at build time. Same interval as CHANGELOG_REVALIDATE_SECONDS. */
+export const revalidate = 300;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return buildSitemap({
     docsUrls: source.getPages().map((page) => page.url),

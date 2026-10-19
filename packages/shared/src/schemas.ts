@@ -43,7 +43,6 @@ export const PrismErrorSchema = z.object({
     PrismErrorCode.IO_ERROR,
     PrismErrorCode.UNSUPPORTED,
     PrismErrorCode.CANCELLED,
-    PrismErrorCode.YES_REQUIRED,
   ]),
   message: z.string().min(1),
   details: JsonValueSchema.optional(),
@@ -563,11 +562,72 @@ export const ChangeReviewReportSchema = z.object({
   unsupported: z
     .array(z.object({ path: RepoRelativePathSchema, message: z.string() }))
     .optional(),
-  /** Above 300 paths only the riskiest 100 are analysed (plan §5.1 RC-3). */
+  /**
+   * Above 300 paths the riskiest 100 source files are analysed, plus
+   * operational files (workflows, vercel.json) that nothing imports.
+   */
   truncated: z
     .object({
       total: z.number().int().nonnegative(),
       analysed: z.number().int().nonnegative(),
+    })
+    .optional(),
+  /**
+   * Wrong results read from operational files: what happens, where, the
+   * smallest fix, and the risk of skipping it.
+   */
+  judgments: z
+    .array(
+      z.object({
+        what: z.string().min(1),
+        where: z.string().min(1),
+        fix: z.string().min(1).max(160),
+        riskIfSkipped: z.enum(["low", "med", "high"]),
+        sources: z.array(z.string().min(1)).min(1),
+      }),
+    )
+    .optional(),
+  /**
+   * What to read before saying the change is right: the riskiest files,
+   * the callers and tests Prism measured, and any wrong result already
+   * proven. The host writes the prose. Prism does not call a model.
+   */
+  reading: z
+    .object({
+      order: z.array(z.string().min(1)).min(1),
+      rules: z.array(z.string().min(1)).min(1),
+      targets: z.array(
+        z.object({
+          path: RepoRelativePathSchema,
+          risk: z.number().min(0).max(100),
+          callers: z.array(RepoRelativePathSchema),
+          tests: z.array(RepoRelativePathSchema),
+        }),
+      ),
+      proven: z.array(
+        z.object({
+          what: z.string().min(1),
+          where: z.string().min(1),
+          fix: z.string().min(1),
+        }),
+      ),
+      notes: z.array(
+        z.object({
+          severity: z.enum(["critical", "high", "low", "nit"]),
+          title: z.string().min(1),
+          where: z.string().min(1),
+          thisCode: z.string().min(1),
+          breaksWhen: z.string().min(1),
+          change: z.string().min(1),
+          leftAsIs: z.string().min(1),
+        }),
+      ),
+      receipt: z.object({
+        verdict: z.enum(["SHIP", "NOT PROVEN", "NO-SHIP"]),
+        why: z.string().min(1),
+        next: z.string(),
+      }),
+      notChecked: z.string().min(1),
     })
     .optional(),
   /** Plain-language note, e.g. "nothing changed" on a clean tree (RC-4). */

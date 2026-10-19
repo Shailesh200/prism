@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "nodejs";
-export const alt = "Prism — Your agent’s second pair of eyes";
+export const alt = "Prism — Software intelligence for coding agents";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -38,9 +38,8 @@ export default function Image() {
           Prism
         </div>
         <div style={{ fontSize: 32, marginTop: 24, maxWidth: 860 }}>
-          Your agent’s second pair of eyes. Know before you ship. Local software
-          intelligence that catches what the agent missed. Free, MIT, runs on
-          your machine.
+          Software intelligence for coding agents. Prepare, lenses, and review.
+          Free, MIT, runs on your machine.
         </div>
       </div>
     ),

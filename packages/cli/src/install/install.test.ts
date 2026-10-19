@@ -23,7 +23,6 @@ import {
   writeBlock,
   type InstallHost,
 } from "./hosts.js";
-import { moveInto } from "./backups.js";
 import { wipe1x } from "./wipe.js";
 import { stillOnDisk } from "../commands/install.js";
 
@@ -63,7 +62,7 @@ function dirty1x(): { env: NodeJS.ProcessEnv; home: string } {
 }
 
 describe("wipe1x (plan §3.1a)", () => {
-  it("WIPE-1: moves 1.x out (not deleted), stops the daemon, writes version.json, one line + event", async () => {
+  it("WIPE-1: clears 1.x, stops the daemon, writes version.json, one line + event", async () => {
     const { env, home } = dirty1x();
     let stopped = false;
     const out = await wipe1x({
@@ -77,14 +76,11 @@ describe("wipe1x (plan §3.1a)", () => {
     expect(out.kind).toBe("wiped");
     if (out.kind !== "wiped") return;
     expect(out.line.split("\n")).toHaveLength(1);
-    expect(out.line).toContain(".prism-backups/");
+    expect(out.line).toMatch(
+      /^Prism 2\.0: cleared 1\.x data \(3 workspace indexes, daemon, hub\)/,
+    );
     expect(existsSync(join(home, "workspaces"))).toBe(false);
     expect(existsSync(join(home, "hub"))).toBe(false);
-    // Moved, not deleted (round 5 consent): all of it is in the backup.
-    expect(out.backupDir).toMatch(/\.prism-backups\/\d{8}T\d{6}\/1x$/);
-    expect(readdirSync(join(out.backupDir, "workspaces"))).toHaveLength(3);
-    expect(existsSync(join(out.backupDir, "hub"))).toBe(true);
-    expect(out.backupDir.startsWith(home + "/")).toBe(false);
     expect(
       JSON.parse(readFileSync(join(home, "version.json"), "utf8")).major,
     ).toBe(2);
@@ -129,16 +125,12 @@ describe("wipe1x (plan §3.1a)", () => {
     expect(kept[1].overrules).toHaveLength(1);
     expect(kept[2].name).toBe("Prism Architect");
     expect(out.removedDir).toBeDefined();
-    // Invalid lens files stay in the backup only.
-    expect(out.removedDir?.startsWith(out.backupDir)).toBe(true);
     const removed = readFileSync(
       join(out.removedDir as string, "REMOVED.txt"),
       "utf8",
     );
     expect(removed).toContain("bad");
-    // The original lenses folder is kept whole in the backup too.
-    expect(existsSync(join(out.backupDir, "lenses", "bad.json"))).toBe(false);
-    expect(existsSync(join(out.backupDir, "lenses", "lenses.json"))).toBe(true);
+    expect(out.line).toContain(".removed-1x-");
   });
 
   it("WIPE-3: keeps 2.0 config keys, drops old ones and names them", async () => {
@@ -157,11 +149,7 @@ describe("wipe1x (plan §3.1a)", () => {
       { extraTools: ["lens"] },
     );
     expect(out.droppedConfigKeys).toEqual(["hubUrl", "legacyMode"]);
-    expect(out.line).toContain("hubUrl, legacyMode");
-    // The 1.x config file itself is kept in the backup.
-    expect(
-      JSON.parse(readFileSync(join(out.backupDir, "config.json"), "utf8")),
-    ).toHaveProperty("legacyMode", 1);
+    expect(out.line).toContain("dropped config keys hubUrl, legacyMode");
   });
 
   it("WIPE-4: a second run is a no-op", async () => {
@@ -192,7 +180,7 @@ describe("wipe1x (plan §3.1a)", () => {
     expect(readFileSync(join(target, "keep.txt"), "utf8")).toBe("keep");
   });
 
-  it.skipIf(process.getuid?.() === 0)(
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
     "WIPE-7: an unwritable folder stops with the path and fix; nothing changed",
     async () => {
       const { env, home } = dirty1x();
@@ -331,33 +319,6 @@ describe("host writers (plan §2.1, §5.10)", () => {
     expect(readFileSync(skill, "utf8")).toBe("# skill v2");
   });
 
-  it("cursor writes the rule once, for every project", () => {
-    const t = target("cursor");
-    const result = installHost(t);
-    const rule = readFileSync(
-      join(t.home, ".cursor", "rules", "prism.mdc"),
-      "utf8",
-    );
-    expect(rule).toBe(cursorRule());
-    expect(result.notes).toEqual([]);
-    expect(existsSync(join(t.root, ".cursor", "rules", "prism.mdc"))).toBe(
-      false,
-    );
-  });
-
-  it("moves a non-empty dispatch folder when the backup path already exists", () => {
-    const root = temp();
-    const src = join(root, "dispatch");
-    put(join(src, "jobs.json"), "{}");
-    put(join(src, "notes", "a.md"), "hi");
-    const dest = join(root, "backup", "dispatch");
-    put(join(dest, "old.txt"), "old");
-    moveInto(src, dest);
-    expect(existsSync(src)).toBe(false);
-    expect(readFileSync(join(dest, "jobs.json"), "utf8")).toBe("{}");
-    expect(readFileSync(join(dest, "notes", "a.md"), "utf8")).toBe("hi");
-  });
-
   it("cursor --project writes the always-apply rule with the receipt line", () => {
     const t = target("cursor", "project");
     installHost(t);
@@ -406,7 +367,9 @@ describe("host writers (plan §2.1, §5.10)", () => {
       "utf8",
     );
     expect(shim).toContain("tool.execute.before");
-    expect(shim).toContain(join(t.pack, "hooks", "prism-hook.mjs"));
+    expect(shim).toContain(
+      JSON.stringify(join(t.pack, "hooks", "prism-hook.mjs")),
+    );
   });
 
   it("writeBlock replaces its own block in place", () => {

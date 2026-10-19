@@ -23,8 +23,8 @@ Prism parses source into a local index and derives views from that one store:
 | **Repository DNA** | What is this built from, and which domains does it span? |
 | **Blast radius** | If I change this file, what else is affected? |
 | **Prepare** | What should I open for this task, and what already exists? |
-| **Review** | Of everything this session changed, what should I read first? |
-| **Lens review** | Which callers did the change leave behind, and what has no test? |
+| **Review** | What is Critical, High, Low, or Nit in this change, and what is the Receipt? |
+| **Lens review** | Did Dev, QA, or Architect find a caller left behind, or code no test covers? |
 | **Findings** | What unused or duplicated code is worth fixing? |
 | **Receipt** | Which checks did this change reach, and did they pass? |
 
@@ -32,7 +32,7 @@ Prism parses source into a local index and derives views from that one store:
 
 | Surface | For |
 |---|---|
-| **MCP server and hooks** | Claude Code, Cursor, Codex and opencode: every tool, a prompt-time pack and a stop-time receipt |
+| **MCP server and hooks** | Any coding agent: nine tools, a prompt-time pack and a stop-time receipt |
 | **CLI** | Scripts, CI, terminal workflows |
 
 ## Is it for you?

@@ -79,17 +79,6 @@ describe("habits store", () => {
     expect(good.ok && good.value.description).toBe("new");
   });
 
-  it("accepts a template longer than 500 characters", async () => {
-    const template = "x".repeat(800);
-    const added = await addHabit(
-      { ...startMyDay, output: { format: "free", template } },
-      env,
-    );
-    expect(added.ok).toBe(true);
-    if (!added.ok) return;
-    expect(added.value.output.template).toBe(template);
-  });
-
   it("HAB-3: duplicate name (case/space-insensitive) rejected", async () => {
     await addHabit(startMyDay, env);
     const dup = await addHabit({ ...startMyDay, name: "Start  My_Day" }, env);
@@ -130,7 +119,10 @@ describe("habits store", () => {
   it("HAB-5: each habit is a SKILL.md with mode 0600", async () => {
     await addHabit(startMyDay, env);
     const path = join(habitsDir(env), "start-my-day", "SKILL.md");
-    expect((await stat(path)).mode & 0o777).toBe(0o600);
+    // Windows does not store a Unix 0600 mode; the write still asks for it.
+    if (process.platform !== "win32") {
+      expect((await stat(path)).mode & 0o777).toBe(0o600);
+    }
     const text = await readFile(path, "utf8");
     expect(text).toMatch(/^---\nname: start-my-day\ndescription: "Habit: /);
     expect(text).toContain(

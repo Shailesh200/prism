@@ -12,7 +12,7 @@ export const HERO_TOOL_NAMES = [
 
 /**
  * Every tool an agent sees. A shipped skill, command, prompt, hook or
- * instruction may name any of them (`skills-tools` contract test).
+ * instruction may name any of them.
  */
 export const DEFAULT_TOOL_NAMES = [
   ...HERO_TOOL_NAMES,
@@ -36,8 +36,5 @@ export const DEFAULT_TOOL_NAMES = [
   "receipt",
 ] as const;
 
-/**
- * Kept so older `extraTools` entries still name a real tool. They are already
- * on; naming one does not add or remove it.
- */
+/** Older `extraTools` and `PRISM_EXTRA_TOOLS` names. They are already on. */
 export const OPT_IN_TOOL_NAMES = [] as const;

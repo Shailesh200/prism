@@ -21,7 +21,7 @@ inputs:
     default: ""
   version:
     description: >
-      Version of @repo-prism/cli to install. Defaults to this Action's own
+      Version of @prismapp/cli to install. Defaults to this Action's own
       major (`v2` installs major 2 of the CLI).
     required: false
     default: "2"
@@ -44,9 +44,9 @@ inputs:
     required: false
     default: "."
   node-version:
-    description: Node.js version for setup-node (Prism 2 requires Node 20 or newer)
+    description: Node.js version for setup-node (Prism 2 requires Node 24)
     required: false
-    default: "20"
+    default: "24"
 
 outputs:
   review-path:
@@ -115,7 +115,7 @@ runs:
     - name: Install Prism CLI
       if: ${{ inputs.prism-command == '' }}
       shell: bash
-      run: npm install -g "@repo-prism/cli@${{ inputs.version }}"
+      run: npm install -g "@prismapp/cli@${{ inputs.version }}"
 
     - name: Run prism review
       id: review

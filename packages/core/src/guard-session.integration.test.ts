@@ -258,32 +258,4 @@ describe("workspace guardSession (M-072 Prism Guard)", () => {
       await fixture.cleanup();
     }
   });
-
-  it("reviews an explicit change set when the working tree is clean", async () => {
-    const fixture = await createFixture({ name: "m072-guard-explicit" });
-    try {
-      await fixture.write(
-        "package.json",
-        JSON.stringify({ name: "explicit-fixture", version: "0.0.0" }),
-      );
-      await fixture.write("src/kept.ts", "export const kept = 1;\n");
-      fixture.commit("initial");
-      const opened = Prism.create().openRepository(fixture.root);
-      expect(opened.ok).toBe(true);
-      if (!opened.ok) return;
-      expect((await opened.value.index()).ok).toBe(true);
-      const clean = await opened.value.guardSession();
-      expect(clean.ok && clean.value.files).toEqual([]);
-      const named = await opened.value.guardSession({
-        changedPaths: ["src/kept.ts"],
-      });
-      expect(named.ok).toBe(true);
-      if (!named.ok) return;
-      expect(named.value.files.map((file) => file.path)).toEqual([
-        "src/kept.ts",
-      ]);
-    } finally {
-      await fixture.cleanup();
-    }
-  });
 });

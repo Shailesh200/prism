@@ -79,7 +79,7 @@ You set Prism up once. After that, ask for what you want — the server's
 instructions teach the agent which tools to call, so you never type a tool name.
 Prism does not make the edit. Your agent does, in your chat.
 
-## Tools
+## Default tools
 
 The server registers every tool, including `receipt`. The ones the instructions teach first:
 
@@ -95,8 +95,7 @@ The server registers every tool, including `receipt`. The ones the instructions 
 | `repository_overview` | What this repository is and where to start |
 | `graph` | Find a symbol or path, its neighbours, how A reaches B, what an area is for |
 
-The rest, including `receipt`, dependency and knowledge graphs, cycles, findings, and `agents_md`, are on too.
-Each is listed in the [MCP reference](/docs/reference/mcp-tools).
+The rest, including `receipt`, are on too. Each is listed in the [MCP reference](/docs/reference/mcp-tools).
 
 ## How to talk
 
@@ -118,7 +117,7 @@ prompt picker.
 
 ## How the server behaves
 
-1. Handshake is fast. Indexing starts in the background and does not block the connection. A folder opened later is indexed the same way.
+1. Handshake is fast — connecting does not index.
 2. The first tool call may take seconds while the index builds.
 3. stdio only — diagnostics on stderr and logging notifications.
 4. Lists are bounded (`totalCount` / `truncated`). A cut list says so.

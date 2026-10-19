@@ -42,7 +42,7 @@ describe("prism start (P19)", () => {
       "",
       TRY_LINE,
     ]);
-    expect(text).toMatch(/prism prepare/);
+    expect(text).toMatch(/prepare_change/);
     // The agent does not call it on its own; the line must not promise that.
     expect(text).not.toMatch(/it calls prepare_change/);
     expect(text).not.toMatch(/health/i);
@@ -78,6 +78,8 @@ describe("prism start (P19)", () => {
     expect(text).not.toContain(PARTIAL_LINE);
   });
 
+  // Indexes a 500-file repo twice (about 3 s alone); the default 5 s is too
+  // tight when every package runs its tests at once.
   it("start and bare prism print the same answer in the same order, daemon off", async () => {
     const root = mkdtempSync(join(tmpdir(), "prism-start-repo-"));
     const home = mkdtempSync(join(tmpdir(), "prism-start-home-"));
@@ -123,7 +125,7 @@ describe("prism start (P19)", () => {
     expect(bare).toMatch(/^Indexed 500 code files/);
     expect(bare).toContain("daemon is off");
     expect(bare).not.toContain("finishing in the background");
-  });
+  }, 30_000);
 
   it("the first-answer cap is 5,000 unless PRISM_START_FILE_CAP says otherwise", () => {
     expect(FIRST_ANSWER_FILE_CAP).toBe(5000);

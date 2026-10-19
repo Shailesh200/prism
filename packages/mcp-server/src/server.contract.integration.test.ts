@@ -39,13 +39,20 @@ let client: Client;
 async function connect(
   workspaceRoot: string,
   prismHome: string = fullHome,
+  extraEnv: NodeJS.ProcessEnv = {},
 ): Promise<{
   client: Client;
   instance: PrismMcpServer;
 }> {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    PRISM_HOME: prismHome,
+    ...extraEnv,
+  };
+  if (!("PRISM_EXTRA_TOOLS" in extraEnv)) delete env.PRISM_EXTRA_TOOLS;
   const built = createPrismMcpServer({
     workspaceRoot,
-    env: { ...process.env, PRISM_HOME: prismHome },
+    env,
   });
   const connected = new Client({ name: "contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] =
@@ -366,7 +373,6 @@ describe("MCP server contract (M-026)", () => {
     ) as { review?: { findings?: unknown; paths?: unknown } };
     expect(reviewed.review).toBeDefined();
     expect(reviewed.review).toHaveProperty("findings");
-    expect(DEFAULT_TOOL_NAMES).toContain("prepare_change");
     expect(DEFAULT_TOOL_NAMES).toContain("receipt");
     expect(DEFAULT_TOOL_NAMES).toHaveLength(21);
   });
@@ -491,11 +497,22 @@ describe("MCP default tool surface (§0.3, COV-19)", () => {
       prismHomeWith(["dependency_graph", "not_a_real_tool"]),
     );
     const { tools } = await isolated.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(
-      [...DEFAULT_TOOL_NAMES, ...OPT_IN_TOOL_NAMES].sort(),
-    );
-    expect(tools.map((t) => t.name)).toContain("receipt");
+    expect(tools).toHaveLength(DEFAULT_TOOL_NAMES.length);
+    expect(tools.map((t) => t.name)).toContain("dependency_graph");
     expect(tools.map((t) => t.name)).not.toContain("not_a_real_tool");
+    built.session.close();
+    await isolated.close();
+  });
+
+  it("keeps every tool on when PRISM_EXTRA_TOOLS names one", async () => {
+    const { client: isolated, instance: built } = await connect(
+      fixture,
+      prismHomeWith([]),
+      { PRISM_EXTRA_TOOLS: "receipt" },
+    );
+    const { tools } = await isolated.listTools();
+    expect(tools).toHaveLength(DEFAULT_TOOL_NAMES.length);
+    expect(tools.map((t) => t.name)).toContain("receipt");
     built.session.close();
     await isolated.close();
   });

@@ -8,7 +8,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ensureWorkspacePrism,
@@ -41,7 +41,7 @@ describe("workspace prism home", () => {
   it("keeps fixture trees under the repo during tests", () => {
     expect(useLocalPrismStore({ VITEST: "true" })).toBe(true);
     expect(workspacePrismDir("/repo", { VITEST: "true" })).toBe(
-      join("/repo", ".prism"),
+      join(resolve("/repo"), ".prism"),
     );
   });
 

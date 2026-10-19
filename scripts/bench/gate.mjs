@@ -37,8 +37,12 @@ const load = (dir, file) =>
     ? JSON.parse(readFileSync(join(dir, file), "utf8"))
     : null;
 const results = [];
+// B1-orientation.json lives in docs/benchmarks, where the publish gate reads it.
+const B1_HOME = resolve("docs/benchmarks");
 const check = (id, file, pick, rule) => {
-  const b = load(baseDir, file);
+  const b =
+    load(baseDir, file) ??
+    (file === "B1-orientation.json" ? load(B1_HOME, file) : null);
   const c = load(curDir, file);
   if (!b || !c)
     return results.push({

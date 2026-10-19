@@ -2,6 +2,9 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    // Never the real HOME: every run gets a throwaway HOME and PRISM_HOME.
+    globalSetup: ["../test-support/src/home-guard.ts"],
+    setupFiles: ["../test-support/src/home-guard-setup.ts"],
     name: "@repo-prism/mcp-server-integration",
     include: ["src/**/*.integration.test.ts"],
     // Each test indexes a real repository, spawns git or runs the repo's own

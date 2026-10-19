@@ -93,7 +93,10 @@ import {
   err,
   ok,
   prismError,
-  REVIEW_ANALYSED_CAP,
+  buildCodeReading,
+  judgeOperational,
+  isOperationalPath,
+  selectReviewPaths,
   REVIEW_LARGE_DIFF,
   riskToBand,
   unsafeRepoId,
@@ -463,12 +466,8 @@ export type PrismWorkspace = {
   guardSession(input?: {
     readonly preExistingChanges?: readonly string[];
     readonly paths?: readonly string[];
-    /**
-     * Use these paths as the change set. A pull-request review passes the
-     * PR's files so the receipt is about that change, not the local dirty
-     * tree. Omit it to use the working tree.
-     */
-    readonly changedPaths?: readonly string[];
+    /** Use these paths as the change set instead of the working tree. */
+    readonly sessionPaths?: readonly string[];
   }): Promise<Result<GuardSession, PrismError>>;
   /**
    * Living AGENTS.md (M-073 C1/C3): composes features, import cycles, test
@@ -618,47 +617,12 @@ function impactContextFor(
   // Export names per analyzed file: lets blast forward only real names
   // through `export *` barrels and importers (plan §4.2 symbol-level blast).
   const fileExports = new Map<string, readonly string[]>();
-  const filesByPath = new Map(snapshot.files.map((f) => [f.path, f]));
-  const knownPaths = new Set(filesByPath.keys());
-  // `export *` is stored as a default export named "*". Without the target's
-  // names, importers of those names never count as reaching the barrel.
-  const resolveRelative = (
-    from: string,
-    source: string,
-  ): string | undefined => {
-    const base = joinPath(dirname(from), source).split("\\").join("/");
-    const candidates = [
-      base,
-      base.replace(/\.js$/, ".ts"),
-      base.replace(/\.js$/, ".tsx"),
-      base.replace(/\.js$/, ".mts"),
-      `${base}.ts`,
-      `${base}/index.ts`,
-    ];
-    return candidates.find((candidate) => knownPaths.has(candidate));
-  };
-  const namesFrom = (path: string, seen: Set<string>): string[] => {
-    if (seen.has(path)) return [];
-    seen.add(path);
-    const file = filesByPath.get(path);
-    if (!file?.exports) return [];
-    const names: string[] = [];
-    for (const exp of file.exports) {
-      if (exp.importedName === "*" && exp.source) {
-        const target = resolveRelative(path, exp.source);
-        if (!target) continue;
-        for (const name of namesFrom(target, seen)) {
-          if (name !== "default") names.push(name);
-        }
-        continue;
-      }
-      if (exp.name) names.push(exp.name);
-    }
-    return names;
-  };
   for (const f of snapshot.files) {
     if (f.status !== "analyzed" || !f.exports) continue;
-    fileExports.set(f.path, [...new Set(namesFrom(f.path, new Set()))]);
+    fileExports.set(
+      f.path,
+      f.exports.map((e) => e.name),
+    );
   }
   const dependencyGraph = buildDependencyGraph(snapshot).graph;
   const testPackages = workspaceTestPackages(snapshot);
@@ -1795,32 +1759,59 @@ export function createWorkspace(options: {
         if (refusal) unsupported.push({ path, message: refusal.message });
         return refusal === null;
       });
-      // RC-3: a huge diff (codemod) analyses the 100 paths with the most
-      // importers, the cheapest proxy for risk, and says so.
-      let analysed = paths;
+      // RC-3: a huge diff analyses the 100 source files with the most
+      // importers, plus operational files (workflows, vercel.json) that
+      // nothing imports. Those decide what runs, so dropping them hides
+      // a command that does the opposite of what the change is for.
+      const importers = new Map<string, number>();
       if (paths.length > REVIEW_LARGE_DIFF) {
-        const importers = new Map<string, number>();
         for (const edge of buildDependencyGraph(gate.value).graph.edges) {
           const to = edge.to.replace(/^file:/, "");
           importers.set(to, (importers.get(to) ?? 0) + 1);
         }
-        analysed = [...paths]
-          .sort(
-            (a, b) =>
-              (importers.get(b) ?? 0) - (importers.get(a) ?? 0) ||
-              a.localeCompare(b),
-          )
-          .slice(0, REVIEW_ANALYSED_CAP);
+      }
+      const selected = selectReviewPaths(
+        paths,
+        (path) => importers.get(path) ?? 0,
+      );
+      const analysed = selected.analysed;
+      const judgments = [];
+      for (const path of paths.filter(isOperationalPath).slice(0, 40)) {
+        const abs = joinPath(rootPath, path);
+        if (!existsSync(abs)) continue;
+        let text = "";
+        try {
+          text = readFileSync(abs, "utf8");
+        } catch {
+          continue;
+        }
+        judgments.push(...judgeOperational(path, text));
       }
       const items: ChangeReviewItem[] = [];
+      const callersOf = new Map<string, string[]>();
+      const testsOf = new Map<string, string[]>();
       for (const path of analysed) {
+        // A deleted or unindexed file must not abort the review. The code
+        // reading and the reach report still run for the files that resolve.
+        if (!existsSync(joinPath(rootPath, path))) continue;
         const origin = { kind: "file" as const, id: path, path };
         const blast = computeBlastRadius(origin, context);
-        if (!blast.ok) return blast;
+        if (!blast.ok) {
+          if (blast.error.code === PrismErrorCode.NOT_FOUND) continue;
+          return blast;
+        }
         const testImpact = computeTestImpact(origin, context);
         if (!testImpact.ok) return testImpact;
         const hints = computeBreakingChangeHints(origin, context);
         if (!hints.ok) return hints;
+        callersOf.set(
+          path,
+          blast.value.affectedFiles.slice(0, 5).map((file) => file.path),
+        );
+        testsOf.set(
+          path,
+          testImpact.value.tests.slice(0, 5).map((test) => test.path),
+        );
         items.push({
           path: blast.value.origin.path ?? path,
           risk: blast.value.risk,
@@ -1857,9 +1848,25 @@ export function createWorkspace(options: {
         totalTestsAffected,
         totalBreakingChanges,
         ...(unsupported.length > 0 ? { unsupported } : {}),
-        ...(analysed.length < paths.length
-          ? { truncated: { total: paths.length, analysed: analysed.length } }
-          : {}),
+        ...(selected.truncated ? { truncated: selected.truncated } : {}),
+        ...(judgments.length > 0 ? { judgments } : {}),
+        reading: buildCodeReading({
+          targets: items.map((item) => ({
+            path: item.path,
+            risk: item.risk,
+            callers: callersOf.get(item.path) ?? [],
+            tests:
+              testsOf.get(item.path) ?? item.testsLikelyAffected.slice(0, 5),
+          })),
+          proven: judgments
+            .filter((item) => item.riskIfSkipped === "high")
+            .map((item) => ({
+              what: item.what,
+              where: item.where,
+              fix: item.fix,
+            })),
+          ...(selected.truncated ? { truncated: selected.truncated } : {}),
+        }),
         ...(input.paths.length === 0 ? { message: "nothing changed" } : {}),
       } satisfies ChangeReviewReport);
     },
@@ -2015,7 +2022,7 @@ export function createWorkspace(options: {
       const gate = ensureImpact();
       if (!gate.ok) return gate;
       const snapshot = gate.value;
-      const explicit = input?.changedPaths?.map((p) =>
+      const explicit = input?.sessionPaths?.map((p) =>
         p.replace(/\\/g, "/").replace(/^\.\//, ""),
       );
       const changed = explicit

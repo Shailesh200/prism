@@ -1,7 +1,7 @@
-# @repo-prism/cli
+# @prismapp/cli
 
-[![npm](https://img.shields.io/npm/v/@repo-prism/cli.svg)](https://www.npmjs.com/package/@repo-prism/cli)
-[![license](https://img.shields.io/npm/l/@repo-prism/cli.svg)](https://github.com/Shailesh200/prism/blob/main/LICENSE)
+[![npm](https://img.shields.io/npm/v/@prismapp/cli.svg)](https://www.npmjs.com/package/@prismapp/cli)
+[![license](https://img.shields.io/npm/l/@prismapp/cli.svg)](https://github.com/Shailesh200/prism/blob/main/LICENSE)
 
 **`prism`** — local-first repository intelligence from a terminal or CI.
 
@@ -14,6 +14,10 @@ machine. Nothing is uploaded.
 
 ## Setup — step by step
 
+```bash
+npm install -g @prismapp/cli
+```
+
 1. Open a terminal **inside your project**:
    ```bash
    cd /path/to/your/repo
@@ -22,13 +26,10 @@ machine. Nothing is uploaded.
    ```bash
    prism start
    ```
-   It finds Claude Code, Cursor, Codex and opencode by their config folders,
-   lists the config files it would write, and asks before changing anything
-   (`--dry-run` only lists; `--yes` skips the question in scripts). Existing
-   files are backed up to `~/.prism-backups/<time>/configs/` first.
+   It finds Claude Code, Cursor, Codex and opencode by their config folders.
    With none found it still indexes; run `prism install <client>` later.
-3. Try: `prism prepare "<task>"`, or ask your agent for a change in plain words.
-   A receipt prints when the agent stops. From a terminal:
+3. Ask your agent for a change. Prism's `prepare_change` runs first and a
+   receipt prints when the agent stops. From a terminal:
    ```bash
    prism prepare "add rate limiting to the login route"
    prism blast src/index.ts --fail-on high
@@ -68,8 +69,8 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 
 | Command | Purpose |
 |---|---|
-| `prism start` | Set up Prism for every agent found on this machine (lists the changes and asks first; `--dry-run`, `--yes`), index this repository and print its map with what to try next |
-| `prism install <claude\|cursor\|codex\|opencode\|all>` | Connect Prism to an agent: MCP server, hooks, skills, and the prepare/receipt rule (`--project`, `--user`, `--local <checkout>`). Moves 1.x data in `~/.prism` to `~/.prism-backups/<time>/1x/` once (nothing deleted), keeping valid custom lenses |
+| `prism start` | Install Prism for every agent found on this machine, index this repository and print its map with what to try next |
+| `prism install <claude\|cursor\|codex\|opencode\|all>` | Connect Prism to an agent: MCP server, hooks, skills, and the prepare/receipt rule (`--project`, `--user`, `--local <checkout>`). Clears 1.x data in `~/.prism` once, keeping valid custom lenses |
 | `prism uninstall` | Remove everything `prism install` added (`--purge` also deletes `~/.prism` and this repository's `.prism`) |
 | `prism upgrade` | Re-link the recorded agents to the current build and restart the daemon |
 
@@ -139,7 +140,7 @@ Notes live in `~/.prism/workspaces/<key>/memory.json`, never in the repository.
 
 | | |
 |---|---|
-| **MCP** | [`@repo-prism/mcp-server`](https://www.npmjs.com/package/@repo-prism/mcp-server) — one-command agent setup |
+| **MCP** | [`@prismapp/mcp-server`](https://www.npmjs.com/package/@prismapp/mcp-server) — one-command agent setup |
 | **IDE** | [Prism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
 | **Docs** | [CLI guide](https://www.prismhq.in/docs/usage) |
 | **Website** | [prismhq.in](https://www.prismhq.in) |

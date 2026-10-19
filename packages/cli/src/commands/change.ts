@@ -17,8 +17,9 @@ import {
 } from "@repo-prism/shared";
 import { reviewLensFindings } from "@repo-prism/mcp-server/review";
 import { paint, renderFields, renderHeading } from "../output.js";
+import { renderReviewReading } from "./review-text.js";
 import type { CommandHandler, CommandContext } from "../runtime.js";
-import { bandStyle, plural, renderTable, scoreCell, wrap } from "../table.js";
+import { bandStyle, plural, renderTable, wrap } from "../table.js";
 import { classifyReviewTarget, reviewPullRequestCommand } from "./review-pr.js";
 import { allWorkspaceRelative, resolveTarget } from "../target.js";
 import { parseFormat, reviewToSarif } from "../sarif.js";
@@ -259,7 +260,6 @@ export const reviewCommand: CommandHandler = async (context) => {
       review,
       review.items.map((item) => item.path),
       lensId,
-      paths,
     );
     if (result.unknownLens)
       return err(
@@ -290,42 +290,20 @@ export const reviewCommand: CommandHandler = async (context) => {
       : review,
     findings,
     human({ color, width }) {
-      const items = bound(review.items, limit.value);
-      const lines = [
-        renderHeading("Change review", color),
-        "",
-        renderFields(
-          [
-            ["Base", review.base ?? "working tree"],
-            riskLine(review.overallRisk, color),
-            ["Changed files", String(review.items.length)],
-            ["Affected files", String(review.totalAffectedFiles)],
-          ],
-          color,
-        ),
-        "",
-        renderTable({
-          columns: [
-            { header: "CHANGED FILE", flex: true },
-            { header: "RISK", align: "right" },
-            { header: "AFFECTS", align: "right" },
-            { header: "TESTS", align: "right" },
-          ],
-          rows: items.items.map((item) => [
-            { text: item.path },
-            scoreCell(item.risk),
-            { text: String(item.affectedFilesCount) },
-            { text: String(item.testsLikelyAffected.length) },
-          ]),
-          color,
-          width,
-        }),
-      ];
-
-      const note = truncationNote(items, "changed files");
-      if (note) lines.push(paint(note, "dim", color));
-      if (lens) lines.push("", ...renderLens(lens, color, width));
-      return lines.join("\n");
+      const reading = review.reading;
+      if (!reading) {
+        const lines = [
+          renderHeading("Review", color),
+          "No reading for this change.",
+        ];
+        if (lens) lines.push("", ...renderLens(lens, color, width));
+        return lines.join("\n");
+      }
+      return renderReviewReading(reading, {
+        color,
+        limit: limit.value,
+        ...(lens ? { beforeReceipt: renderLens(lens, color, width) } : {}),
+      }).join("\n");
     },
   });
 };

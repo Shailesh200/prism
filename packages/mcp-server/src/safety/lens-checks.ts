@@ -49,24 +49,13 @@ export type LensSignals = {
   readonly removedLines: ReadonlyMap<string, readonly string[]>;
   /** Files that import a changed file and were not edited. */
   readonly dependentsNotInDiff: ReadonlyMap<string, readonly string[]>;
-  /**
-   * Whether `path` names `exportName`. An importer of the file that never
-   * mentions the changed export is not a caller of it.
-   */
-  mentions(path: string, exportName: string): boolean;
   /** File content hash, for overrule fingerprints (CL-2/CL-3). */
   fingerprint(path: string): string | null;
 };
 
 const BRANCH = /\b(if|else|switch|case|for|while|catch)\b|\?\?|\?[^.:]/;
 const EXPORT_DECL =
-  /^\s*export\s+(?:default\s+)?(?:async\s+)?(function|const|let|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/;
-
-function exportDecl(line: string): { kind: string; name: string } | null {
-  const match = EXPORT_DECL.exec(line);
-  if (!match?.[1] || !match[2]) return null;
-  return { kind: match[1], name: match[2] };
-}
+  /^\s*export\s+(?:default\s+)?(?:async\s+)?(?:function|const|let|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/;
 const IMPORT_LINE =
   /\b(?:import|export)\b[^'"]*\bfrom\s*['"]([^'"]+)['"]|\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]/;
 
@@ -233,40 +222,14 @@ function compute(
       const evidence: string[] = [];
       for (const path of changedSources) {
         // An export that existed and was changed or removed; a new export
-        // (or a new file) breaks no one (website round). A declaration that
-        // left and came back with the same text only moved. A const or let
-        // that is still exported under the same name changed its value;
-        // importers of the name take the new value.
-        const addedLines = signals.addedLines.get(path) ?? [];
-        const addedDecls = new Set(
-          addedLines.filter((line) => exportDecl(line)),
-        );
-        const addedKind = new Map<string, string>();
-        for (const line of addedLines) {
-          const decl = exportDecl(line);
-          if (decl) addedKind.set(decl.name, decl.kind);
-        }
-        const changedExports = [
-          ...new Set(
-            (signals.removedLines.get(path) ?? []).flatMap((line) => {
-              const decl = exportDecl(line);
-              if (!decl || addedDecls.has(line)) return [];
-              if (
-                (decl.kind === "const" || decl.kind === "let") &&
-                addedKind.get(decl.name) === decl.kind
-              ) {
-                return [];
-              }
-              return [decl.name];
-            }),
-          ),
-        ];
-        const dependents = (signals.dependentsNotInDiff.get(path) ?? []).filter(
-          (dep) => changedExports.some((name) => signals.mentions(dep, name)),
-        );
+        // (or a new file) breaks no one (website round).
+        const changedExports = (signals.removedLines.get(path) ?? [])
+          .map((line) => EXPORT_DECL.exec(line)?.[1])
+          .filter((name): name is string => Boolean(name));
+        const dependents = signals.dependentsNotInDiff.get(path) ?? [];
         if (changedExports.length > 0 && dependents.length > 0) {
           evidence.push(
-            `${path} changes ${changedExports.join(", ")}; not edited: ${dependents.slice(0, 5).join(", ")}${dependents.length > 5 ? ` (+${dependents.length - 5})` : ""}`,
+            `${path} changes ${[...new Set(changedExports)].join(", ")}; not edited: ${dependents.slice(0, 5).join(", ")}${dependents.length > 5 ? ` (+${dependents.length - 5})` : ""}`,
           );
         }
       }
@@ -457,15 +420,9 @@ const FILE_NODE = /^file:/;
 export function gatherLensSignals(
   workspace: PrismWorkspace,
   changed: readonly string[],
-  /**
-   * Every path in the change. A review analyses the riskiest 100 of a large
-   * diff; files outside that slice are still edited, so they are not
-   * "dependents not in the diff".
-   */
-  inDiff: readonly string[] = changed,
 ): LensSignals {
   const root = workspace.rootPath;
-  const changedSet = new Set(inDiff);
+  const changedSet = new Set(changed);
   const diffs = new Map(
     changed.map((path) => [path, diffLinesFor(root, path)]),
   );
@@ -509,12 +466,6 @@ export function gatherLensSignals(
     dependenciesAdded: dependenciesAdded(root, changed),
     removedLines,
     dependentsNotInDiff: dependents,
-    mentions(path, exportName) {
-      const abs = join(root, path);
-      const text = existsSync(abs) ? readFileSync(abs, "utf8") : "";
-      const escaped = exportName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return new RegExp(`\\b${escaped}\\b`).test(text);
-    },
     fingerprint: (path) => contentFingerprint(root, path),
   };
 }

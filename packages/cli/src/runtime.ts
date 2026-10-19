@@ -88,8 +88,6 @@ export type CommandOutcome = {
    * the log directly (M-060).
    */
   readonly rawJson?: boolean;
-  /** Human text goes to stderr (a refusal the user must see, e.g. no TTY). */
-  readonly stderr?: boolean;
 };
 
 export type CommandHandler = (
@@ -218,8 +216,6 @@ export async function runCommand(
       run.writer.out(JSON.stringify(result.value.data, null, 2));
     } else if (output.json) {
       run.writer.out(renderJson({ ok: true, data: result.value.data }));
-    } else if (result.value.stderr) {
-      run.writer.err(result.value.human(output));
     } else {
       run.writer.out(result.value.human(output));
     }

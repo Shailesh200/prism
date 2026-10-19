@@ -11,16 +11,13 @@ a supported configuration.
 
 ## Unreleased
 
-- Installing Prism accepts Node 20 and newer. Building this repository still uses Node 24.18.1.
-- A leftover 1.x `~/.prism/dispatch` folder is moved aside even when that backup path already exists.
-- `prism install cursor` writes the prepare and receipt rule for every Cursor project.
-- After install, Prism prints links to star the repo, watch releases, and open the site.
-- The MCP server checks npm every 3 days and installs a newer release before the session starts. `PRISM_SKIP_SELF_UPDATE=1` turns that off.
-- Habit templates have no length cap. Change one with `prism habit edit` flags, or with the `habits` tool's `update` field. An editor is no longer required.
-- A CLI command or MCP tool sends its name and whether it worked to Pulse. `PRISM_PULSE=0` turns that off. Code, paths, and prompts are not sent.
-- `prism review` reviews the working tree, named files, or a GitHub pull request. A pull request is reviewed from the indexed checkout in `~/.prism` and posted as a comment with the receipt.
-- Every MCP tool is on, including `receipt`.
-- Opening or switching a repository asks the daemon to index it.
+## 2.0.2 — One install entry
+
+- A hand-written MCP entry starts `@prismapp/mcp-server` with no version, so npx takes the latest release. `PRISM_EXTRA_TOOLS=receipt` on that same entry turns on the receipt tool.
+
+## 2.0.1 — Install names
+
+- READMEs on GitHub and npm name the packages `@prismapp/cli` and `@prismapp/mcp-server`. Install with `npm install -g @prismapp/cli`.
 
 ## 2.0.0 — Prepare, lens review and receipts
 
@@ -28,7 +25,7 @@ Prism 2.0 is local software intelligence that catches what your coding agent mis
 
 ### Start
 
-- **`npm i -g @repo-prism/cli && prism start`** installs Prism for the agents it finds (Claude Code, Cursor, Codex, opencode), indexes the repo, prints the top of the map and shows what to try. `prism install` does the same per host. The CLI ships the matching MCP server and hook pack; the versions move in lockstep.
+- **`npm i -g @prismapp/cli && prism start`** installs Prism for the agents it finds (Claude Code, Cursor, Codex, opencode), indexes the repo, prints the top of the map and shows what to try. `prism install` does the same per host. The CLI ships the matching MCP server and hook pack; the versions move in lockstep.
 - Install records what it writes, and uninstall removes exactly that. Installing over 1.x removes 1.x data; valid custom lenses and config keys are kept.
 - Hooks stay current after an upgrade. When a release changes Prism's hooks, the next Claude Code session updates Prism's own entries in `settings.json`, keeps your other hooks and writes a backup next to the file. If Prism's entries were edited by hand, Prism leaves them and prints one line with the `prism install` command to run. `prism doctor` shows the same check, and `prism doctor --fix` applies the update.
 - New `prism stats` and `prism doctor --fix`. `prism doctor --surfaces` lists every Prism entry each host can see.

@@ -38,15 +38,13 @@ const field = (label: string) =>
 
 const AGENTS: Array<[agent: string, how: string]> = [
   [
-    "Claude Code",
-    "Five hooks: session start, each prompt, before and after an edit, and stop",
+    "With hooks",
+    "Session start, before and after an edit, and stop, where the agent supports them",
   ],
   [
-    "opencode",
-    "A plugin: session start, before and after an edit, and stop (no prompt hook)",
+    "With a rule",
+    "The MCP server plus a rule that asks the agent to call Prism",
   ],
-  ["Cursor", "The MCP server plus a rule file"],
-  ["Codex", "The MCP server plus a rule in AGENTS.md"],
 ];
 
 export default function GuardrailsPage() {
@@ -58,7 +56,7 @@ export default function GuardrailsPage() {
             Block generated edits. <em>Check renames and deletes.</em>
           </>
         }
-        lede="On Claude Code and opencode, Prism hooks into your agent’s session: it stops edits to generated or vendor files and warns about widely used code. On every agent, it checks renames and deletes before they happen."
+        lede="Where the agent supports hooks, Prism joins the session: it stops edits to generated or vendor files and warns about widely used code. On every agent, it checks renames and deletes before they happen."
         caption="The hook answers in the chat. You set its strength in the terminal."
         pair={<GuardDemo />}
       />
@@ -83,8 +81,8 @@ export default function GuardrailsPage() {
           receipt only; the edit hooks go quiet) or <code>off</code>.
         </Card>
         <Card level={2} icon={<SpokesIcon />} title="Per agent">
-          Hooks on Claude Code and opencode; the MCP server and a rule on Cursor
-          and Codex.
+          Hooks where the agent supports them. Everywhere else, the MCP server
+          and a rule.
         </Card>
       </CardGrid>
 
@@ -94,7 +92,7 @@ export default function GuardrailsPage() {
       >
         <ChatTerminalPair
           chat={
-            <Window title="Codex" kind="chat">
+            <Window title="Your agent" kind="chat">
               <Bubble who="you">Rename getUser to fetchUser safely</Bubble>
               <Bubble who="prism">
                 <ToolTag>rename_impact</ToolTag>getUser → fetchUser
@@ -102,7 +100,7 @@ export default function GuardrailsPage() {
                 <br />
                 src/users/api.ts, src/users/profile.ts, src/pages/checkout.ts
               </Bubble>
-              <Bubble who="agent" name="Codex">
+              <Bubble who="agent" name="Agent">
                 Renamed in all 3 files. Nothing else refers to getUser.
               </Bubble>
             </Window>

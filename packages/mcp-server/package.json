@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/mcp-server",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "mcpName": "io.github.Shailesh200/prism",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -30,8 +30,7 @@
   "description": "Prism MCP server — gives your coding agent the right files before it edits, then flags the code it skipped and the code no test covers. Runs on your machine",
   "files": [
     "dist",
-    "media",
-    "!dist/tsconfig.tsbuildinfo"
+    "media"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -41,7 +40,7 @@
   },
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "devDependencies": {
     "@repo-prism/test-support": "workspace:*"

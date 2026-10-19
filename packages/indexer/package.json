@@ -1,6 +1,7 @@
 {
   "name": "@repo-prism/indexer",
-  "version": "2.0.0",
+  "version": "2.0.2",
+  "private": true,
   "type": "module",
   "description": "Repository walk, hash, and index orchestration",
   "exports": {
@@ -10,8 +11,7 @@
     }
   },
   "files": [
-    "dist",
-    "!dist/tsconfig.tsbuildinfo"
+    "dist"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",

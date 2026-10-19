@@ -81,5 +81,5 @@ only be a liability.
 ## 6. What you do *not* need to do
 
 - Scaffold the Next.js app, rewrite docs, or wire Fumadocs — done in-repo.
-- Add a GitHub Actions deploy for the site — Vercel Git integration is the path.
+- Add a GitHub Actions deploy for the site — Vercel Git integration is the path. `ignoreCommand` in `vercel.json` skips that build when `apps/website` did not change. The changelog page reads `CHANGELOG.md` from GitHub `main`.
 - Add in-product telemetry env vars — out of scope; privacy promise unchanged.

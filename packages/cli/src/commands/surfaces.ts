@@ -12,7 +12,7 @@ import { join } from "node:path";
 export type SurfaceKind =
   | "workspace-build"
   | "published-npm"
-  /** The server or hooks of an npm install (`npm i -g @repo-prism/cli`). */
+  /** The server or hooks of an npm install (`npm i -g @prismapp/cli`). */
   | "npm-install"
   | "marketplace-extension"
   | "other";
@@ -29,7 +29,12 @@ export function classifyLaunch(text: string): SurfaceKind | null {
   if (!/prism|mcp-server\/dist\/bin\.js/i.test(text)) return null;
   if (/node_modules\/@repo-prism\/(?:mcp-server|plugin)\//.test(text))
     return "npm-install";
-  if (text.includes("@repo-prism/mcp-server")) return "published-npm";
+  if (
+    text.includes("@prismapp/mcp-server") ||
+    text.includes("@repo-prism/mcp-server")
+  ) {
+    return "published-npm";
+  }
   if (
     text.includes("packages/mcp-server/dist/bin.js") ||
     text.includes("PRISM_MCP_BIN=")

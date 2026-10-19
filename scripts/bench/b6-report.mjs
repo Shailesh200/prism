@@ -19,8 +19,22 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 export const RAW = join(repoRoot, "docs/benchmarks/2.x.json");
 export const DOC = join(repoRoot, "docs/benchmarks/2.x.md");
-/** Names that must never appear in the published proof (GATE-T3). */
-export const PRIVATE_NAMES = [/rentmaadi/i];
+/** The per-task table lives on its own page so 2.x.md stays inside the docs word budget. */
+export const PER_TASK_DOC = join(repoRoot, "docs/benchmarks/2.x-per-task.md");
+/**
+ * Names of private repositories that must never appear in a public proof,
+ * from `PRISM_PRIVATE_NAMES` (comma-separated), so the names themselves stay
+ * out of the repository. Read on each call.
+ */
+export function privateNames(env = process.env) {
+  return (env.PRISM_PRIVATE_NAMES ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .map(
+      (name) => new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
+    );
+}
 export const PUBLIC_REPOS = new Set(["es-toolkit", "hono"]);
 /** Hosts plan P14 requires in the B6 proof; a missing one fails at release. */
 export const REQUIRED_HOSTS = ["Claude Code", "opencode"];
@@ -242,11 +256,28 @@ export function renderDoc(raw) {
     );
   }
   lines.push(
+    "Per-task medians: [2.x per task](/docs/benchmarks/2.x-per-task).",
+    "",
+  );
+  return lines.join("\n");
+}
+
+/** docs/benchmarks/2.x-per-task.md: per-task medians from the same raw JSON. */
+export function renderPerTaskDoc(raw) {
+  const sum = summarize(raw);
+  const lines = [
+    "---",
+    "title: Per-task medians (2.x)",
+    'description: "Per-task token and success medians from the Prism 2.x real-agent benchmark."',
+    "---",
+    "",
+    "Per-task medians from the [2.x benchmark](/docs/benchmarks/2.x). Raw sessions: [`2.x.json`](/docs/benchmarks/2.x.json).",
+    "",
     "## Per task (medians)",
     "",
     "| Host | Task | A tokens | B tokens | A success | B success |",
     "|---|---|---|---|---|---|",
-  );
+  ];
   for (const host of sum.hosts) {
     const rows = raw.runs.filter((r) => r.host === host);
     for (const id of [...new Set(rows.map((r) => r.task))].sort()) {
@@ -403,16 +434,19 @@ if (command === "publish") {
   });
   writeFileSync(RAW, `${JSON.stringify(raw, null, 2)}\n`);
   writeFileSync(DOC, renderDoc(raw));
+  writeFileSync(PER_TASK_DOC, renderPerTaskDoc(raw));
   console.log(JSON.stringify(summarize(raw), null, 2));
 } else if (command === "check") {
   if (!existsSync(RAW)) {
     console.error(`b6: ${RAW} missing`);
     process.exit(1);
   }
+  const raw = JSON.parse(readFileSync(RAW, "utf8"));
   const same =
     existsSync(DOC) &&
-    readFileSync(DOC, "utf8") ===
-      renderDoc(JSON.parse(readFileSync(RAW, "utf8")));
+    readFileSync(DOC, "utf8") === renderDoc(raw) &&
+    existsSync(PER_TASK_DOC) &&
+    readFileSync(PER_TASK_DOC, "utf8") === renderPerTaskDoc(raw);
   console.log(
     same ? "b6: report matches raw JSON" : "b6: report differs from raw JSON",
   );

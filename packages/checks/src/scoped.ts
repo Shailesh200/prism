@@ -115,7 +115,9 @@ export function packageRootFor(repoRoot: string, relPath: string): string {
   let dir = dirname(resolve(root, relPath));
   while (dir.startsWith(root)) {
     if (dir === root) return "";
-    if (hasCheckScripts(dir)) return dir.slice(root.length + 1);
+    if (hasCheckScripts(dir)) {
+      return dir.slice(root.length + 1).replaceAll("\\", "/");
+    }
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;

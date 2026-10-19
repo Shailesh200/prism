@@ -94,8 +94,8 @@ export function registerPrompts(server: McpServer): void {
     async (args) => {
       const base = typeof args.base === "string" ? args.base.trim() : "";
       const flow = base
-        ? `Call guard_session for the change against "${base}", then blast_radius on anything it flags.`
-        : "Call guard_session so Prism ranks the working-tree change, then blast_radius on anything it flags.";
+        ? `Call guard_session with review true for the change against "${base}".`
+        : "Call guard_session with review true for the working-tree change.";
       return {
         messages: [
           {
@@ -107,10 +107,12 @@ export function registerPrompts(server: McpServer): void {
                 flow,
                 // A review that only reads the patch is the failure mode here:
                 // it sees what changed and misses what depends on it.
-                "Do not review by reading the raw diff alone — guard_session and blast_radius say what depends on the change, so lead with what they report.",
-                "Judge the change against this repo's real conventions. Call blast_radius on anything the roll-up flags as risky.",
-                "Summarise risk, what could break, and which tests to run.",
-                "Separate what Prism reported from your own reading of the code, and do not invent dependents — use the tool results.",
+                "Call guard_session with review true. Write the review from review.reading. Do not print risk scores.",
+                "Start with what the change does, then the finding count. Do not put a Receipt on that line. Bold each group title: Critical, High, Low, and Nit. Number findings straight through. Bold each finding title. Under it, an unordered list: This code, Breaks when, Change, and Left as is.",
+                "Keep reading.notes. Do not soften a Critical. Read reading.targets and only their listed callers and tests. Order: correct, safe, load, tested, speed, then smaller code.",
+                "A finding needs a concrete case. No case, no finding. A caller that is not listed was not measured.",
+                "After the findings, one explanation line and no Receipt label. End with one Receipt only: NO-SHIP if any finding is Critical, NOT PROVEN if any finding is High, otherwise SHIP, then the cheapest check or fix when it is not SHIP.",
+                "Call blast_radius only when a finding needs a caller that was not listed.",
               ].join(" "),
             },
           },

@@ -1,4 +1,4 @@
-# @repo-prism/mcp-server
+# @prismapp/mcp-server
 
 **`prism-mcp`**: structural answers about the repository you have open, for
 any MCP-capable coding agent. Local analysis only: no network calls, no
@@ -14,6 +14,7 @@ this?", "review my changes"); the server tells the agent which tools to call.
 Install the CLI, then let it write the editor configuration:
 
 ```bash
+npm install -g @prismapp/cli
 prism install claude     # or: cursor, codex, opencode, all
 ```
 
@@ -73,7 +74,7 @@ MCP **resources**: `prism://dna`, `prism://landmarks`, `prism://agents-md`.
 
 ## CI vs MCP
 
-Use the CLI (`@repo-prism/cli`) and the GitHub Action for gates: exit codes
+Use the CLI (`@prismapp/cli`) and the GitHub Action for gates: exit codes
 and JSON. Use MCP for interactive agent questions. Do not drive CI pass/fail
 from MCP tool calls.
 

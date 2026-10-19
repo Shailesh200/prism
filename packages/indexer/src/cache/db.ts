@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, rename, rm } from "node:fs/promises";
+import { mkdir, open, rename, rm } from "node:fs/promises";
 import { recordEvent } from "@repo-prism/shared/events";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -22,7 +22,7 @@ type SqliteConstructor = typeof import("better-sqlite3");
 type BunSqliteModule = {
   Database: new (
     filename: string,
-    options?: { readonly create?: boolean; readonly readonly?: boolean },
+    options?: { readonly create?: boolean },
   ) => SqliteDatabase;
 };
 
@@ -78,6 +78,30 @@ function nativeRequire(specifier: string): unknown {
   throw new Error(`Cannot load ${specifier} (from ${import.meta.url})`);
 }
 
+const SQLITE_HEADER = "SQLite format 3\0";
+
+/**
+ * True when the file is missing (a first open creates it) or starts with the
+ * SQLite header. A stand-in file must be moved aside before the native driver
+ * opens it: on Windows that open keeps the file locked after it throws, and
+ * the quarantine rename then fails.
+ */
+async function hasSqliteHeader(dbPath: string): Promise<boolean> {
+  let handle: Awaited<ReturnType<typeof open>>;
+  try {
+    handle = await open(dbPath, "r");
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT";
+  }
+  try {
+    const buf = Buffer.alloc(SQLITE_HEADER.length);
+    const { bytesRead } = await handle.read(buf, 0, buf.length, 0);
+    return bytesRead === buf.length && buf.toString("utf8") === SQLITE_HEADER;
+  } finally {
+    await handle.close();
+  }
+}
+
 /** Driver/module failures are not cache corruption — do not delete the DB. */
 export function isSqliteDriverError(cause: unknown): boolean {
   const text =
@@ -121,15 +145,12 @@ function attachPragma(db: SqliteDatabase): SqliteDatabase {
   return db;
 }
 
-function openBunSqlite(path: string, readonly = false): SqliteDatabase {
+function openBunSqlite(path: string): SqliteDatabase {
   const mod = loadBunSqlite();
   const db =
     path === ":memory:"
       ? new mod.Database(path)
-      : new mod.Database(
-          path,
-          readonly ? { readonly: true } : { create: true },
-        );
+      : new mod.Database(path, { create: true });
   return attachPragma(db);
 }
 
@@ -138,29 +159,20 @@ function openBunSqlite(path: string, readonly = false): SqliteDatabase {
  * Bun cannot dlopen that addon, so Bun-hosted hosts (playground Vite, MCP)
  * use `bun:sqlite` first — same file, same schema.
  */
-export function openSqliteDatabase(
-  path = ":memory:",
-  options?: { readonly?: boolean },
-): SqliteDatabase {
-  const readonly = options?.readonly === true && path !== ":memory:";
+export function openSqliteDatabase(path = ":memory:"): SqliteDatabase {
   if (isBunRuntime()) {
     try {
-      return openBunSqlite(path, readonly);
+      return openBunSqlite(path);
     } catch {
       /* native better-sqlite3 in a Node worker */
     }
   }
   try {
     const Database = nativeRequire("better-sqlite3") as SqliteConstructor;
-    return attachPragma(
-      new Database(
-        path,
-        readonly ? { readonly: true, fileMustExist: true } : {},
-      ),
-    );
+    return attachPragma(new Database(path));
   } catch (cause) {
     if (!isBunRuntime()) throw cause;
-    return openBunSqlite(path, readonly);
+    return openBunSqlite(path);
   }
 }
 
@@ -279,6 +291,18 @@ export async function openIndexCache(
       );
     }
   };
+
+  if (existsSync(dbPath) && !(await hasSqliteHeader(dbPath))) {
+    try {
+      await quarantineDbFiles(dbPath, "file is not a SQLite database");
+    } catch (moveCause) {
+      return err(
+        ioError(`Failed to move aside corrupt SQLite cache: ${dbPath}`, {
+          cause: String(moveCause),
+        }),
+      );
+    }
+  }
 
   let opened = tryOpen(false);
   if (!opened.ok) {

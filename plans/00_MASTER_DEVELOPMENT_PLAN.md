@@ -77,7 +77,7 @@ products. See ADR-0057 and
 > [`M-079_safety-layer.md`](./archive/milestones/M-079_safety-layer.md).
 
 > **Current product (17 Oct 2026). This replaces the rest of §3:**
-> - **Prism 2.0**, published as `@repo-prism/*` (13 packages at `2.0.0`, not yet published). Site `prismhq.in`. GitHub `Shailesh200/prism`.
+> - **Prism 2.0**, published as `@prismapp/cli` and `@prismapp/mcp-server` (the other libraries are packed inside those two, not yet published). Site `prismhq.in`. GitHub `Shailesh200/prism`.
 > - **Surfaces:** MCP server, with 9 default tools (`prepare_change`, `blast_radius`, `guard_session`, `test_impact`, `habits`, `safe_delete`, `rename_impact`, `repository_overview`, `graph`) and opt-in extras including `receipt`. Also the `prism` CLI (`prism start`, `install`, `review [--lens]`, `lens`, `habit`, `receipts`, `graph`, `doctor`), the local daemon, the hooks for Claude Code / Cursor / Codex / opencode, and the GitHub Action.
 > - **Hero:** Prepare (before an edit) and Lens Review (Dev / Architect / QA, after). The receipt verdict is `SHIP` / `NOT PROVEN` / `NO-SHIP`. Habits are skills (`~/.prism/skills/<slug>/SKILL.md`).
 > - **Removed:** Dispatch, the Dashboard / Console / playground, the VS Code and Cursor extensions, the health / report / feature tools (`f45ccb7`), and Envelope (17 Oct 2026).

@@ -149,8 +149,6 @@ export async function reviewLensFindings(
   report: ChangeReviewReport,
   paths: readonly string[],
   lensId: string | undefined,
-  /** Full change set when `paths` is only the analysed slice (RC-3). */
-  diffPaths: readonly string[] = paths,
 ): Promise<{
   findings: LensFinding[];
   unknownLens?: string;
@@ -211,7 +209,7 @@ export async function reviewLensFindings(
           })),
         )
     : [];
-  const signals = gatherLensSignals(workspace, paths, diffPaths);
+  const signals = gatherLensSignals(workspace, paths);
   return {
     findings: evaluateLensChecks(
       chosen,

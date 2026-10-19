@@ -38,12 +38,7 @@ export type AdoptionSnapshot = {
   };
 };
 
-const NPM_PACKAGES = [
-  "@repo-prism/cli",
-  "@repo-prism/mcp-server",
-  "@repo-prism/core",
-  "@repo-prism/shared",
-];
+const NPM_PACKAGES = ["@prismapp/cli", "@prismapp/mcp-server"];
 
 async function safeJson<T>(
   url: string,

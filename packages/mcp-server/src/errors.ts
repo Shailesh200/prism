@@ -31,7 +31,6 @@ const JSON_RPC_CODE: Record<PrismErrorCode, ErrorCode> = {
   [PrismErrorCode.IO_ERROR]: ErrorCode.InternalError,
   [PrismErrorCode.UNSUPPORTED]: ErrorCode.InvalidRequest,
   [PrismErrorCode.CANCELLED]: ErrorCode.InternalError,
-  [PrismErrorCode.YES_REQUIRED]: ErrorCode.InvalidParams,
 };
 
 /** Map a Core failure onto the MCP wire, keeping the Prism code readable. */

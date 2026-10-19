@@ -26,7 +26,7 @@ This is a hand check of the local build, roughly 30–40 minutes. Do the steps i
 
 - Run: `prism doctor --surfaces`
   - **You should see:** every host you use (Claude Code, Cursor, opencode) listed as connected.
-  - The Prism server path should be `/Users/shaileshjha/Prism/packages/mcp-server/dist/bin.js`. It must not be an npm or npx path.
+  - The Prism server path should be `~/Prism/packages/mcp-server/dist/bin.js`. It must not be an npm or npx path.
 - Open Claude Code in `~/prism-smoke` and run `/mcp`.
   - **You should see:** `prism` connected.
 

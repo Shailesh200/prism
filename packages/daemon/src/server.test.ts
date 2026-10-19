@@ -168,7 +168,8 @@ describe("prism daemon (M-095)", () => {
   it("writes a 0600 record and reports status", async () => {
     await start();
     const mode = (await stat(daemonRecordPath(env))).mode & 0o777;
-    expect(mode).toBe(0o600);
+    // Windows does not store a Unix 0600 mode; the write still asks for it.
+    if (process.platform !== "win32") expect(mode).toBe(0o600);
 
     await warmDaemonWorkspace({ root: repo, env });
     const status = await daemonStatus({ env });
@@ -440,5 +441,19 @@ describe("build skew (plan §10 Phase 4)", () => {
     });
     const health = await daemonHealth({ env });
     expect(health.kind === "ok" && health.value.buildId).toBe("2.0.0+200");
+  });
+
+  it("a newer client stops the daemon left by the previous install", async () => {
+    await start("2.0.0+100");
+    const outcome = await ensureDaemon({
+      command: process.execPath,
+      args: ["-e", "process.exit(0)"],
+      env,
+      buildId: "2.0.0+200",
+      waitMs: 0,
+    });
+    expect(outcome).toEqual({ kind: "ok", value: { started: true } });
+    const health = await daemonHealth({ env, buildId: "2.0.0+100" });
+    expect(health.kind).toBe("unavailable");
   });
 });

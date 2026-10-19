@@ -22,6 +22,21 @@ describe("seo", () => {
     expect(absoluteUrl("/install")).toBe("https://www.prismhq.in/install");
   });
 
+  it("rewrites an apex or http prismhq host to the www https origin", () => {
+    const prev = process.env.NEXT_PUBLIC_SITE_URL;
+    try {
+      process.env.NEXT_PUBLIC_SITE_URL = "http://prismhq.in";
+      expect(siteOrigin()).toBe("https://www.prismhq.in");
+      process.env.NEXT_PUBLIC_SITE_URL = "https://prismhq.in/";
+      expect(siteOrigin()).toBe("https://www.prismhq.in");
+      process.env.NEXT_PUBLIC_SITE_URL = "https://preview.example";
+      expect(siteOrigin()).toBe("https://preview.example");
+    } finally {
+      if (prev === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+      else process.env.NEXT_PUBLIC_SITE_URL = prev;
+    }
+  });
+
   it("keeps admin, oauth, and /features out of the index", () => {
     expect(shouldIndexPath("/admin")).toBe(false);
     expect(shouldIndexPath("/admin/docs/overview")).toBe(false);

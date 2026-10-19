@@ -28,10 +28,10 @@ export async function GET() {
       "files, tests, helpers to reuse and one run command before the edit",
     "/product/blast-radius": "what depends on a file or symbol",
     "/product/guardrails":
-      "safe delete and rename; Claude Code and opencode can stop a generated-file edit",
+      "safe delete and rename; hooks stop a generated-file edit where the agent supports them",
     "/product/receipts": "SHIP, NOT PROVEN or NO-SHIP from your checks",
     "/product/review":
-      "lens review: changes ranked by risk, plus callers left behind and untested code; it posts nothing",
+      "reads the change and returns Critical, High, Low, and Nit findings, then a Receipt",
     "/product/lenses": "Dev, Architect, QA or your own, each with its checks",
     "/product/habits":
       "saved routines stored as skills; your agent runs the steps",
@@ -49,12 +49,11 @@ export async function GET() {
 
   const body = `# Prism
 
-> Your agent’s second pair of eyes. Know before you ship.
-> Local software intelligence that catches what the agent missed. Prism gives
-> your agent the right files before it edits, then flags the code it skipped and
-> the code no test covers. Free and MIT; analysis runs on your machine. Exposed
-> as a CLI and an MCP server (${PRISM_TOOL_COUNT} tools) for AI agents, wired by
-> \`prism install\`.
+> Software intelligence for coding agents. Prepare hands the agent the files
+> to edit. Lenses keep the work in your house style and on your map. Review
+> reads the change and returns findings, then a Receipt: SHIP, NOT PROVEN, or
+> NO-SHIP. Free and MIT; analysis runs on your machine. Exposed as a CLI and an
+> MCP server (${PRISM_TOOL_COUNT} tools), wired by \`prism install\`.
 
 Every docs page in full: ${site}/llms-full.txt
 
@@ -62,7 +61,7 @@ Every docs page in full: ${site}/llms-full.txt
 
 - [Home](${site}/): what Prism does
 - [${HOW_IT_WORKS.label}](${site}${HOW_IT_WORKS.href}): map, prepare, guard, review
-- [Install](${site}/install): prism start or prism install
+- [Install](${site}/install): npm install -g @prismapp/cli, then prism install all
 ${installs}
 ${products}
 - [Benchmarks](${site}/benchmarks): what we measured, including where Prism did not help
@@ -70,6 +69,7 @@ ${products}
 - [Open source](${site}/open-source): MIT licence and contributing
 - [Privacy](${site}/privacy): no account, no telemetry; data stays in ~/.prism/
 - [Security](${site}/security): how to report a vulnerability
+- Contact: hello@shaileshjha.in
 
 ## Documentation
 

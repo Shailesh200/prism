@@ -16,22 +16,10 @@ See [Usage](../usage.mdx) for global options, exit codes, and how
 
 ### `prism start`
 
-Set up Prism for every coding agent found here (asks first), index this repo and show its map
-
-| Option | Meaning |
-|---|---|
-| `--dry-run` | Only list the config files it would write and the 1.x data it would move |
+Install Prism for every coding agent found here, index this repo and show its map
 
 ```bash
 prism start
-```
-
-```bash
-prism start --dry-run
-```
-
-```bash
-prism start --yes
 ```
 
 ### `prism install <client>`
@@ -53,7 +41,7 @@ prism install claude
 ```
 
 ```bash
-prism install cursor
+prism install cursor --project
 ```
 
 ```bash
@@ -215,13 +203,13 @@ What breaks if this file or symbol changes
 prism blast src/core/index.ts --fail-on high
 ```
 
-### `prism review [target...]`
+### `prism review [paths...]`
 
-Risk of the working tree, the files you name, or a GitHub pull request
+Risk of the current changes, or of the paths you name
 
 | Argument | Meaning |
 |---|---|
-| `[target...]` | Files to review, or one github.com pull request URL. Default: the working-tree diff |
+| `[paths...]` | Files to review (default: the working-tree diff) |
 
 | Option | Meaning |
 |---|---|
@@ -240,7 +228,7 @@ prism review --base origin/main --fail-on high
 ```
 
 ```bash
-prism review https://github.com/org/repo/pull/1
+prism review --base origin/main --format sarif
 ```
 
 ### `prism safe-delete <target>`

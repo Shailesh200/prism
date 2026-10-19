@@ -68,7 +68,7 @@ describe("resolver contract (plan §4.1, RES-1…5)", () => {
     return root;
   }
 
-  it("RES-1 reads JSONC tsconfig whose strings contain `/*` (rentmaadi `@/*`)", () => {
+  it("RES-1 reads JSONC tsconfig whose strings contain `/*` (a private app's `@/*`)", () => {
     const root = repo({
       "apps/web/tsconfig.json": `{
         // app config

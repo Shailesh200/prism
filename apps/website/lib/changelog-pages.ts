@@ -1,31 +1,48 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import {
-  parseChangelog,
-  SITE_CURRENT_RELEASE,
-  type ChangelogRelease,
-} from "@/lib/changelog";
+import { parseChangelog, type ChangelogRelease } from "@/lib/changelog";
+import { GITHUB_OWNER, GITHUB_REPO } from "@/lib/github";
 
 /** Versions per changelog page. */
 export const PER_PAGE = 10;
 
-/** Every version on the changelog, newest first: the hand-written 2.0.0, then CHANGELOG.md. */
+/** How often the live changelog is allowed to go stale, in seconds. */
+export const CHANGELOG_REVALIDATE_SECONDS = 300;
+
+/** CHANGELOG.md on main. A new version shows up without a website deploy. */
+export const GITHUB_CHANGELOG_URL = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main/CHANGELOG.md`;
+
+const LOCAL_CHANGELOG = path.join(process.cwd(), "../../CHANGELOG.md");
+
+function looksLikeChangelog(text: string): boolean {
+  return /^##\s+\d+\.\d+\.\d+/m.test(text);
+}
+
+/**
+ * The changelog on GitHub main. The copy in this checkout is the fallback
+ * for a build or a request that cannot reach GitHub.
+ */
+export async function readChangelogMarkdown(
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  try {
+    const res = await fetchImpl(GITHUB_CHANGELOG_URL, {
+      signal: AbortSignal.timeout(4000),
+      next: { revalidate: CHANGELOG_REVALIDATE_SECONDS },
+    });
+    if (res.ok) {
+      const text = await res.text();
+      if (looksLikeChangelog(text)) return text;
+    }
+  } catch {
+    // The local file is the same document when this build is current.
+  }
+  return readFile(LOCAL_CHANGELOG, "utf8");
+}
+
+/** Every version on the changelog, newest first, as written in CHANGELOG.md. */
 export async function changelogEntries(): Promise<ChangelogRelease[]> {
-  const markdown = await readFile(
-    path.join(process.cwd(), "../../CHANGELOG.md"),
-    "utf8",
-  );
-  const history = parseChangelog(markdown).filter(
-    (release) => release.version !== SITE_CURRENT_RELEASE.version,
-  );
-  const current: ChangelogRelease = {
-    version: SITE_CURRENT_RELEASE.version,
-    title: SITE_CURRENT_RELEASE.summary,
-    body: "",
-    bullets: [],
-    sections: [],
-  };
-  return [current, ...history];
+  return parseChangelog(await readChangelogMarkdown());
 }
 
 export function pageCount(total: number): number {

@@ -106,6 +106,24 @@ describe("buildChangeReceipt", () => {
     );
   });
 
+  it("does not SHIP a new file the index has not seen yet (J-09)", async () => {
+    const fixture = await repo();
+    const workspace = await open(fixture.root);
+    const indexed = await workspace.index();
+    expect(indexed.ok).toBe(true);
+    await fixture.write(
+      "src/fresh.ts",
+      "export function fresh(): number { return 1; }\n",
+    );
+    const receipt = await buildStructuralReceipt(workspace, {
+      reindex: false,
+    });
+    expect(receipt.ok).toBe(true);
+    if (!receipt.ok) return;
+    expect(receipt.value.receipt.verdict).not.toBe("proven");
+    expect(receipt.value.receipt.touched.files).toContain("src/fresh.ts");
+  });
+
   it("runs the repo's own checks and reports a failing test back to the agent", async () => {
     const fixture = await repo();
     await fixture.write(

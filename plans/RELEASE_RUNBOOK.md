@@ -13,11 +13,11 @@ Rewritten on 17 Oct 2026. The 1.x runbook was about tagging a VSIX for the VS Ma
 
 | Artifact | Where | Trigger |
 |---|---|---|
-| 13 npm packages at `2.0.0`: `@repo-prism/shared`, `analyzer`, `graph-engine`, `impact`, `navigation`, `indexer`, `intelligence`, `core`, `checks`, `daemon`, `mcp-server`, `plugin`, `cli` (order in `scripts/publish-npm.mjs`) | npm | tag `prism-npm-v2.0.0` → `.github/workflows/publish-npm.yml` |
+| 2 npm packages at `2.0.0`: `@prismapp/mcp-server` and `@prismapp/cli`. The other libraries (`shared`, `analyzer`, `graph-engine`, `impact`, `navigation`, `indexer`, `intelligence`, `core`, `checks`, `daemon`, `plugin`) are private and packed inside those two tarballs (`scripts/publish-npm.mjs`) | npm | push to `main` → `.github/workflows/publish-npm.yml` (also `prism-npm-v*` and `workflow_dispatch`). A version already on npm is skipped. |
 | GitHub Action `Shailesh200/prism/action@v2` | this repo, `action/` | a `v2` tag on the release commit |
-| Website and docs | `prismhq.in` (Vercel, `apps/website/vercel.json`) | Vercel deploys the production branch `main` (`apps/website/OWNER_HANDOFF.md`) |
+| Website | `prismhq.in` (Vercel, `apps/website/vercel.json`) | Vercel on push to `main`, only when `apps/website` changed. The changelog page reads `CHANGELOG.md` from GitHub `main`, so a new version shows up without a site rebuild. |
 
-`test-support` and `ui` are private and are not published.
+`test-support` and `ui` stay private, and so do the libraries packed into the CLI and the server.
 
 ## Before you release
 
@@ -43,18 +43,17 @@ Then test the real thing people install, not the source. In a clean `HOME`, inst
 
 - **The release gate fails 1 check:** Claude Code cost on small tasks (change report, round 3, item 4). Round 4 re-tests it.
 - **Fixed 17 Oct:** the publish workflow's build list was missing `checks`, `daemon` and `cli`. It now builds all 13 publish packages in dependency order. `check-mcp-start` no longer looks for the deleted `dispatch-hub`. A fresh build plus a publish dry run passed, run in a throwaway copy with the release gate skipped.
-- **`publish-npm.yml` is disabled** (`if: false`, unified plan §3.0). Turning it back on is part of the release commit.
+- **`publish-npm.yml` runs on a push to `main` only when package code changed.** A README, the docs, or the website alone does not publish. The website deploy starts from the same push and builds only when `apps/website` or `docs` changed, not when only packages or a README changed. Neither waits for the other.
 - **Not runnable locally:** the CI OS install matrix and ACT-1 (the Action on a real fork PR). Both need a push. See OPEN_QUESTIONS Q-031.
 
 ## Releasing
 
 1. Owner approves. Commit, then merge to `main`.
-2. Re-enable `publish-npm.yml` (remove `if: false`) in that commit.
-3. `git tag prism-npm-v2.0.0` on the commit you tested, then `git push origin prism-npm-v2.0.0`. Do not force-push the tag.
-4. `git tag v2` on the same commit, then `git push origin v2`. This is for the Action.
-5. Pushing `main` deploys the website through Vercel. Do this only with the owner's go-ahead (Focus Reset Q-4: do not push `main` without it).
+2. That merge starts npm publish when package code changed, and the website deploy when `apps/website` or `docs` changed. npm publish skips a version that is already on npm.
+3. `git tag v2` on the same commit, then `git push origin v2`. This is for the Action, separate from npm.
+4. Do this only with the owner's go-ahead (Focus Reset Q-4: do not push `main` without it).
 
-## What the tag sets off
+## What the merge to main sets off
 
 `publish-npm.yml` runs these steps in order:
 1. Install, then build the publishable packages.

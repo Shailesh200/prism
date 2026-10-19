@@ -84,25 +84,25 @@
         {
           "name": "typecheck",
           "status": "failed",
-          "detail": "error: Module not found \"/Users/shaileshjha/.yarn/berry/cache/typescript-patch-26c53754b1-10c0.zip/node_modules/typescript/bin/tsc\"",
+          "detail": "error: Module not found \"~/.yarn/berry/cache/typescript-patch-26c53754b1-10c0.zip/node_modules/typescript/bin/tsc\"",
           "durationMs": 1163
         },
         {
           "name": "lint",
           "status": "failed",
-          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/eslint-virtual-2b5512897d/6/Users/shaileshjha/.yarn/berry/cache/eslint-npm-…",
+          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/eslint-virtual-2b5512897d/6~/.yarn/berry/cache/eslint-npm-…",
           "durationMs": 885
         },
         {
           "name": "test",
           "status": "failed",
-          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/vitest-virtual-d038926a32/6/Users/shaileshjha/.yarn/berry/cache/vitest-npm-…",
+          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/vitest-virtual-d038926a32/6~/.yarn/berry/cache/vitest-npm-…",
           "durationMs": 852
         },
         {
           "name": "tests/types: test",
           "status": "failed",
-          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/vitest-virtual-b25e680d29/6/Users/shaileshjha/.yarn/berry/cache/vitest-npm-…",
+          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/vitest-virtual-b25e680d29/6~/.yarn/berry/cache/vitest-npm-…",
           "durationMs": 959
         }
       ],
@@ -110,25 +110,25 @@
         {
           "name": "typecheck",
           "status": "failed",
-          "detail": "error: Module not found \"/Users/shaileshjha/.yarn/berry/cache/typescript-patch-26c53754b1-10c0.zip/node_modules/typescript/bin/tsc\"",
+          "detail": "error: Module not found \"~/.yarn/berry/cache/typescript-patch-26c53754b1-10c0.zip/node_modules/typescript/bin/tsc\"",
           "durationMs": 539
         },
         {
           "name": "lint",
           "status": "failed",
-          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/eslint-virtual-2b5512897d/6/Users/shaileshjha/.yarn/berry/cache/eslint-npm-…",
+          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/eslint-virtual-2b5512897d/6~/.yarn/berry/cache/eslint-npm-…",
           "durationMs": 560
         },
         {
           "name": "test",
           "status": "failed",
-          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/vitest-virtual-d038926a32/6/Users/shaileshjha/.yarn/berry/cache/vitest-npm-…",
+          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/vitest-virtual-d038926a32/6~/.yarn/berry/cache/vitest-npm-…",
           "durationMs": 759
         },
         {
           "name": "tests/types: test",
           "status": "failed",
-          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/vitest-virtual-b25e680d29/6/Users/shaileshjha/.yarn/berry/cache/vitest-npm-…",
+          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/vitest-virtual-b25e680d29/6~/.yarn/berry/cache/vitest-npm-…",
           "durationMs": 618
         }
       ],
@@ -503,19 +503,19 @@
         {
           "name": "typecheck",
           "status": "failed",
-          "detail": "error: Module not found \"/Users/shaileshjha/.yarn/berry/cache/typescript-patch-26c53754b1-10c0.zip/node_modules/typescript/bin/tsc\"",
+          "detail": "error: Module not found \"~/.yarn/berry/cache/typescript-patch-26c53754b1-10c0.zip/node_modules/typescript/bin/tsc\"",
           "durationMs": 742
         },
         {
           "name": "lint",
           "status": "failed",
-          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/eslint-virtual-2b5512897d/6/Users/shaileshjha/.yarn/berry/cache/eslint-npm-…",
+          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/eslint-virtual-2b5512897d/6~/.yarn/berry/cache/eslint-npm-…",
           "durationMs": 1022
         },
         {
           "name": "test",
           "status": "failed",
-          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/vitest-virtual-d038926a32/6/Users/shaileshjha/.yarn/berry/cache/vitest-npm-…",
+          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/vitest-virtual-d038926a32/6~/.yarn/berry/cache/vitest-npm-…",
           "durationMs": 1143
         }
       ],
@@ -523,19 +523,19 @@
         {
           "name": "typecheck",
           "status": "failed",
-          "detail": "error: Module not found \"/Users/shaileshjha/.yarn/berry/cache/typescript-patch-26c53754b1-10c0.zip/node_modules/typescript/bin/tsc\"",
+          "detail": "error: Module not found \"~/.yarn/berry/cache/typescript-patch-26c53754b1-10c0.zip/node_modules/typescript/bin/tsc\"",
           "durationMs": 876
         },
         {
           "name": "lint",
           "status": "failed",
-          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/eslint-virtual-2b5512897d/6/Users/shaileshjha/.yarn/berry/cache/eslint-npm-…",
+          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/eslint-virtual-2b5512897d/6~/.yarn/berry/cache/eslint-npm-…",
           "durationMs": 853
         },
         {
           "name": "test",
           "status": "failed",
-          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/vitest-virtual-d038926a32/6/Users/shaileshjha/.yarn/berry/cache/vitest-npm-…",
+          "detail": "error: Module not found \"/private/tmp/prism-bench/wt/es-toolkit/.yarn/__virtual__/vitest-virtual-d038926a32/6~/.yarn/berry/cache/vitest-npm-…",
           "durationMs": 862
         }
       ],

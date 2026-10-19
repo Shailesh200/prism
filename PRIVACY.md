@@ -8,31 +8,28 @@ server, and no Prism cloud.
 | Question | Answer |
 |---|---|
 | Does my source code leave my machine? | No. |
-| Is there telemetry, analytics, or crash reporting? | A usage ping: the command or tool name, and whether it worked. No crash reports. No code, paths, or prompts. |
+| Is there telemetry, analytics, or crash reporting? | A usage ping: the command or tool name, and whether it worked. No code, paths, or prompts. `PRISM_PULSE=0` turns it off. |
 | Is there an account or licence check? | No. |
-| Does Prism ever make a network request? | An update check, and the usage ping below. Analysis makes none. |
+| Does Prism ever make a network request? | A daily update check, and a usage ping. Analysis makes none. |
 | Where is my data stored? | `~/.prism/` on your machine. Nothing is written into your checkout. |
 
 ## The one network request
 
 Once a day at most, `prism-mcp` asks the npm registry
 (`registry.npmjs.org`) for the latest published version of
-`@repo-prism/mcp-server`. The request carries no repository data. The answer is
+`@prismapp/mcp-server`. The request carries no repository data. The answer is
 cached in `~/.prism/update.json`. If a newer version exists, Prism prints
 "update available: run `prism upgrade`"; it never downloads, installs or
 relaunches anything by itself. Local checkouts never check. Set
 `PRISM_SKIP_SELF_UPDATE=1` to turn it off.
 
-## Usage
+## The usage ping
 
-When you run a `prism` command or an agent calls a Prism tool, Prism sends
-one event to Pulse (`pulse.shaileshjha.in`). The event is the command or tool
-name, whether it finished, failed, or reported findings, how many milliseconds
-it took, and for `prism install` which host you named. A failure also sends
-the `PRISM_*` code, never the message. Your repository, paths, prompts, and
-source are not included. The request gives up after a fraction of a second and
-a failure never changes the command. Set `PRISM_PULSE=0` to turn it off.
-Tests and CI do not send.
+When a command finishes, or an MCP tool returns, Prism posts one event to
+`https://pulse.shaileshjha.in`. The event is the command or tool name, whether
+it worked, and how long it took. It does not include source, paths, prompts,
+or the text of an error. Set `PRISM_PULSE=0` to turn it off. It is also off
+in CI and in tests.
 
 ## What is proven, not just claimed
 
@@ -62,9 +59,8 @@ No credential of any kind is written. Prism holds no third-party tokens.
 ## Decisions of record
 
 - **No cloud sync, ever** (Q-009, resolved 2026-08-05).
-- **No telemetry of code** (Q-010, resolved 2026-08-05). The owner later asked
-  for anonymous usage counts of commands and tools. Those counts are the
-  usage ping above. They do not include source, paths, or prompts.
+- **No telemetry, not even opt-in anonymous counters** (Q-010, resolved
+  2026-08-05).
 
 See [the threat model](./plans/architecture/07_THREAT_MODEL.md) for what Prism
 executes and why.

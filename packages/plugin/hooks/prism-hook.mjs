@@ -33,7 +33,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, userInfo } from "node:os";
 import {
   delimiter,
   dirname,
@@ -595,110 +595,50 @@ function missingBin() {
 /** The stop hook's hard budget (plan P17): structural receipt under 1 s. */
 const STOP_BUDGET_MS = 1000;
 
-const pluralLite = (n, one) => `${n} ${n === 1 ? one : `${one}s`}`;
-
 /**
- * The parts every verdict line is built from: mirrors shared
- * `receiptHeadline`, `receiptSummaryLine` and `shipVerdictLabel` (plan P11
- * verdict-first: SHIP, NO-SHIP, NOT PROVEN).
+ * Minimal receipt text: mirrors shared `receiptHeadline`, `receiptSummaryLine`
+ * (plan P11 verdict-first: SHIP, NO-SHIP, NOT PROVEN).
  */
-function verdictLite(receipt) {
+function renderReceiptLite(receipt) {
+  const plural = (n, one) => `${n} ${n === 1 ? one : `${one}s`}`;
   const touched = receipt?.touched ?? {};
   const total = touched.totalFiles ?? 0;
   const unsupported = Array.isArray(receipt?.unsupported)
     ? receipt.unsupported.length
     : 0;
-  const nothing = total === 0 && unsupported === 0;
-  const failed = (receipt?.checks ?? []).filter(
+  if (total === 0 && unsupported === 0) return "Prism · nothing changed";
+  const failed = (receipt.checks ?? []).filter(
     (c) => c.status === "failed" && c.cause !== "already-failing",
   ).length;
-  const offLimits = (receipt?.lensFindings ?? [])
+  const offLimits = (receipt.lensFindings ?? [])
     .filter((f) => f.check === "off_limits_touched" && f.status === "fail")
     .flatMap((f) => f.evidence ?? []).length;
-  const noShip = receipt?.verdict === "failed" || offLimits > 0;
-  const reason = receipt?.reason ?? "untested";
+  const noShip =
+    receipt.verdict === "failed" ||
+    offLimits > 0 ||
+    receipt.reason === "wrong_result";
   const label = noShip
     ? "NO-SHIP"
-    : receipt?.verdict === "proven"
+    : receipt.verdict === "proven"
       ? "SHIP"
-      : `NOT PROVEN (${reason})`;
-  const failedChecks = pluralLite(failed, "check");
-  const offLimitsPaths = pluralLite(offLimits, "off-limits path");
+      : `NOT PROVEN (${receipt.reason ?? "untested"})`;
   const why = [
-    ...(failed > 0 ? [`${failedChecks} failed`] : []),
-    ...(offLimits > 0 ? [offLimitsPaths] : []),
+    ...(failed > 0 ? [`${plural(failed, "check")} failed`] : []),
+    ...(offLimits > 0 ? [plural(offLimits, "off-limits path")] : []),
+    ...(receipt.reason === "wrong_result" ? ["wrong result"] : []),
   ];
-  const headline = nothing
-    ? "Prism · nothing changed"
-    : noShip
-      ? `Prism · NO-SHIP (${why.join(", ")})`
-      : `Prism · ${label}`;
-  const changedFiles = pluralLite(total + unsupported, "file");
-  // SMK-8 reads `${summary} — ${label}` at stop; the wake drops the label.
-  const summary = `Prism receipt: changed ${changedFiles}, ${pluralLite(touched.dependents ?? 0, "dependent")}, ${pluralLite((receipt?.testFiles ?? []).length, "test")} reach it`;
-  return {
-    nothing,
-    failed,
-    offLimits,
-    noShip,
-    reason,
-    label,
-    headline,
-    summary,
-    changedFiles,
-    failedChecks,
-    offLimitsPaths,
-  };
-}
-
-/** Mirrors shared `receiptTerminalLine` (Muse v2.1). */
-const TERMINAL_REASON = {
-  untested: "no test reaches this change yet",
-  no_node_modules: "install dependencies to run its tests",
-  unknown_runner: "no known runner could run its tests",
-  skipped_offline: "checks are off for this run",
-  still_running: "no verdict yet; the next receipt shows it",
-  timeout: "a check ran past its time limit",
-  already_failing: "its tests failed before this session",
-  unsupported_language: "only TS and JS files are checked",
-  superseded: "a newer change replaced this one",
-};
-
-/** The verdict in one terminal line: the headline and what it means. */
-function terminalLineLite(receipt) {
-  const v = verdictLite(receipt);
-  if (v.nothing) return v.headline;
-  if (v.noShip) {
-    return v.failed > 0
-      ? `${v.headline} — the agent is fixing it`
-      : `${v.headline} — the agent is undoing those edits`;
-  }
-  if (v.label === "SHIP") {
-    return `${v.headline} — the checks this change reaches passed`;
-  }
-  const meaning = TERMINAL_REASON[v.reason];
-  return meaning ? `${v.headline} — ${meaning}` : v.headline;
-}
-
-/**
- * The 1 s stop hook's text for the user (Muse v2.1): a "checking" line while
- * the checks run (stop-wait brings the verdict into the chat), or the
- * terminal line when the verdict is already final. The summary line under it
- * stays byte for byte what SMK-8 reads.
- */
-function renderReceiptLite(receipt) {
-  const v = verdictLite(receipt);
-  if (v.nothing) return v.headline;
-  const pending = receipt.checksState === "pending";
-  const first = !pending
-    ? terminalLineLite(receipt)
-    : v.offLimits > 0
-      ? `Prism · NO-SHIP (${v.offLimitsPaths}) — checks still running; the verdict follows`
-      : `Prism · checking ${v.changedFiles} — the verdict follows in this chat`;
-  const lines = [first, `${v.summary} — ${v.label}`];
+  const headline = noShip
+    ? `Prism · NO-SHIP (${why.join(", ")})`
+    : `Prism · ${label}`;
+  const changed = total + unsupported;
+  const summary = `Prism receipt: changed ${plural(changed, "file")}, ${plural(touched.dependents ?? 0, "dependent")}, ${plural((receipt.testFiles ?? []).length, "test")} reach it — ${label}`;
+  const lines = [headline, summary];
   // The previous change's checks, finished since its own stop (mirrors shared renderReceipt).
   if (receipt.earlier?.summary) {
     lines.push(`Earlier change  ${receipt.earlier.summary}`);
+  }
+  if (receipt.checksState === "pending") {
+    lines.push("Proven          checks still running");
   }
   const value = valueLineLite(receipt.value);
   if (value) lines.push(value);
@@ -903,46 +843,13 @@ function stopWakeSkip(receipt) {
   return null;
 }
 
-/** The agent's first line for each NOT PROVEN reason (Muse v2.1). */
-const SAY_REASON = {
-  untested: "no test reaches this change yet",
-  no_node_modules: "dependencies aren't installed",
-  unknown_runner: "no known runner ran its tests",
-  skipped_offline: "checks are off for this run",
-  timeout: "a check ran past its time limit",
-  already_failing: "its tests failed before this session",
-  unsupported_language: "only TS and JS files are checked",
-};
-
-/**
- * What wakes the agent (Muse v2.1), exactly 3 lines under 100 chars: the
- * headline, the summary without its label, and the line the agent opens its
- * reply with plus what to do next. The user sees the verdict only through
- * that reply.
- */
+/** What wakes the agent: the verdict, then what to do with it. */
 function stopWakeText(receipt) {
-  const v = verdictLite(receipt);
-  let say;
-  let action = "stop.";
-  if (v.noShip && v.failed > 0 && v.offLimits > 0) {
-    say = `Prism: NO-SHIP — ${v.failedChecks} failed, ${v.offLimitsPaths} edited.`;
-    action = "fix both.";
-  } else if (v.noShip && v.offLimits > 0) {
-    say = `Prism: NO-SHIP — ${v.offLimitsPaths} edited; undoing.`;
-    action = "undo those edits.";
-  } else if (v.noShip) {
-    say = `Prism: NO-SHIP — ${v.failedChecks} failed; fixing now.`;
-    action = "fix them.";
-  } else if (v.label === "SHIP") {
-    say = "Prism: SHIP — the checks this change reaches passed.";
-  } else {
-    say = `Prism: NOT PROVEN — ${SAY_REASON[v.reason] ?? v.reason}.`;
-  }
-  return [
-    v.headline,
-    v.summary,
-    `Prism · Say first: "${say}" Then ${action}`,
-  ].join("\n");
+  const verdict = renderReceiptLite(receipt);
+  const next = verdict.startsWith("Prism · NO-SHIP")
+    ? "Prism · the checks on the change you just finished failed. Tell the user the verdict in one line, then fix the failures before you say done."
+    : "Prism · this is the verdict on the change you just finished. Tell the user this verdict in one line and do nothing else.";
+  return `${verdict}\n${next}`;
 }
 
 async function stopWait() {
@@ -1216,7 +1123,10 @@ async function refreshHookConfig() {
   for (const file of files) {
     let result;
     try {
-      result = config.refreshClaudeHooks(file.path, { onlyHook: self });
+      result = config.refreshClaudeHooks(file.path, {
+        onlyHook: self,
+        realHome: claudeGuardHome(),
+      });
     } catch (error) {
       result = { kind: "manual", reason: message(error) };
     }
@@ -1248,6 +1158,22 @@ async function refreshHookConfig() {
     if (line) lines.push(line);
   }
   return lines;
+}
+
+/**
+ * Home the Claude guard compares against. `os.userInfo().homedir` follows
+ * USERPROFILE on Windows, so a test that points USERPROFILE at a fixture
+ * would look like the real profile and the guard would refuse the update.
+ * PRISM_REAL_HOME is read only under the test runner.
+ */
+function claudeGuardHome() {
+  const override = process.env.PRISM_REAL_HOME?.trim();
+  if (override && (process.env.VITEST || process.env.BUN_TEST)) return override;
+  try {
+    return userInfo().homedir;
+  } catch {
+    return homedir();
+  }
 }
 
 /** True the first time today a hook-config warning names `path`. */

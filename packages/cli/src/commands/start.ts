@@ -5,18 +5,9 @@
  * map with what to try next. A bare `prism` prints the same answer without
  * installing anything.
  *
- * Consent (round 5, release blocker): before writing, it lists the config
- * files whose content would change and any 1.x data it would move, and asks
- * y/N. `--yes` skips the question, `--dry-run` only shows the list. No TTY
- * and no `--yes`: nothing changes, exit 1. Each existing file is copied to
- * `~/.prism-backups/<stamp>/configs/` first and 1.x data moves to
- * `.../<stamp>/1x/`. Nothing to change: no question, no backup, no writes.
- * Wording lives in `install/consent-copy.ts` (Muse's copy).
- *
  * Large repos answer from a partial (package-first) index; the daemon finishes
  * the full index in the background.
  */
-import { createInterface } from "node:readline";
 import { homedir } from "node:os";
 import { Prism } from "@repo-prism/core";
 import { ensureDaemon, warmDaemonWorkspace } from "@repo-prism/daemon";
@@ -30,20 +21,10 @@ import {
   type PrismError,
   type Result,
 } from "@repo-prism/shared";
-import { backupConfigs, tilde } from "../install/backups.js";
-import { CONSENT_COPY, fileList, wipeBlock } from "../install/consent-copy.js";
-import { detectHosts, type InstallHost } from "../install/hosts.js";
-import { planStart, type StartPlan } from "../install/start-plan.js";
+import { detectHosts } from "../install/hosts.js";
 import type { CommandContext, CommandHandler } from "../runtime.js";
 import { wrap } from "../table.js";
-import {
-  defaultLayout,
-  enableReceipt,
-  HOST_NAMES,
-  RECEIPT_HOSTS,
-  runInstall,
-  type SourceLayout,
-} from "./install.js";
+import { defaultLayout, HOST_NAMES, runInstall } from "./install.js";
 
 /** Enough of the map to orient: the few most-imported files and their exports. */
 export const START_MAP_TOKENS = 600;
@@ -69,7 +50,7 @@ export function firstAnswerCap(env: NodeJS.ProcessEnv = process.env): number {
 }
 
 export const TRY_LINE =
-  'Try: prism prepare "<task>", or ask your agent for a change in plain words.';
+  'Try: prism prepare "<task>", or ask your agent to call prepare_change before it edits.';
 
 export const PARTIAL_LINE =
   "Partial map (top packages first); the full index is finishing in the background.";
@@ -185,234 +166,27 @@ export const firstRunCommand: CommandHandler = async (context) => {
   return ok({ data: result.value.answer, human: () => result.value.text });
 };
 
-/** What `prism start` needs from the machine; tests pass stand-ins. */
-export type StartDeps = {
-  readonly home: () => string;
-  readonly env: () => NodeJS.ProcessEnv;
-  readonly now: () => Date;
-  readonly isTty: () => boolean;
-  /** Print `question`, read one line. */
-  readonly ask: (question: string) => Promise<string>;
-  readonly layout: () => SourceLayout | string;
-  readonly install: typeof runInstall;
-  readonly answer: (
-    context: CommandContext,
-  ) => Promise<Result<{ answer: FirstAnswer; text: string }, PrismError>>;
-};
-
-function askLine(question: string): Promise<string> {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise((done) => {
-    rl.question(question, (line) => {
-      rl.close();
-      done(line);
-    });
-    rl.once("close", () => done(""));
-  });
-}
-
-export const defaultStartDeps: StartDeps = {
-  home: homedir,
-  env: () => process.env,
-  now: () => new Date(),
-  isTty: () => Boolean(process.stdin.isTTY && process.stdout.isTTY),
-  ask: askLine,
-  layout: defaultLayout,
-  install: runInstall,
-  answer: answerWithMap,
-};
-
-/** y or yes (any case); everything else, Enter included, is no. */
-export function saidYes(line: string): boolean {
-  return /^\s*y(es)?\s*$/i.test(line);
-}
-
-/** The list part shared by the question, `--yes` and `--dry-run`. */
-function listLines(plan: StartPlan, home: string): string[] {
-  const lines = [...fileList(plan.rows)];
-  if (plan.wipe) {
-    if (lines.length > 0) lines.push("");
+export const startCommand: CommandHandler = async (context) => {
+  const hosts = detectHosts(homedir());
+  const lines: string[] = [];
+  let installed: readonly string[] = [];
+  if (hosts.length === 0) {
     lines.push(
-      ...wipeBlock({
-        ...plan.wipe,
-        home: tilde(plan.wipe.home, home),
-        backupDir: `${tilde(plan.wipe.backupDir, home)}/`,
-      }),
+      "No coding agent found (Claude Code, Cursor, Codex, opencode). Indexing anyway; run `prism install <client>` once one is set up.",
     );
-  }
-  return lines;
-}
-
-/**
- * The one JSON shape of the planned changes (`data.plan`), the same for
- * `--json --dry-run`, `--json` without `--yes` (refused, exit 1) and
- * `--json --yes` (applied).
- */
-export function startPlanJson(
-  plan: StartPlan,
-  names: readonly string[],
-): {
-  readonly hosts: readonly string[];
-  readonly writes: readonly {
-    readonly agent: string;
-    readonly path: string;
-    readonly kind: "file" | "dir";
-    readonly exists: boolean;
-    readonly role: string;
-  }[];
-  readonly wipe: StartPlan["wipe"];
-  readonly backupDir: string;
-  readonly nothingToDo: boolean;
-} {
-  return {
-    hosts: [...names],
-    writes: plan.writes.map((write, i) => ({
-      agent: write.agent,
-      path: write.path,
-      kind: write.kind,
-      exists: write.exists,
-      role: plan.rows[i]?.role ?? "file",
-    })),
-    wipe: plan.wipe,
-    backupDir: plan.backupDir,
-    nothingToDo: plan.nothingToDo,
-  };
-}
-
-/** `prism start`, with the machine (home, TTY, prompt, install) injectable. */
-export function makeStartCommand(
-  deps: StartDeps = defaultStartDeps,
-): CommandHandler {
-  return async (context) => {
-    const home = deps.home();
-    const env = deps.env();
-    const hosts: InstallHost[] = detectHosts(home);
-    const machine = context.output.json;
-    const say = (line: string) => {
-      if (!machine) context.writer.out(line);
-    };
-    if (hosts.length === 0) {
-      const result = await deps.answer(context);
-      if (!result.ok) return result;
-      return ok({
-        data: { installed: [], ...result.value.answer },
-        human: ({ width }) =>
-          [...wrap(CONSENT_COPY.noHosts, width), result.value.text].join("\n"),
-      });
-    }
-    const layout = deps.layout();
+  } else {
+    const layout = defaultLayout();
     if (typeof layout === "string")
       return err(prismError(PrismErrorCode.NOT_FOUND, layout));
-    const names = hosts.map((host) => HOST_NAMES[host]);
-    const now = deps.now();
-    const plan = planStart({
-      hosts,
-      hostNames: HOST_NAMES,
-      scope: "user",
-      home,
-      root: context.workspace.path,
-      node: process.execPath,
-      bin: layout.bin,
-      pack: layout.pack,
-      env,
-      now,
-      receiptHosts: RECEIPT_HOSTS,
-      enableReceipt,
-    });
-    const summary = startPlanJson(plan, names);
-    const backupShown = `${tilde(plan.backupDir, home)}/`;
-
-    // Case 7: nothing would change. No question, no backup, no writes.
-    if (plan.nothingToDo) {
-      const result = await deps.answer(context);
-      if (!result.ok) return result;
-      return ok({
-        data: {
-          installed: [],
-          alreadySetUp: true,
-          plan: summary,
-          ...result.value.answer,
-        },
-        human: ({ width }) =>
-          [
-            ...wrap(CONSENT_COPY.alreadySetUp(layout.version, names), width),
-            result.value.text,
-          ].join("\n"),
-      });
-    }
-
-    // Case 4: list only.
-    if (context.args.flag("dryRun")) {
-      return ok({
-        data: { dryRun: true, plan: summary },
-        human: () =>
-          [
-            CONSENT_COPY.dryRunHead,
-            "",
-            CONSENT_COPY.dryIntro(names),
-            ...listLines(plan, home),
-            "",
-            CONSENT_COPY.dryBackedUp,
-            "",
-            CONSENT_COPY.dryFooter,
-          ].join("\n"),
-      });
-    }
-
-    if (context.options.yes) {
-      // Case 5: the list still prints, so script logs show what changed.
-      say(CONSENT_COPY.yesIntro(names));
-      for (const line of listLines(plan, home)) say(line);
-    } else if (machine) {
-      // `--json` without `--yes` (Atlas): nothing changes. A refusal:
-      // `{ok:false, error:{code:PRISM_YES_REQUIRED, details:{plan}}}`, exit 1.
-      return err(
-        prismError(PrismErrorCode.YES_REQUIRED, CONSENT_COPY.jsonYesRequired, {
-          plan: summary,
-        }),
-      );
-    } else if (!deps.isTty()) {
-      // Case 6: nobody to ask. Nothing changes; stderr, exit 1.
-      return ok({
-        data: { changed: false, reason: "no_tty", plan: summary },
-        human: () => CONSENT_COPY.noTty.join("\n"),
-        findings: true,
-        stderr: true,
-      });
-    } else {
-      // Case 1: the question.
-      say(CONSENT_COPY.intro(names));
-      say("");
-      if (plan.rows.length > 0) say(CONSENT_COPY.willWrite);
-      for (const line of listLines(plan, home)) say(line);
-      say("");
-      say(CONSENT_COPY.backedUpFirst(backupShown));
-      say(CONSENT_COPY.staysLocal);
-      say("");
-      if (!saidYes(await deps.ask(CONSENT_COPY.prompt))) {
-        // Case 2: no. Exit 0.
-        return ok({
-          data: { changed: false, reason: "declined", plan: summary },
-          human: () => CONSENT_COPY.declined.join("\n"),
-        });
-      }
-    }
-
-    // Case 3 / 5 / 8: back up, install, then index.
-    let backups: string[] = [];
-    if (plan.toBackUp.length > 0) {
-      say(CONSENT_COPY.backingUp(plan.toBackUp.length, backupShown));
-      backups = backupConfigs(plan.backupDir, plan.toBackUp, home);
-    }
-    context.progress(`Installing for ${names.join(", ")}…`);
-    const result = await deps.install({
+    context.progress(
+      `Installing for ${hosts.map((host) => HOST_NAMES[host]).join(", ")}…`,
+    );
+    const result = await runInstall({
       hosts,
       scope: "user",
       root: context.workspace.path,
       layout,
-      env,
-      now,
-      home,
+      env: process.env,
     });
     if (result.kind === "permission")
       return err(
@@ -421,31 +195,20 @@ export function makeStartCommand(
           `Cannot write ${result.wipe.path}; nothing was changed. Fix: ${result.wipe.fix}`,
         ),
       );
-    const moved = result.wipe.kind === "wiped";
-    const status = [
-      ...(moved ? [result.wipe.line] : []),
+    installed = result.installed;
+    if (result.wipe.kind === "wiped") lines.push(result.wipe.line);
+    lines.push(
       `Prism ${result.record.version} installed for ${result.installed.map((host) => HOST_NAMES[host]).join(", ")} (${result.build}).`,
-      ...(backups.length > 0 || moved
-        ? [CONSENT_COPY.backupsAre(backupShown)]
-        : []),
-      CONSENT_COPY.uninstallHint,
       ...result.notes,
-    ];
-    for (const line of status)
-      for (const part of wrap(line, context.output.width)) say(part);
-    const answered = await deps.answer(context);
-    if (!answered.ok) return answered;
-    return ok({
-      data: {
-        installed: result.installed,
-        plan: summary,
-        backups,
-        ...(moved ? { movedTo: result.wipe.backupDir } : {}),
-        ...answered.value.answer,
-      },
-      human: () => answered.value.text,
-    });
-  };
-}
-
-export const startCommand: CommandHandler = makeStartCommand();
+    );
+  }
+  const result = await answerWithMap(context);
+  if (!result.ok) return result;
+  return ok({
+    data: { installed, ...result.value.answer },
+    human: ({ width }) =>
+      [...lines.flatMap((line) => wrap(line, width)), result.value.text].join(
+        "\n",
+      ),
+  });
+};

@@ -2,5 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "cd ../.. && bun install",
-  "buildCommand": "cd ../.. && bun run --filter @repo-prism/shared build && bun run --filter @repo-prism/website build"
+  "buildCommand": "cd ../.. && bun run --filter @repo-prism/shared build && bun run --filter @repo-prism/website build",
+  "ignoreCommand": "sh -c 'if ! git rev-parse --verify HEAD^ >/dev/null 2>&1; then exit 1; fi; git diff --name-only HEAD^ HEAD | node ../../scripts/release-paths.mjs website'"
 }

@@ -1,6 +1,7 @@
 # Contributing to Prism
 
-Thanks for looking. Prism is developed milestone by milestone against a written
+Thanks for looking. Questions and security reports can go to
+hello@shaileshjha.in. Prism is developed milestone by milestone against a written
 plan, which makes contributing a little different from a typical repository —
 please read the workflow section before opening a pull request.
 

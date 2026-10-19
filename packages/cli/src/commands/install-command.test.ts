@@ -38,6 +38,7 @@ describe("prism install: Codex only when ~/.codex exists", () => {
     dirs.push(home);
     Object.assign(process.env, {
       HOME: home,
+      USERPROFILE: home,
       PRISM_HOME: join(home, ".prism"),
       PRISM_DAEMON: "0",
     });
@@ -65,6 +66,7 @@ describe("install record and build label", () => {
     mkdirSync(join(home, ".cursor"));
     Object.assign(process.env, {
       HOME: home,
+      USERPROFILE: home,
       PRISM_HOME: join(home, ".prism"),
       PRISM_DAEMON: "0",
     });

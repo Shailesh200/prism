@@ -9,7 +9,7 @@
 # Prism
 
 [![Website](https://img.shields.io/badge/website-prismhq.in-00c2c2)](https://www.prismhq.in)
-[![npm @repo-prism/cli](https://img.shields.io/npm/v/@repo-prism/cli.svg?label=@repo-prism/cli)](https://www.npmjs.com/package/@repo-prism/cli)
+[![npm @prismapp/cli](https://img.shields.io/npm/v/@prismapp/cli.svg?label=@prismapp/cli)](https://www.npmjs.com/package/@prismapp/cli)
 [![License: MIT](https://img.shields.io/github/license/Shailesh200/prism)](./LICENSE)
 
 **Your agent's second pair of eyes.** Know before you ship.
@@ -19,30 +19,28 @@ your coding agent the right files before it edits, then flags the code it
 skipped and the code no test covers. Free, MIT, and it runs on your machine:
 no account, and your code never leaves it.
 
-**Website:** [prismhq.in](https://www.prismhq.in) · **Docs:** [prismhq.in/docs](https://www.prismhq.in/docs)
+**Website:** [prismhq.in](https://www.prismhq.in) · **Docs:** [prismhq.in/docs](https://www.prismhq.in/docs) · **Contact:** [hello@shaileshjha.in](mailto:hello@shaileshjha.in)
 
 ---
 
 ## Get started
 
 ```bash
-npm install -g @repo-prism/cli && prism start
+npm install -g @prismapp/cli && prism install all
 ```
 
-Run it inside your repository. `prism start` finds the agents on your machine
-(Claude Code, Cursor, Codex, opencode), lists the config files it would write,
-and asks before changing anything. On yes it backs up each existing file to
-`~/.prism-backups/<time>/`, installs Prism for each agent, indexes the
-repository and prints its map. `--dry-run` only shows the list; `--yes` skips
-the question in scripts. To pick agents yourself, run
-`prism install claude` (or `cursor`, `codex`, `opencode`, `all`).
-`prism install` records what it wrote in `~/.prism/install.json`, and
-`prism uninstall` removes exactly that. `prism upgrade` updates Prism.
+Run the second command inside your repository. `prism install all` connects
+every agent it finds. Quit the agent and open it again. The first use builds
+the index under `~/.prism/`. One agent only: pass its name to `prism install`.
+The install records what it wrote in `~/.prism/install.json`, and
+`prism uninstall` removes exactly that. A new version is
+`npm install -g @prismapp/cli` then `prism upgrade`. Memories, receipts, and
+habits stay.
 
 Wiring another MCP host by hand? Use this server entry:
 
 ```json
-{ "mcpServers": { "prism": { "command": "npx", "args": ["-y", "@repo-prism/mcp-server@2"] } } }
+{ "mcpServers": { "prism": { "command": "npx", "args": ["-y", "@prismapp/mcp-server"], "env": { "PRISM_EXTRA_TOOLS": "receipt" } } } }
 ```
 
 Then ask your agent in plain language, for example "what breaks if I change
@@ -51,7 +49,9 @@ Then ask your agent in plain language, for example "what breaks if I change
 ## What it does
 
 - **Prepare, before the agent edits.** The files and tests that matter for
-  the task, the helpers to reuse instead of rewriting, and your house style.
+  the task, and the helpers to reuse instead of rewriting.
+- **Match the code, during the edit.** Prism points at a file from your repo
+  to copy, so the new code looks like the rest.
 - **Lens review, after.** Dev, Architect and QA lenses flag the callers the
   change left behind and the code no test covers. Add your own with `prism lens`.
 - **The receipt, when the agent stops.** Prism runs the checks the change

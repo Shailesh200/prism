@@ -17,7 +17,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "Review",
   description:
-    "Ask your agent to review: Prism ranks the changed files by risk, lists the tests that reach them, and adds lens findings with a fix for each.",
+    "Ask your agent to review. Prism reads the change and returns Critical, High, Low, and Nit findings, then a Receipt: SHIP, NOT PROVEN, or NO-SHIP.",
   path: "/product/review",
 });
 
@@ -27,10 +27,10 @@ export default function ReviewPage() {
       <ProductHero
         title={
           <>
-            Review your changes <em>before you push.</em>
+            Review the change, <em>then a Receipt.</em>
           </>
         }
-        lede="Ask your agent to review. Prism ranks the changed files by risk, lists the tests that reach them, and the lens checks add findings with a fix for each."
+        lede="Ask your agent to review. Prism reads the changed code, the callers it measured, and the tests that reach them. Each finding says what the code is, when it breaks, the change to make, and what happens if you leave it. The Receipt says SHIP, NOT PROVEN, or NO-SHIP."
         caption={
           <>
             Ask “review my changes”, or run <code>prism review</code>.
@@ -40,18 +40,17 @@ export default function ReviewPage() {
       />
 
       <CardGrid>
-        <Card level={2} icon={<ListIcon />} title="Riskiest first">
-          <code>guard_session</code> with <code>review: true</code> ranks this
-          session’s changes, not edits that were already there, so you read the
-          riskiest file first.
+        <Card level={2} icon={<ListIcon />} title="Four severities">
+          Critical is a wrong result. High is a hole that can happen. Low is
+          real and bounded. Nit is a smaller edit. Empty groups are left out.
         </Card>
-        <Card level={2} icon={<TargetIcon />} title="Findings you can act on">
-          Each finding says where, what, how to fix it, and the risk, with the
-          lens check that found it.
+        <Card level={2} icon={<TargetIcon />} title="A finding you can fix">
+          Each one names the file, what that code is for, when it breaks, the
+          smallest change, and what happens if you leave it.
         </Card>
-        <Card level={2} icon={<CheckCircleIcon />} title="Ready for the PR">
-          Ask for <code>format: &quot;prDescription&quot;</code> to get the
-          facts for a pull request description. Your agent writes the prose;
+        <Card level={2} icon={<CheckCircleIcon />} title="A Receipt">
+          A Critical finding is NO-SHIP. A High finding is NOT PROVEN. Low and
+          Nit do not by themselves stop a SHIP. Your agent writes the review.
           Prism posts nothing.
         </Card>
       </CardGrid>
@@ -104,22 +103,23 @@ export default function ReviewPage() {
       </section>
 
       <ExampleRow
-        title="Gate a push"
+        title="Before you push"
         lede={
           <>
-            <code>prism review --base origin/main --fail-on high</code> exits
-            with code 1 when the risk is high, so you can run it before you
-            push.
+            <code>prism review</code> prints the findings and the Receipt. Fix a
+            Critical finding before you ship.
           </>
         }
       >
         <Window title="~/northwind">
-          <Typed cmd="prism review --base origin/main --fail-on high" />
+          <Typed cmd="prism review" />
           <Ln>
-            <span className="d">
-              # exit code 1 when the risk is at or above high; 0 otherwise
-            </span>
+            <span className="w">Receipt</span>
           </Ln>
+          <Ln>
+            <span className="r">NO-SHIP</span>
+          </Ln>
+          <Ln>Fix the Critical findings, then review again.</Ln>
         </Window>
       </ExampleRow>
     </ProductPage>

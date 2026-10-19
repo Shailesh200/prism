@@ -177,13 +177,6 @@
       "name": "@repo-prism/test-support",
       "version": "0.0.0",
     },
-    "packages/ui": {
-      "name": "@repo-prism/ui",
-      "version": "0.0.0",
-      "dependencies": {
-        "@repo-prism/shared": "workspace:*",
-      },
-    },
   },
   "packages": {
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
@@ -595,8 +588,6 @@
     "@repo-prism/shared": ["@repo-prism/shared@workspace:packages/shared"],
 
     "@repo-prism/test-support": ["@repo-prism/test-support@workspace:packages/test-support"],
-
-    "@repo-prism/ui": ["@repo-prism/ui@workspace:packages/ui"],
 
     "@repo-prism/website": ["@repo-prism/website@workspace:apps/website"],
 

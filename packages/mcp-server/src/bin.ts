@@ -7,9 +7,9 @@
  */
 
 import { readPackageVersion } from "./branding.js";
-import { maybeSelfUpdate } from "./self-update.js";
 import { trustSystemCertificateAuthorities } from "./system-ca.js";
 import { resolveWorkspaceFromProcess, startStdioServer } from "./server.js";
+import { checkForUpdate, updateNotice } from "./update-check.js";
 
 trustSystemCertificateAuthorities();
 
@@ -25,15 +25,6 @@ async function main(): Promise<void> {
     return;
   }
   const currentVersion = readPackageVersion();
-  const update = await maybeSelfUpdate({
-    currentVersion,
-    env: process.env,
-    ...(process.argv[1] ? { entry: process.argv[1] } : {}),
-    execPath: process.execPath,
-    argv: process.argv.slice(1),
-  });
-  if (update.kind === "relaunch") process.exit(update.status);
-
   const workspace = resolveWorkspaceFromProcess();
   process.stderr.write(
     `prism-mcp ${currentVersion}: workspace ${workspace.path} (from ${workspace.source})\n`,
@@ -46,6 +37,16 @@ async function main(): Promise<void> {
       workspace.source === "argument" || workspace.source === "environment",
   });
   process.stderr.write("prism-mcp: ready on stdio\n");
+
+  // Background only (plan §2.3): never delays startup, never relaunches.
+  void checkForUpdate({
+    currentVersion,
+    env: process.env,
+    ...(process.argv[1] ? { entry: process.argv[1] } : {}),
+  }).then((outcome) => {
+    const notice = updateNotice(outcome);
+    if (notice) process.stderr.write(notice);
+  });
 }
 
 main().catch((cause: unknown) => {

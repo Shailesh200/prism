@@ -82,21 +82,4 @@ describe("habits tool", () => {
       output: { format: "summary" },
     });
   });
-
-  it("updates a habit, including a long template, without an editor", async () => {
-    await addHabit({
-      name: "start my day",
-      steps: [{ source: "github", action: "list my open PRs" }],
-      output: { format: "standup" },
-    });
-    const template = "x".repeat(800);
-    const run = await habits.call(context, {
-      name: "start my day",
-      update: { output: { template } },
-    });
-    expect(run.ok && run.value).toMatchObject({
-      saved: true,
-      output: { format: "standup", template },
-    });
-  });
 });

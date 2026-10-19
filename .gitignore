@@ -54,5 +54,5 @@ apps/website/next-env.d.ts
 # Superdesign scratch HTML
 .superdesign/tmp/
 
-# Private: contains rentmaadi golden tasks
+# Private: golden tasks from a private repository
 plans/notes/golden-tasks-for-review.md

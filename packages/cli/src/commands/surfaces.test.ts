@@ -9,6 +9,9 @@ describe("surface classification", () => {
     expect(classifyLaunch("node /repo/packages/mcp-server/dist/bin.js")).toBe(
       "workspace-build",
     );
+    expect(classifyLaunch("npx -y @prismapp/mcp-server@latest")).toBe(
+      "published-npm",
+    );
     expect(classifyLaunch("npx -y @repo-prism/mcp-server@latest")).toBe(
       "published-npm",
     );

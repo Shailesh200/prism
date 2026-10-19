@@ -32,7 +32,6 @@ Canonical TypeScript contracts for Prism: `Result`, `PrismError`, branded IDs, r
 | `PRISM_IO_ERROR` | Filesystem / SQLite I/O |
 | `PRISM_UNSUPPORTED` | Feature not available |
 | `PRISM_CANCELLED` | User / host cancelled a job |
-| `PRISM_YES_REQUIRED` | A command that changes the machine needs `--yes` where it cannot ask (`prism start --json`); exit 1 |
 
 DTO `PrismError` is JSON-serializable (`code`, `message`, optional `details`). No Node `Error` stacks on the wire.
 

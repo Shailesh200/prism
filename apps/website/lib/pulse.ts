@@ -15,9 +15,30 @@ export const PULSE_WEBSITE_ID =
 export const prismhqEvents = {
   ctaClick: "cta_click",
   navClick: "nav_click",
+  footerClick: "footer_click",
+  productClick: "product_click",
   installCopy: "install_copy",
   installOpen: "install_open",
+  installAgent: "install_agent",
+  docsClick: "docs_click",
+  docsSearch: "docs_search",
+  starClick: "star_click",
+  changelogVersion: "changelog_version",
+  sectionClick: "section_click",
+  outboundClick: "outbound_click",
 } as const;
+
+export type ClickPlace = "nav" | "footer" | "docs" | "page";
+
+const SECTION_PATHS = new Set([
+  "/",
+  "/how-it-works",
+  "/benchmarks",
+  "/changelog",
+  "/open-source",
+  "/privacy",
+  "/security",
+]);
 
 export type TrackProps = Record<string, string | number | boolean>;
 
@@ -70,10 +91,93 @@ export function installCopyTarget(command: string): string | undefined {
   if (/prism-mcp|mcp-server/i.test(text) || /mcpServers/i.test(text))
     return "mcp";
   if (/mcp_servers/i.test(text) || /claude mcp add/i.test(text)) return "mcp";
-  if (/@repo-prism\/cli|\bprism (?:doctor|install)\b/i.test(text)) return "cli";
+  if (/@(?:prismapp|repo-prism)\/cli|\bprism (?:doctor|install)\b/i.test(text))
+    return "cli";
   if (/@repo-prism\/core/.test(text)) return "core";
   if (/git clone.*prism/i.test(text) || /bun run verify:milestone/.test(text)) {
     return "source";
+  }
+  return undefined;
+}
+
+/**
+ * The event for one click. Already-tagged controls (copy, deeplinks) are
+ * handled before this. Same-page hashes that are not a changelog version
+ * are ignored.
+ */
+export function classifyClick(input: {
+  href?: string;
+  place: ClickPlace;
+  button?: boolean;
+  star?: boolean;
+  search?: boolean;
+  /** Current page, so a `#2.0.2` link stays on the changelog. */
+  base?: string;
+}): { name: string; target?: string } | undefined {
+  if (input.search) return { name: prismhqEvents.docsSearch };
+  if (!input.href) return undefined;
+  if (input.star) return { name: prismhqEvents.starClick, target: "github" };
+
+  let url: URL;
+  try {
+    url = new URL(input.href, input.base ?? "https://www.prismhq.in");
+  } catch {
+    return undefined;
+  }
+
+  const open = installLinkAttrs(input.href);
+  if (open["data-track"]) {
+    return {
+      name: open["data-track"],
+      ...(open["data-track-target"]
+        ? { target: open["data-track-target"] }
+        : {}),
+    };
+  }
+
+  const own =
+    url.hostname === "prismhq.in" || url.hostname === "www.prismhq.in";
+  if (!own) {
+    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+    return { name: prismhqEvents.outboundClick, target: url.hostname };
+  }
+
+  const path = url.pathname.replace(/\/$/, "") || "/";
+  const version = url.hash.replace(/^#/, "");
+  if (url.hash) {
+    if (path === "/changelog" && /^\d+\.\d+\.\d+/.test(version)) {
+      return { name: prismhqEvents.changelogVersion, target: version };
+    }
+    return undefined;
+  }
+
+  const agent = /^\/install\/([a-z0-9-]+)$/.exec(path);
+  if (agent?.[1] && agent[1] !== "page") {
+    return { name: prismhqEvents.installAgent, target: agent[1] };
+  }
+  if (input.button && path.startsWith("/install")) {
+    return { name: prismhqEvents.ctaClick, target: path };
+  }
+  if (input.place === "nav") {
+    return { name: prismhqEvents.navClick, target: path };
+  }
+  if (input.place === "footer") {
+    return { name: prismhqEvents.footerClick, target: path };
+  }
+  if (path.startsWith("/product/")) {
+    return {
+      name: prismhqEvents.productClick,
+      target: path.slice("/product/".length),
+    };
+  }
+  if (path.startsWith("/docs")) {
+    return { name: prismhqEvents.docsClick, target: path };
+  }
+  if (path.startsWith("/install")) {
+    return { name: prismhqEvents.ctaClick, target: path };
+  }
+  if (SECTION_PATHS.has(path)) {
+    return { name: prismhqEvents.sectionClick, target: path };
   }
   return undefined;
 }
@@ -317,26 +421,30 @@ export function bindPulseClicks(): () => void {
       return;
     }
 
-    const anchor = node.closest("a");
-    if (!anchor?.href) return;
-    const attrs = installLinkAttrs(anchor.getAttribute("href") ?? anchor.href);
-    if (attrs["data-track"]) {
-      track(
-        attrs["data-track"],
-        attrs["data-track-target"]
-          ? { target: attrs["data-track-target"] }
-          : undefined,
-      );
+    if (node.closest("button.docs-search")) {
+      track(prismhqEvents.docsSearch);
       return;
     }
-    try {
-      const url = new URL(anchor.href, window.location.href);
-      if (url.protocol !== "http:" && url.protocol !== "https:") return;
-      if (url.origin === window.location.origin) return;
-      track("outbound_click", { target: url.hostname });
-    } catch {
-      /* ignore invalid href */
-    }
+
+    const anchor = node.closest("a");
+    if (!anchor?.href) return;
+    const href = anchor.getAttribute("href") ?? anchor.href;
+    const place = anchor.closest("header.nav, .sheet, .topbar")
+      ? "nav"
+      : anchor.closest("footer")
+        ? "footer"
+        : anchor.closest(".docs-shell")
+          ? "docs"
+          : "page";
+    const click = classifyClick({
+      href,
+      place,
+      button: anchor.classList.contains("btn"),
+      star: anchor.classList.contains("star"),
+      base: window.location.href,
+    });
+    if (!click) return;
+    track(click.name, click.target ? { target: click.target } : undefined);
   };
 
   document.addEventListener("click", onClick);

@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "Privacy",
   description:
-    "Privacy is the default. No account, and your code stays on your machine. Prism keeps its data in ~/.prism/. A usage ping can send which command or tool ran, and whether it worked.",
+    "Privacy is the default. No account, and your code stays on your machine. A usage ping sends the command or tool name and whether it worked. PRISM_PULSE=0 turns that off.",
   path: "/privacy",
 });
 
@@ -67,7 +67,7 @@ export default function PrivacyPage() {
               Your code stays <em>home.</em>
             </>
           }
-          lede="No account and no server. Prism reads your repo on your machine and keeps its library in ~/.prism/. It does not write that library into your checkout. A usage ping can send the command or tool name and whether it worked, never your code. prism install --project and prism strength --repo do write config into the repository."
+          lede="No account, and your code stays on your machine. A usage ping sends the command or tool name and whether it worked. PRISM_PULSE=0 turns that off. Prism keeps its library in ~/.prism/ and does not write that library into your checkout. prism install --project and prism strength --repo do write config into the repository."
         />
         <section className="sec">
           <Container className="grid3">
@@ -77,9 +77,9 @@ export default function PrivacyPage() {
             </Card>
             <Card level={2} icon={<ShieldIcon />} title="One network call">
               At most once a day, a published install asks registry.npmjs.org
-              for a newer <code>@repo-prism/mcp-server</code>. The request
-              carries no repository data, and Prism never downloads or installs
-              the update itself. A checkout of this repo does not check. Set{" "}
+              for a newer <code>@prismapp/mcp-server</code>. The request carries
+              no repository data, and Prism never downloads or installs the
+              update itself. A checkout of this repo does not check. Set{" "}
               <code>PRISM_SKIP_SELF_UPDATE=1</code> to turn it off. A server
               added by hand with <code>npx</code> is downloaded from npm by npx.
             </Card>
@@ -129,8 +129,9 @@ export default function PrivacyPage() {
               visits with its own Umami analytics (pulse.shaileshjha.in). It
               keeps a random device id in a <code>pulse_did</code> cookie for up
               to 400 days, and records the page, referrer, screen size,
-              language, time zone, connection type and clicks on install links.
-              It never sees your code.
+              language, time zone, connection type, and which install,
+              navigation, docs, and GitHub controls were used. It never sees
+              your code.
             </p>
           </Container>
         </section>

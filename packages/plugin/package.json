@@ -1,8 +1,9 @@
 {
   "name": "@repo-prism/plugin",
-  "version": "2.0.0",
+  "version": "2.0.2",
+  "private": true,
   "type": "module",
-  "description": "Prism plugin pack \u2014 skills and commands that compose Prism intelligence with the connectors your editor already has",
+  "description": "Prism plugin pack — skills and commands that compose Prism intelligence with the connectors your editor already has",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -10,8 +11,7 @@
     }
   },
   "files": [
-    "dist",
-    "!dist/tsconfig.tsbuildinfo"
+    "dist"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && bun run scripts/build-pack.ts",

@@ -79,11 +79,12 @@ function gatedRunner(): {
 describe("receipt service (plan §5.7)", () => {
   it("RE-1: answers with the structural receipt at once, then stores the checked one", async () => {
     const fixture = await repo();
+    const env = isolatedEnv();
+    recordSessionBaseline(fixture.root, "s-1", env);
     await fixture.write(
       "src/money.ts",
       "export function formatMoney(n: number): string { return `$${n}.00`; }\n",
     );
-    const env = isolatedEnv();
     const { run, release } = gatedRunner();
     const service = createReceiptService({ env, build: { run } });
     const workspace = open(fixture.root);
@@ -145,11 +146,12 @@ describe("receipt service (plan §5.7)", () => {
 
   it("RE-4: the next stop reports the earlier change's finished checks once", async () => {
     const fixture = await repo();
+    const env = isolatedEnv();
+    recordSessionBaseline(fixture.root, "s-4", env);
     await fixture.write(
       "src/money.ts",
       "export function formatMoney(n: number): string { return `$${n}?`; }\n",
     );
-    const env = isolatedEnv();
     const { run, release } = gatedRunner();
     const service = createReceiptService({ env, build: { run } });
     const workspace = open(fixture.root);
@@ -185,11 +187,12 @@ describe("receipt service (plan §5.7)", () => {
 
   it("RE-5: settle waits for the stopped change's checks, starts none, and clears earlier", async () => {
     const fixture = await repo();
+    const env = isolatedEnv();
+    recordSessionBaseline(fixture.root, "s-5", env);
     await fixture.write(
       "src/money.ts",
       "export function formatMoney(n: number): string { return `$${n}#`; }\n",
     );
-    const env = isolatedEnv();
     const { run, release, calls } = gatedRunner();
     const service = createReceiptService({ env, build: { run } });
     const workspace = open(fixture.root);
@@ -265,6 +268,32 @@ describe("receipt service (plan §5.7)", () => {
     recordSessionBaseline(fixture.root, "a", env);
     expect(readSessionBaseline(fixture.root, "a", env)?.sessionId).toBe("a");
     expect(readSessionBaseline(fixture.root, "b", env)).toBeNull();
+  });
+
+  it("does not SHIP a hand-run receipt when no session start was recorded", async () => {
+    const fixture = await repo();
+    await fixture.write(
+      "src/money.ts",
+      "export function formatMoney(n: number): string { return `$${n}`; }\n",
+    );
+    const env = isolatedEnv();
+    const service = createReceiptService({
+      env,
+      build: { run: async () => ({ ok: true, output: "" }) },
+    });
+    const workspace = open(fixture.root);
+    try {
+      const receipt = await service.receipt(workspace, {
+        sessionId: "hand",
+        waitMs: 5_000,
+      });
+      expect(receipt.ok).toBe(true);
+      if (!receipt.ok) return;
+      expect(receipt.value.verdict).toBe("not_proven");
+      expect(receipt.value.reason).toBe("no_session");
+    } finally {
+      workspace.close();
+    }
   });
 
   it("moves a corrupt baseline aside and records a fresh one", async () => {

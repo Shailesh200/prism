@@ -9,8 +9,8 @@
  * runs `npx` or fetches packages:
  * - a built checkout: `--local <checkout>`, or the checkout this CLI runs
  *   from (development);
- * - the `@repo-prism/mcp-server` and `@repo-prism/plugin` packages installed
- *   with this CLI (`npm i -g @repo-prism/cli`).
+ * - the `@repo-prism/mcp-server` and `@repo-prism/plugin` packages bundled
+ *   inside this CLI (`npm i -g @prismapp/cli`).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
@@ -47,17 +47,6 @@ import { wrap } from "../table.js";
 const USAGE =
   "Usage: prism install <claude|cursor|codex|opencode|all> [--project|--user] [--local <checkout>]";
 
-/** Shown after a successful `prism install`. */
-export function installThanks(): string {
-  return [
-    "",
-    "Prism is installed. Thanks for using it.",
-    "  Star the repo      https://github.com/Shailesh200/prism",
-    "  Watch releases     https://github.com/Shailesh200/prism/releases",
-    "  Website            https://www.prismhq.in",
-  ].join("\n");
-}
-
 export const HOST_NAMES: Record<InstallHost, string> = {
   claude: "Claude Code",
   cursor: "Cursor",
@@ -71,11 +60,7 @@ function hostAvailable(host: InstallHost, home: string): boolean {
 }
 
 /** Hosts whose official path is the rule line, so `receipt` is on by default (§5.10). */
-export const RECEIPT_HOSTS: readonly InstallHost[] = [
-  "cursor",
-  "codex",
-  "opencode",
-];
+const RECEIPT_HOSTS: readonly InstallHost[] = ["cursor", "codex", "opencode"];
 
 function versionAt(packageDir: string): string {
   const path = join(packageDir, "package.json");
@@ -140,7 +125,7 @@ export function packageLayout(from = cliPackageRoot()): SourceLayout | string {
   const server = find("mcp-server");
   const plugin = find("plugin");
   const reinstall =
-    "Reinstall with `npm i -g @repo-prism/cli`, or pass `--local <checkout>`.";
+    "Reinstall with `npm i -g @prismapp/cli`, or pass `--local <checkout>`.";
   if (!server || !plugin)
     return `The Prism server packages are not installed next to this CLI (missing ${[
       !server && "@repo-prism/mcp-server",
@@ -187,7 +172,7 @@ function hostsFrom(arg: string | undefined): InstallHost[] | undefined {
     : undefined;
 }
 
-export function enableReceipt(env: NodeJS.ProcessEnv): boolean {
+function enableReceipt(env: NodeJS.ProcessEnv): boolean {
   const loaded = loadUserConfigSync(env);
   if (!loaded.ok) throw new Error(loaded.error.message);
   const tools = loaded.value.extraTools ?? [];
@@ -210,10 +195,6 @@ type InstallRun = {
   readonly root: string;
   readonly layout: SourceLayout;
   readonly env: NodeJS.ProcessEnv;
-  /** Stamps the 1.x backup folder; `prism start` passes its plan's time. */
-  readonly now?: Date;
-  /** The home agents read their configs from (default: the OS home). */
-  readonly home?: string;
 };
 
 /** `08e4d3c`, or `08e4d3c+dirty` when the checkout has uncommitted changes. */
@@ -232,7 +213,6 @@ export function buildLabel(source: string): string {
 export async function runInstall(run: InstallRun) {
   const wipe = await wipe1x({
     env: run.env,
-    ...(run.now ? { now: run.now } : {}),
     stopDaemon: async () =>
       (await stopDaemon({ env: run.env })).kind === "ok"
         ? "stopped"
@@ -247,7 +227,7 @@ export async function runInstall(run: InstallRun) {
   const installed = run.hosts;
   const target = {
     scope: run.scope,
-    home: run.home ?? homedir(),
+    home: homedir(),
     root: run.root,
     node: process.execPath,
     bin: run.layout.bin,
@@ -352,7 +332,6 @@ export const installCommand: CommandHandler = async (
         ),
         ...skipped.map((host) => `${HOST_NAMES[host]} not found; skipped.`),
         ...notes.flatMap((note) => wrap(note, width)),
-        installThanks(),
       ].join("\n"),
   });
 };

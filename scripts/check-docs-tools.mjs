@@ -5,11 +5,11 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = join(fileURLToPath(import.meta.url), "..", "..");
 const { DEFAULT_TOOL_NAMES } = await import(
-  join(root, "packages/shared/dist/tool-names.js")
+  pathToFileURL(join(root, "packages/shared/dist/tool-names.js")).href
 );
 const md = readFileSync(join(root, "docs/reference/mcp-tools.md"), "utf8");
 const defaults = [...md.matchAll(/\| \[`([a-z_]+)`\]\([^)]+\) \| yes \|/g)].map(

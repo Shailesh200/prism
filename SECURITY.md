@@ -8,7 +8,7 @@ nothing.
 
 Please report privately rather than opening a public issue.
 
-- **Where:** open a [GitHub security advisory](https://github.com/Shailesh200/prism/security/advisories/new) on this repository.
+- **Where:** open a [GitHub security advisory](https://github.com/Shailesh200/prism/security/advisories/new) on this repository, or email [hello@shaileshjha.in](mailto:hello@shaileshjha.in).
 - **Include:** what you did, what happened, what you expected, and the Prism
   version (`prism --version`). A minimal reproduction helps more than anything
   else.

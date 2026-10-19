@@ -70,6 +70,23 @@ export function loadUserConfigSync(
   return ok(parsed.data);
 }
 
+/**
+ * Tool names from `PRISM_EXTRA_TOOLS` (comma-separated). A hand-written MCP
+ * entry can turn on `receipt` without a second config file. Empty when unset.
+ */
+export function extraToolsFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  const raw = env.PRISM_EXTRA_TOOLS;
+  if (typeof raw !== "string" || raw.trim() === "") return [];
+  const names: string[] = [];
+  for (const part of raw.split(",")) {
+    const name = part.trim();
+    if (name.length > 0 && !names.includes(name)) names.push(name);
+  }
+  return names;
+}
+
 export type StrengthSource = "repo" | "user" | "default";
 
 /** `{root}/.prism/config.json`, the per-repository override file. */

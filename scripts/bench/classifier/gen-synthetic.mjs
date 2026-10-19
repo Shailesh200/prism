@@ -18,7 +18,7 @@ const ents = [
     "src/shared/next-free-port.ts",
     "nextFreePort",
   ],
-  ["rentmaadi", "the tenant dashboard", "the due date widget", "nextDueDate"],
+  ["tenant-app", "the tenant dashboard", "the due date widget", "nextDueDate"],
   [
     "prism",
     "the receipt builder",

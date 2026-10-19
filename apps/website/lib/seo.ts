@@ -14,17 +14,18 @@ import { HOW_IT_WORKS, PRODUCTS } from "./nav";
 
 export const SITE_NAME = "Prism";
 
-export const SITE_DEFAULT_TITLE = "Prism — Your agent’s second pair of eyes";
+export const SITE_DEFAULT_TITLE =
+  "Prism — Software intelligence for coding agents";
 
 export const SITE_DESCRIPTION =
-  "Your agent’s second pair of eyes. Know before you ship. Local software intelligence that catches what the agent missed. Prism gives your agent the right files before it edits, then flags the code it skipped and the code no test covers. Free, MIT, runs on your machine.";
+  "Software intelligence for coding agents. Prepare hands your agent the files to edit. Lenses keep the work in your house style and on your map. Review reads the change and returns findings, then a Receipt: SHIP, NOT PROVEN, or NO-SHIP. Free, MIT, runs on your machine.";
 
 /** The share card from app/opengraph-image.tsx, used by every page. */
 export const OG_IMAGE = {
   url: "/opengraph-image",
   width: 1200,
   height: 630,
-  alt: "Prism: your agent’s second pair of eyes",
+  alt: "Prism: software intelligence for coding agents",
 };
 
 /** The release feed, linked from every page head. */
@@ -61,9 +62,25 @@ export const MARKETING_ROUTES: Array<{
   { path: "/security", changeFrequency: "yearly", priority: 0.3 },
 ];
 
+const CANONICAL_ORIGIN = "https://www.prismhq.in";
+
 export function siteOrigin(): string {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.prismhq.in";
-  return raw.replace(/\/+$/, "");
+  const raw = (process.env.NEXT_PUBLIC_SITE_URL ?? CANONICAL_ORIGIN).replace(
+    /\/+$/,
+    "",
+  );
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return CANONICAL_ORIGIN;
+  }
+  // The live site is https://www.prismhq.in. An env of http://prismhq.in would
+  // otherwise put that host in the canonical tag, the sitemap, and llms.txt.
+  if (url.hostname === "prismhq.in" || url.hostname === "www.prismhq.in") {
+    return CANONICAL_ORIGIN;
+  }
+  return url.origin;
 }
 
 export function siteHost(): string {
@@ -313,17 +330,16 @@ export function websiteJsonLd(): Record<string, unknown> {
         image: absoluteUrl(OG_IMAGE.url),
         description: SITE_DESCRIPTION,
         featureList: [
-          "Prepare: the files, tests and helpers to reuse before an edit",
-          "Lens review: callers left behind and code no test covers",
-          "Review: this session's changes ranked by risk",
-          "Lenses: Dev, Architect, QA and your own",
+          "Prepare: the files to edit, the tests, and code to reuse",
+          "Lenses: Dev, QA, and Architect, plus your own",
+          "Review: Critical, High, Low, and Nit findings, then a Receipt",
           "Blast radius per symbol, with safe delete and rename",
           "Receipts: SHIP, NOT PROVEN or NO-SHIP from your own checks",
           "Local repository map",
           "House style and habits",
           `MCP server with ${PRISM_TOOL_COUNT} tools for AI agents`,
           "CLI for terminals and CI",
-          "Claude Code, Cursor, Codex and opencode install",
+          "Installs next to your coding agent",
         ],
         publisher: { "@id": `${url}/#organization` },
       },

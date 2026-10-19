@@ -81,11 +81,9 @@ export {
   nothingChanged,
   receiptHeadline,
   receiptSummaryLine,
-  receiptTerminalLine,
   renderReceipt,
   renderReceiptMarkdown,
   renderReceiptSvg,
-  renderReceiptTerminal,
 } from "./receipt-render.js";
 export {
   findingFromReceiptFlag,
@@ -343,6 +341,28 @@ export {
   ChangeReviewReportSchema,
   REVIEW_ANALYSED_CAP,
   REVIEW_LARGE_DIFF,
+} from "./schemas.js";
+export {
+  OPERATIONAL_REVIEW_CAP,
+  isOperationalPath,
+  judgeOperational,
+  selectReviewPaths,
+} from "./operational-judge.js";
+export {
+  CODE_READING_ORDER,
+  CODE_READING_RULES,
+  CODE_READING_TARGETS,
+  REVIEW_SEVERITIES,
+  buildCodeReading,
+  noteFromProven,
+  reviewReceipt,
+  type CodeReading,
+  type CodeReadingTarget,
+  type ReviewNote,
+  type ReviewReceipt,
+  type ReviewSeverity,
+} from "./code-reading.js";
+export {
   GuardCheckKindSchema,
   GUARD_CHECK_KINDS,
   GuardFlagSchema,

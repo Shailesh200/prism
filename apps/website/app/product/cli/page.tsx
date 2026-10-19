@@ -19,22 +19,86 @@ export const metadata = pageMetadata({
 });
 
 /** Command groups; every name is a real `prism` command. */
-const GROUPS: Array<[string, string]> = [
-  ["Set up", "start, install, uninstall, upgrade, doctor"],
-  [
-    "Check a change",
-    "prepare, blast, rename, safe-delete, test-impact, review, receipts",
-  ],
-  [
-    "Look around",
-    "refs, symbol, overview, graph map, deps, cycles, lens, habit",
-  ],
+const GROUPS: Array<{ title: string; commands: Array<[string, string]> }> = [
+  {
+    title: "Set up",
+    commands: [
+      ["prism start", "Connect the agents on this machine and index the repo."],
+      ["prism install", "Point an agent at the local Prism server."],
+      [
+        "prism upgrade",
+        "Point those agents at the version you just installed.",
+      ],
+      [
+        "prism uninstall",
+        "Remove that connection. Add --purge to delete local data.",
+      ],
+    ],
+  },
+  {
+    title: "Diagnose",
+    commands: [
+      ["prism doctor", "Check the repo, the index, and each connected agent."],
+      ["prism strength", "Set how much the hooks do: full, lite, or off."],
+      ["prism stats", "Timings and outcomes from the local event log."],
+      ["prism index", "Build or refresh the repository index."],
+      ["prism graph", "Daemon status, a map, or an export of the graph."],
+      ["prism data prune", "Show old local data. Add --yes to delete it."],
+      ["prism completions", "Print a bash, zsh, or fish completion script."],
+    ],
+  },
+  {
+    title: "Understand a repository",
+    commands: [
+      ["prism overview", "What this repository is: stack and landmarks."],
+      ["prism explain", "What a file or folder is for."],
+      ["prism explore", "Usages, ownership, and similar code."],
+      ["prism packages", "Every package in the workspace."],
+      ["prism findings list", "Unused exports, duplicates, and wrappers."],
+      [
+        "prism agents-md generate",
+        "A living AGENTS.md. It is not written into the repo.",
+      ],
+    ],
+  },
+  {
+    title: "Assess a change",
+    commands: [
+      ["prism prepare", "The files to open, and the house style for a task."],
+      ["prism blast", "What breaks if this file or symbol changes."],
+      ["prism review", "Findings for the change, then a Receipt."],
+      ["prism safe-delete", "Whether a file or symbol can be removed."],
+      ["prism rename", "Every edit site a rename would touch."],
+      ["prism test-impact", "Tests the change can reach."],
+      ["prism receipts", "Receipts saved for this repository."],
+      ["prism lens list", "Review lenses, shared by every repository."],
+    ],
+  },
+  {
+    title: "Inspect structure",
+    commands: [
+      ["prism deps", "The dependency graph and its most connected files."],
+      ["prism cycles", "Import and re-export cycles."],
+      ["prism symbol", "Where a name is declared."],
+      ["prism refs", "Who references a symbol."],
+      ["prism route", "How one file reaches another."],
+    ],
+  },
+  {
+    title: "Memory",
+    commands: [
+      ["prism habit list", "Routines saved for any agent to run."],
+      ["prism remember", "Save a note for this repository."],
+      ["prism memories", "List the notes saved here."],
+      ["prism forget", "Remove a note by id or by text."],
+    ],
+  },
 ];
 
 /** Lines from `prism doctor` (it prints a few more: Node, Workspace, Index cache). */
 const DOCTOR: Array<[string, string]> = [
   ["Git", "repository found"],
-  ["Install", `${PRISM_VERSION} for claude, cursor`],
+  ["Install", `${PRISM_VERSION} for your agents`],
   ["Index", "fresh"],
   ["Strength", "full (default); change with `prism strength`"],
 ];
@@ -62,12 +126,17 @@ export default function CliPage() {
       <section className="sec">
         <Container>
           <div className="grid3">
-            {GROUPS.map(([title, names]) => (
-              <div className="card fx" key={title}>
-                <h2 className="t">{title}</h2>
-                <p>
-                  <code>{names}</code>
-                </p>
+            {GROUPS.map((group) => (
+              <div className="card fx" key={group.title}>
+                <h2 className="t">{group.title}</h2>
+                <ul className="cmds">
+                  {group.commands.map(([name, summary]) => (
+                    <li key={name}>
+                      <code>{name}</code>
+                      {summary}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
@@ -88,7 +157,7 @@ export default function CliPage() {
       >
         <ChatTerminalPair
           chat={
-            <Window title="Claude Code" kind="chat">
+            <Window title="Your agent" kind="chat">
               <Bubble who="you">Where do we call getUser?</Bubble>
               <Bubble who="prism">
                 <ToolTag>graph</ToolTag> mode: neighbors · direction: in
@@ -97,7 +166,7 @@ export default function CliPage() {
                 <br />← src/pages/checkout.ts references · measured
                 <br />← src/users/profile.ts references · measured
               </Bubble>
-              <Bubble who="agent" name="Claude Code">
+              <Bubble who="agent" name="Agent">
                 getUser is called in two places: checkout.ts and profile.ts.
                 Both pass a user id.
               </Bubble>

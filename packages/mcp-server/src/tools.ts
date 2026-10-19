@@ -64,5 +64,5 @@ export const TOOLS: readonly ToolDefinition<never>[] = [
   ...IMPACT_TOOLS,
 ] as unknown as readonly ToolDefinition<never>[];
 
-/** Every registered tool name. */
+/** Every registered tool name: the default nine plus the opt-in tools. */
 export const TOOL_NAMES: readonly string[] = TOOLS.map((tool) => tool.name);

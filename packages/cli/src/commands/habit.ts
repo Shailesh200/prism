@@ -5,8 +5,7 @@
  *   prism habit add "<name>" --step "github: list my open PRs | repo:me/x"… [--output standup] [--template "…"] [--description "…"]
  *   prism habit list
  *   prism habit show "<name>"
- *   prism habit edit "<name>" [--step …] [--output …] [--template …] [--description …]
- *                          updates in place. With no flags, opens $EDITOR.
+ *   prism habit edit "<name>"     opens $EDITOR on the habit's SKILL.md, re-validated on save
  *   prism habit remove "<name>"
  */
 
@@ -20,7 +19,6 @@ import {
   findHabit,
   HABIT_OUTPUT_FORMATS,
   habitSkillMarkdown,
-  habitSlug,
   habitsDir,
   parseHabitSkill,
   parseStep,
@@ -137,55 +135,8 @@ export const habitCommand: CommandHandler = async (context) => {
   }
 
   if (action === "edit") {
-    const rawSteps = context.args.values("step");
-    const template = context.args.option("template");
-    const description = context.args.option("description");
-    const format = context.args.option("output");
-    if (
-      rawSteps.length > 0 ||
-      template !== undefined ||
-      description !== undefined ||
-      format !== undefined
-    ) {
-      const steps = rawSteps.map(parseStep);
-      const bad = rawSteps.find((_, i) => !steps[i]);
-      if (bad !== undefined) {
-        return usage(
-          `Step "${bad.slice(0, 40)}" must look like "source: action".`,
-        );
-      }
-      const nextFormat = format ?? habit.output.format;
-      if (!(HABIT_OUTPUT_FORMATS as readonly string[]).includes(nextFormat)) {
-        return usage(
-          `--output must be one of ${HABIT_OUTPUT_FORMATS.join(", ")}.`,
-        );
-      }
-      const nextTemplate = template ?? habit.output.template;
-      const saved = await replaceHabit(habit.name, {
-        name: habit.name,
-        ...(description
-          ? { description }
-          : habit.description
-            ? { description: habit.description }
-            : {}),
-        steps: steps.length > 0 ? steps : habit.steps,
-        output: {
-          format: nextFormat,
-          ...(nextTemplate ? { template: nextTemplate } : {}),
-        },
-      });
-      if (!saved.ok) return saved;
-      return ok({
-        data: saved.value,
-        human: () => `Saved habit "${saved.value.name}".`,
-      });
-    }
     const editor = process.env.VISUAL || process.env.EDITOR;
-    if (!editor) {
-      return usage(
-        `No $EDITOR is set, so nothing was opened. Update it in place:\n  prism habit edit "${habit.name}" --template "…" --output ${habit.output.format}\nOr edit ${join(habitsDir(), habitSlug(habit.name), "SKILL.md")}`,
-      );
-    }
+    if (!editor) return usage("Set $EDITOR to edit a habit.");
     const dir = await mkdtemp(join(tmpdir(), "prism-habit-"));
     const path = join(dir, "SKILL.md");
     try {

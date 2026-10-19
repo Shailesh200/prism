@@ -477,7 +477,7 @@ export async function reviewPullRequestCommand(
 
     context.progress("Building the receipt …");
     const receipt = await buildChangeReceipt(workspace, {
-      changedPaths: files,
+      sessionPaths: files,
       env: process.env,
     });
     const receiptMarkdown = receipt.ok

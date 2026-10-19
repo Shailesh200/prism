@@ -60,15 +60,33 @@ export function daemonAttach(
   env: NodeJS.ProcessEnv = process.env,
 ): Attach | undefined {
   if (!daemonEnabled(env)) return undefined;
-  return (tool, root, args, timeoutMs) =>
-    callDaemonTool({
-      root,
-      tool,
-      args,
+  return async (tool, root, args, timeoutMs) => {
+    const call = () =>
+      callDaemonTool({
+        root,
+        tool,
+        args,
+        env,
+        buildId: daemonBuildId(),
+        ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+      });
+    const first = await call();
+    // `npm i -g` leaves the previous daemon on the port. A 409 means that
+    // process is another build: stop it and start this one, then retry.
+    if (
+      first.kind !== "unavailable" ||
+      first.reason !== "daemon is from another build"
+    ) {
+      return first;
+    }
+    const started = await ensureDaemon({
+      ...daemonCommand(),
       env,
       buildId: daemonBuildId(),
-      ...(timeoutMs !== undefined ? { timeoutMs } : {}),
     });
+    if (started.kind !== "ok") return first;
+    return call();
+  };
 }
 
 /** Start a daemon from this build if none answers, and ask it to index `root`. */

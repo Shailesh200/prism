@@ -8,7 +8,7 @@ import {
   writeFileSync,
   realpathSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir, userInfo } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer, type Server } from "node:http";
@@ -21,6 +21,32 @@ const hook = join(
   "hooks",
   "prism-hook.mjs",
 );
+/** Passwd home. Windows `userInfo()` follows USERPROFILE, so the child must be told this explicitly or the Claude guard treats the fixture as the real profile. */
+const realHome = userInfo().homedir;
+
+/** HOME and USERPROFILE together: Node reads USERPROFILE on Windows. */
+function hookEnv(
+  prismHome: string,
+  userHome: string = prismHome,
+  extra: NodeJS.ProcessEnv = {},
+): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    HOME: userHome,
+    USERPROFILE: userHome,
+    PRISM_HOME: prismHome,
+    PRISM_REAL_HOME: realHome,
+    ...extra,
+  };
+}
+
+/** Same key the hook uses (`realpathSync.native`). Plain `realpath` differs on Windows. */
+function workspaceHash(root: string): string {
+  return createHash("sha256")
+    .update(realpathSync.native(root))
+    .digest("hex")
+    .slice(0, 24);
+}
 /** The ruleset the session hook injects (plan P16). */
 const rules = readFileSync(
   join(dirname(hook), "prism-rules.md"),
@@ -33,11 +59,7 @@ function layout(snapshot: Record<string, unknown>): {
 } {
   const home = mkdtempSync(join(tmpdir(), "prism-hook-home-"));
   const cwd = mkdtempSync(join(tmpdir(), "prism-hook-repo-"));
-  const key = createHash("sha256")
-    .update(realpathSync(cwd))
-    .digest("hex")
-    .slice(0, 24);
-  const dir = join(home, "workspaces", key, "hooks");
+  const dir = join(home, "workspaces", workspaceHash(cwd), "hooks");
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "snapshot.json"),
@@ -51,7 +73,7 @@ function run(event: string, home: string, input: Record<string, unknown>) {
     input: JSON.stringify(input),
     encoding: "utf8",
     // Not under Claude Code unless a test says so (it changes session rules).
-    env: { ...process.env, PRISM_HOME: home, CLAUDE_PROJECT_DIR: "" },
+    env: hookEnv(home, home, { CLAUDE_PROJECT_DIR: "" }),
   });
   expect(result.status).toBe(0);
   return JSON.parse(result.stdout) as {
@@ -149,12 +171,10 @@ describe("prism-hook", () => {
     const result = spawnSync(process.execPath, [hook, "session"], {
       input: JSON.stringify({ cwd }),
       encoding: "utf8",
-      env: {
-        ...process.env,
-        PRISM_HOME: home,
+      env: hookEnv(home, home, {
         PRISM_MCP_BIN: fakeBin,
         PRISM_DAEMON: "1",
-      },
+      }),
     });
     expect(result.status).toBe(0);
     const deadline = Date.now() + 5_000;
@@ -189,7 +209,7 @@ describe("prism-hook", () => {
     spawnSync(process.execPath, [hook, "session"], {
       input: JSON.stringify({ cwd }),
       encoding: "utf8",
-      env: { ...process.env, PRISM_HOME: home, PRISM_MCP_BIN: fakeBin },
+      env: hookEnv(home, home, { PRISM_MCP_BIN: fakeBin }),
     });
     expect(() => readFileSync(marker, "utf8")).toThrow();
   });
@@ -212,10 +232,7 @@ describe("prism-hook", () => {
     writeFileSync(join(cwd, "a.ts"), "2");
     writeFileSync(join(cwd, "new.ts"), "x");
     run("session", home, { cwd, session_id: "s-1" });
-    const key = createHash("sha256")
-      .update(realpathSync(cwd))
-      .digest("hex")
-      .slice(0, 24);
+    const key = workspaceHash(cwd);
     const path = join(home, "workspaces", key, "hooks", "session.json");
     const first = JSON.parse(readFileSync(path, "utf8"));
     expect(first).toMatchObject({
@@ -266,10 +283,7 @@ describe("prism-hook", () => {
       offLimits: [],
       needsSignOff: [],
     });
-    const key = createHash("sha256")
-      .update(realpathSync(cwd))
-      .digest("hex")
-      .slice(0, 24);
+    const key = workspaceHash(cwd);
     const packs = join(home, "workspaces", key, "hooks", "packs");
     mkdirSync(packs, { recursive: true });
     const write = (id: string, path: string) =>
@@ -489,10 +503,7 @@ describe("prism-hook", () => {
 
   it("moves a corrupt snapshot aside, answers {} and logs index.corrupt (plan §2.4)", () => {
     const { home, cwd } = layout({});
-    const key = createHash("sha256")
-      .update(realpathSync(cwd))
-      .digest("hex")
-      .slice(0, 24);
+    const key = workspaceHash(cwd);
     const dir = join(home, "workspaces", key, "hooks");
     writeFileSync(join(dir, "snapshot.json"), "{torn");
     expect(
@@ -518,7 +529,7 @@ describe("prism-hook", () => {
     const result = spawnSync(process.execPath, [isolatedHook(home), "stop"], {
       input: JSON.stringify({ cwd }),
       encoding: "utf8",
-      env: { ...process.env, PRISM_HOME: home, PRISM_MCP_BIN: bin },
+      env: hookEnv(home, home, { PRISM_MCP_BIN: bin }),
     });
     expect(result.stdout.trim()).toBe("{}");
     expect(result.stdout).not.toMatch(/secret stack trace/);
@@ -568,7 +579,13 @@ describe("prism-hook", () => {
     const result = spawnSync(process.execPath, [isolatedHook(home), "stop"], {
       input: JSON.stringify({ cwd }),
       encoding: "utf8",
-      env: { PATH: "", PRISM_HOME: home, HOME: home },
+      env: {
+        PATH: "",
+        PRISM_HOME: home,
+        HOME: home,
+        USERPROFILE: home,
+        PRISM_REAL_HOME: realHome,
+      },
     });
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({});
@@ -634,6 +651,13 @@ async function fakeDaemon(
   return server;
 }
 
+/** How long an empty node takes to start and exit on this machine right now. */
+function nodeBootMs(): number {
+  const t0 = Date.now();
+  spawnSync(process.execPath, ["-e", ""]);
+  return Date.now() - t0;
+}
+
 /** Run the hook without blocking this process, so the fake daemon can answer. */
 function runAsync(
   event: string,
@@ -650,13 +674,11 @@ function runAsync(
   const t0 = Date.now();
   return new Promise((done, fail) => {
     const child = spawn(process.execPath, [hook, event], {
-      env: {
-        ...process.env,
-        PRISM_HOME: home,
+      env: hookEnv(home, home, {
         PRISM_DAEMON: "1",
         CLAUDE_PROJECT_DIR: "",
         ...env,
-      },
+      }),
     });
     let stdout = "";
     child.stdout.on("data", (c) => (stdout += c));
@@ -694,11 +716,7 @@ describe("stop hook (round 2)", () => {
     });
     try {
       const { out } = await runAsync("stop", home, { cwd, session_id: "st-1" });
-      // Muse v2.1: "checking" above the unchanged SMK-8 summary line.
-      expect(out.systemMessage).toBe(
-        "Prism · checking 1 file — the verdict follows in this chat\n" +
-          "Prism receipt: changed 1 file, 0 dependents, 0 tests reach it — NOT PROVEN (untested)",
-      );
+      expect(out.systemMessage).toMatch(/^Prism · NOT PROVEN \(untested\)/);
       // Stop context would make the agent take one more turn just to reply.
       expect(out.hookSpecificOutput).toBeUndefined();
     } finally {
@@ -753,12 +771,10 @@ function runRaw(
 ): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((done, fail) => {
     const child = spawn(process.execPath, [hook, event], {
-      env: {
-        ...process.env,
-        PRISM_HOME: home,
+      env: hookEnv(home, home, {
         PRISM_DAEMON: "1",
         CLAUDE_PROJECT_DIR: "",
-      },
+      }),
     });
     let stdout = "";
     let stderr = "";
@@ -809,17 +825,10 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
         runAsync("stop", home, input),
         runRaw("stop-wait", home, input),
       ]);
-      expect(stop.out.systemMessage).toMatch(
-        /^Prism · checking 1 file — the verdict follows in this chat\nPrism receipt: changed 1 file, 2 dependents, 1 test reach it — NOT PROVEN \(still_running\)$/,
-      );
+      expect(stop.out.systemMessage).toContain("checks still running");
       expect(wait.code).toBe(2);
-      expect(wait.stderr.trimEnd()).toBe(
-        [
-          "Prism · SHIP",
-          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it",
-          'Prism · Say first: "Prism: SHIP — the checks this change reaches passed." Then stop.',
-        ].join("\n"),
-      );
+      expect(wait.stderr).toMatch(/^Prism · SHIP\n/);
+      expect(wait.stderr).toContain("Tell the user this verdict in one line");
       // It waited on the stopped receipt only; it never asked for a new one.
       expect(seen.filter((u) => u === "/v1/receipt")).toHaveLength(1);
       expect(seen).toContain("/v1/receipt-status");
@@ -854,10 +863,8 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
         runRaw("stop-wait", home, input),
       ]);
       expect(wait.code).toBe(2);
-      expect(wait.stderr).toMatch(/^Prism · NO-SHIP \(1 check failed\)\n/);
-      expect(wait.stderr).toContain(
-        'Prism · Say first: "Prism: NO-SHIP — 1 check failed; fixing now." Then fix them.',
-      );
+      expect(wait.stderr).toMatch(/^Prism · NO-SHIP \(1 check failed\)/);
+      expect(wait.stderr).toContain("fix the failures before you say done");
     } finally {
       server.close();
     }
@@ -878,16 +885,12 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
         runAsync("stop", home, input),
         runRaw("stop-wait", home, input),
       ]);
-      // Final at stop: the terminal line, then the SMK-8 summary line.
-      expect(stop.out.systemMessage).toBe(
-        "Prism · NOT PROVEN (untested) — no test reaches this change yet\n" +
-          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NOT PROVEN (untested)",
+      expect(stop.out.systemMessage).toMatch(
+        /^Prism · NOT PROVEN \(untested\)/,
       );
       expect(wait.code).toBe(2);
       expect(wait.stderr).toMatch(/^Prism · NOT PROVEN \(untested\)\n/);
-      expect(wait.stderr).toContain(
-        'Prism · Say first: "Prism: NOT PROVEN — no test reaches this change yet." Then stop.',
-      );
+      expect(wait.stderr).toContain("Tell the user this verdict in one line");
       // The agent's reply ends in another stop on the same change: no loop.
       const [, again] = await Promise.all([
         runAsync("stop", home, input),
@@ -937,214 +940,69 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
     expect(none.stderr).toBe("");
   });
 
-  /** Off-limits lens finding with `n` paths. */
-  const offLimits = (n: number) => [
-    {
-      lens: "Dev",
-      check: "off_limits_touched",
-      status: "fail",
-      evidence: Array.from({ length: n }, (_, i) => `locked/f${i}.ts`),
-    },
-  ];
-  const failedChecks = (n: number) =>
-    Array.from({ length: n }, (_, i) => ({ name: `c${i}`, status: "failed" }));
-
-  /** Muse v2.1 wake table: [name, receipt overrides, L1, L3]. */
-  const WAKES: [string, Record<string, unknown>, string, string][] = [
-    [
-      "SHIP",
-      { verdict: "proven", reason: undefined },
-      "Prism · SHIP",
-      'Prism · Say first: "Prism: SHIP — the checks this change reaches passed." Then stop.',
-    ],
-    [
-      "NO-SHIP failed",
-      { verdict: "failed", reason: undefined, checks: failedChecks(1) },
-      "Prism · NO-SHIP (1 check failed)",
-      'Prism · Say first: "Prism: NO-SHIP — 1 check failed; fixing now." Then fix them.',
-    ],
-    [
-      "NO-SHIP off-limits",
-      { verdict: "proven", reason: undefined, lensFindings: offLimits(2) },
-      "Prism · NO-SHIP (2 off-limits paths)",
-      'Prism · Say first: "Prism: NO-SHIP — 2 off-limits paths edited; undoing." Then undo those edits.',
-    ],
-    [
-      "NO-SHIP both",
-      {
-        verdict: "failed",
-        reason: undefined,
-        checks: failedChecks(2),
-        lensFindings: offLimits(1),
-      },
-      "Prism · NO-SHIP (2 checks failed, 1 off-limits path)",
-      'Prism · Say first: "Prism: NO-SHIP — 2 checks failed, 1 off-limits path edited." Then fix both.',
-    ],
-    [
+  it("wakes for every NOT PROVEN reason except superseded (round 5)", async () => {
+    for (const reason of [
       "untested",
-      { reason: "untested" },
-      "Prism · NOT PROVEN (untested)",
-      'Prism · Say first: "Prism: NOT PROVEN — no test reaches this change yet." Then stop.',
-    ],
-    [
       "no_node_modules",
-      { reason: "no_node_modules" },
-      "Prism · NOT PROVEN (no_node_modules)",
-      'Prism · Say first: "Prism: NOT PROVEN — dependencies aren\'t installed." Then stop.',
-    ],
-    [
       "unknown_runner",
-      { reason: "unknown_runner" },
-      "Prism · NOT PROVEN (unknown_runner)",
-      'Prism · Say first: "Prism: NOT PROVEN — no known runner ran its tests." Then stop.',
-    ],
-    [
       "skipped_offline",
-      { reason: "skipped_offline" },
-      "Prism · NOT PROVEN (skipped_offline)",
-      'Prism · Say first: "Prism: NOT PROVEN — checks are off for this run." Then stop.',
-    ],
-    [
       "timeout",
-      { reason: "timeout" },
-      "Prism · NOT PROVEN (timeout)",
-      'Prism · Say first: "Prism: NOT PROVEN — a check ran past its time limit." Then stop.',
-    ],
-    [
       "already_failing",
-      { reason: "already_failing" },
-      "Prism · NOT PROVEN (already_failing)",
-      'Prism · Say first: "Prism: NOT PROVEN — its tests failed before this session." Then stop.',
-    ],
-    [
       "unsupported_language",
-      { reason: "unsupported_language" },
-      "Prism · NOT PROVEN (unsupported_language)",
-      'Prism · Say first: "Prism: NOT PROVEN — only TS and JS files are checked." Then stop.',
-    ],
-  ];
+      "no_session",
+    ]) {
+      const { home, cwd } = layout(snapshot);
+      const server = await fakeDaemon(home, {
+        receipt: stopReceipt({}),
+        status: {
+          running: false,
+          receipt: stopReceipt({ reason, checksState: "done" }),
+        },
+      });
+      try {
+        const input = {
+          cwd,
+          session_id: `sw-${reason}`,
+          hook_event_name: "Stop",
+        };
+        const [, wait] = await Promise.all([
+          runAsync("stop", home, input),
+          runRaw("stop-wait", home, input),
+        ]);
+        expect(wait.code).toBe(2);
+        expect(wait.stderr).toMatch(
+          new RegExp(`^Prism · NOT PROVEN \\(${reason}\\)\n`),
+        );
+      } finally {
+        server.close();
+      }
+    }
+  });
 
-  async function wakeFor(name: string, over: Record<string, unknown>) {
+  it("a wrong result wakes as NO-SHIP", async () => {
     const { home, cwd } = layout(snapshot);
     const server = await fakeDaemon(home, {
       receipt: stopReceipt({}),
       status: {
         running: false,
-        receipt: stopReceipt({ checksState: "done", ...over }),
+        receipt: stopReceipt({ reason: "wrong_result", checksState: "done" }),
       },
     });
     try {
       const input = {
         cwd,
-        session_id: `sw-${name.replace(/\W+/g, "-")}`,
+        session_id: "sw-wrong-result",
         hook_event_name: "Stop",
       };
-      const [stop, wait] = await Promise.all([
+      const [, wait] = await Promise.all([
         runAsync("stop", home, input),
         runRaw("stop-wait", home, input),
       ]);
-      return { stop, wait };
+      expect(wait.code).toBe(2);
+      expect(wait.stderr).toMatch(/^Prism · NO-SHIP \(wrong result\)\n/);
     } finally {
       server.close();
     }
-  }
-
-  it("wakes with Muse's v2.1 text for every verdict but nothing changed and superseded (round 5)", async () => {
-    for (const [name, over, l1, l3] of WAKES) {
-      const { wait } = await wakeFor(name, over);
-      expect(wait.code, name).toBe(2);
-      const lines = wait.stderr.trimEnd().split("\n");
-      expect(lines, name).toEqual([
-        l1,
-        "Prism receipt: changed 1 file, 2 dependents, 1 test reach it",
-        l3,
-      ]);
-      for (const line of lines) expect(line.length, line).toBeLessThan(100);
-    }
-  });
-
-  it("keeps every wake line under 100 chars with worst-case counts (v2.1)", async () => {
-    const worst = {
-      verdict: "failed",
-      reason: undefined,
-      checks: failedChecks(12),
-      lensFindings: offLimits(12),
-      touched: { totalFiles: 999, dependents: 9999 },
-      testFiles: Array.from({ length: 60 }, (_, i) => `t${i}.test.ts`),
-    };
-    const { wait } = await wakeFor("worst", worst);
-    const lines = wait.stderr.trimEnd().split("\n");
-    expect(lines).toHaveLength(3);
-    expect(lines[2]).toBe(
-      'Prism · Say first: "Prism: NO-SHIP — 12 checks failed, 12 off-limits paths edited." Then fix both.',
-    );
-    for (const line of lines) expect(line.length, line).toBeLessThan(100);
-  });
-});
-
-describe("stop-time lines (Muse v2.1)", () => {
-  const snapshot = { orientation: "x", offLimits: [], needsSignOff: [] };
-
-  async function stopText(receipt: Record<string, unknown>) {
-    const { home, cwd } = layout(snapshot);
-    const server = await fakeDaemon(home, { receipt: stopReceipt(receipt) });
-    try {
-      const { out } = await runAsync("stop", home, {
-        cwd,
-        session_id: "stl",
-        hook_event_name: "Stop",
-      });
-      return out.systemMessage as string;
-    } finally {
-      server.close();
-    }
-  }
-
-  it("an off-limits path at stop says NO-SHIP while the checks still run", async () => {
-    expect(
-      await stopText({
-        lensFindings: [
-          {
-            lens: "Dev",
-            check: "off_limits_touched",
-            status: "fail",
-            evidence: ["locked/a.ts"],
-          },
-        ],
-      }),
-    ).toBe(
-      "Prism · NO-SHIP (1 off-limits path) — checks still running; the verdict follows\n" +
-        "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",
-    );
-  });
-
-  it("a final verdict at stop shows its terminal line, never the old Proven row", async () => {
-    const text = await stopText({
-      verdict: "failed",
-      reason: undefined,
-      checksState: "done",
-      checks: [{ name: "test", status: "failed" }],
-      earlier: { summary: "changed 1 file — SHIP" },
-    });
-    expect(text).toBe(
-      [
-        "Prism · NO-SHIP (1 check failed) — the agent is fixing it",
-        "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",
-        "Earlier change  changed 1 file — SHIP",
-      ].join("\n"),
-    );
-    expect(text).not.toContain("Proven ");
-  });
-
-  it("nothing changed is one line", async () => {
-    expect(
-      await stopText({
-        verdict: "proven",
-        reason: undefined,
-        checksState: "done",
-        touched: { totalFiles: 0, dependents: 0 },
-      }),
-    ).toBe("Prism · nothing changed");
   });
 });
 
@@ -1226,10 +1084,7 @@ describe("prompt hook injects the prepare pack (token fixes 1, 2, 4)", () => {
     } finally {
       server.close();
     }
-    const key = createHash("sha256")
-      .update(realpathSync(cwd))
-      .digest("hex")
-      .slice(0, 24);
+    const key = workspaceHash(cwd);
     const packs = join(home, "workspaces", key, "hooks", "packs");
     mkdirSync(packs, { recursive: true });
     writeFileSync(
@@ -1255,6 +1110,7 @@ describe("prompt hook injects the prepare pack (token fixes 1, 2, 4)", () => {
     for (const [i, answer] of [{ hang: true }, { ready: false }].entries()) {
       const server = await fakeDaemon(home, answer);
       try {
+        const boot = nodeBootMs();
         const { out, ms } = await runAsync("prompt", home, {
           cwd,
           session_id: `busy-${i}`,
@@ -1266,7 +1122,16 @@ describe("prompt hook injects the prepare pack (token fixes 1, 2, 4)", () => {
         expect(out.systemMessage).toBe(
           "Prism · Dev lens + files skipped (index busy)",
         );
-        expect(ms).toBeLessThan(1000);
+        // The hook leaves 150 ms of its 1 s cap for node start-up. A loaded CI
+        // runner can take longer than that just to boot node, so only boot
+        // time over 150 ms is added. Spawn-to-exit also includes process
+        // teardown after the hook's own clock has stopped: CI measured 1002
+        // and 1006 against a 1000 cap after the busy-index line was already
+        // returned. Windows process exit measured 1123 against a 1064 limit
+        // after the same line. That slack is not room for the hook to wait
+        // on the daemon.
+        const exitSlackMs = process.platform === "win32" ? 250 : 50;
+        expect(ms).toBeLessThan(1000 + Math.max(0, boot - 150) + exitSlackMs);
       } finally {
         server.closeAllConnections();
         server.close();
@@ -1279,7 +1144,7 @@ describe("prompt hook injects the prepare pack (token fixes 1, 2, 4)", () => {
     const result = spawnSync(process.execPath, [hook, "session"], {
       input: JSON.stringify({ cwd }),
       encoding: "utf8",
-      env: { ...process.env, PRISM_HOME: home, CLAUDE_PROJECT_DIR: cwd },
+      env: hookEnv(home, home, { CLAUDE_PROJECT_DIR: cwd }),
     });
     const text = JSON.parse(result.stdout).hookSpecificOutput
       ?.additionalContext;
@@ -1306,14 +1171,11 @@ describe("session hook upgrades an old Prism hook config (round 4)", () => {
     const result = spawnSync(process.execPath, [hook, "session"], {
       input: JSON.stringify({ cwd, session_id: "hc-1", source: "startup" }),
       encoding: "utf8",
-      env: {
-        ...process.env,
-        PRISM_HOME: prismHome,
-        HOME: userHome,
+      env: hookEnv(prismHome, userHome, {
         PRISM_HOOK_REFRESH: "1",
         PRISM_DAEMON: "0",
         CLAUDE_PROJECT_DIR: "",
-      },
+      }),
     });
     expect(result.status).toBe(0);
     return JSON.parse(result.stdout) as { systemMessage?: string };

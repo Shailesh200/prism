@@ -5,7 +5,9 @@ import { ChangelogView } from "../../changelog-view";
 
 type Props = { params: Promise<{ n: string }> };
 
-export const dynamicParams = false;
+/** Literal: Next reads this at build time. Same interval as CHANGELOG_REVALIDATE_SECONDS. */
+export const revalidate = 300;
+export const dynamicParams = true;
 
 /** Page 1 is /changelog; this route serves pages 2 and up. */
 export async function generateStaticParams() {

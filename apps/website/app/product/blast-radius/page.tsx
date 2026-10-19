@@ -51,7 +51,7 @@ export default function BlastRadiusPage() {
         pair={
           <ChatTerminalPair
             chat={
-              <Window title="Claude Code" kind="chat">
+              <Window title="Your agent" kind="chat">
                 <Bubble who="you">Where do we call getUser?</Bubble>
                 <Bubble who="prism">
                   <ToolTag>graph</ToolTag>
@@ -64,7 +64,7 @@ export default function BlastRadiusPage() {
                   <br />← src/users/profile.ts{" "}
                   <span className="d">references · measured</span>
                 </Bubble>
-                <Bubble who="agent" name="Claude Code">
+                <Bubble who="agent" name="Agent">
                   getUser is called in two places: checkout.ts and profile.ts.
                   Both pass a user id.
                 </Bubble>
@@ -110,7 +110,7 @@ export default function BlastRadiusPage() {
       >
         <ChatTerminalPair
           chat={
-            <Window title="Cursor" kind="chat">
+            <Window title="Your agent" kind="chat">
               <Bubble who="you">What depends on totals.ts?</Bubble>
               <Bubble who="prism">
                 <ToolTag>blast_radius</ToolTag>
@@ -119,7 +119,7 @@ export default function BlastRadiusPage() {
                 <br />
                 Affected files 5 · Tests likely affected 2
               </Bubble>
-              <Bubble who="agent" name="Cursor">
+              <Bubble who="agent" name="Agent">
                 5 files depend on it and 2 tests reach it. I’ll keep the
                 signature the same.
               </Bubble>
@@ -163,7 +163,7 @@ export default function BlastRadiusPage() {
       >
         <ChatTerminalPair
           chat={
-            <Window title="Claude Code" kind="chat">
+            <Window title="Your agent" kind="chat">
               <Bubble who="you">Which tests cover totals.ts?</Bubble>
               <Bubble who="prism">
                 <ToolTag>test_impact</ToolTag>
@@ -171,7 +171,7 @@ export default function BlastRadiusPage() {
                 <br />
                 test/totals.test.ts · test/invoice.test.ts
               </Bubble>
-              <Bubble who="agent" name="Claude Code">
+              <Bubble who="agent" name="Agent">
                 Running both now.
               </Bubble>
             </Window>

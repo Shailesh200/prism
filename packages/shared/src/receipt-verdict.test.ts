@@ -31,6 +31,16 @@ const base: ChangeReceipt = {
 };
 
 describe("P11 verdict-first receipt", () => {
+  it("a wrong operational result is NO-SHIP", () => {
+    expect(
+      shipVerdict({
+        ...base,
+        verdict: "not_proven",
+        reason: "wrong_result",
+      }),
+    ).toBe("NO-SHIP");
+  });
+
   it("RV-1 the verdict is line 1 for each state", () => {
     const states: [ChangeReceipt, string][] = [
       [base, "Prism · SHIP"],
@@ -53,6 +63,10 @@ describe("P11 verdict-first receipt", () => {
           ],
         },
         "Prism · NO-SHIP (1 check failed)",
+      ],
+      [
+        { ...base, verdict: "not_proven", reason: "wrong_result" },
+        "Prism · NO-SHIP (wrong result)",
       ],
     ];
     for (const [receipt, line] of states) {

@@ -222,3 +222,9 @@ slow".
 
 Raising a budget requires a note here saying why the work got more expensive.
 Silently widening the ceiling turns the file into decoration.
+
+**2026-10-17, small `dna` 250 → 500.** GitHub-hosted ubuntu (`bench` on PR #12)
+measured a median of 335 ms, with the three reps between 328 and 360. That is
+the same small fixture as the August laptop baseline, on a slower runner, and
+it sits above the old 250 ms ceiling. 500 ms stays under twice the measured
+median, so a real algorithmic jump still fails the check.

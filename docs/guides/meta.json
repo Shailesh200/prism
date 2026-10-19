@@ -5,6 +5,7 @@
     "before-you-edit",
     "guard-a-session",
     "review-a-pr",
+    "wire-into-ci",
     "hooks-and-strength",
     "receipt",
     "lenses",

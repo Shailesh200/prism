@@ -24,7 +24,7 @@ source: packages/cli/src/install/hosts.ts; packages/cli/src/commands/strength.ts
 
 ## Cursor and Codex
 
-`prism install cursor` writes `~/.cursor/mcp.json` and the prepare/receipt rule at `~/.cursor/rules/prism.mdc`, which Cursor applies in every project. `--project` writes that rule into one repository instead.
+`prism install cursor` writes `~/.cursor/mcp.json` and prints that the rule needs `prism install cursor --project` in each repository (`.cursor/rules/prism.mdc`).
 
 `prism install codex` writes the MCP block in `~/.codex/config.toml` and a rule in `~/.codex/AGENTS.md`. `--project` writes the rule into that repository’s `AGENTS.md` instead.
 

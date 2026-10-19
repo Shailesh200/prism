@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { calibrate, renderDoc, summarize, toRaw } from "./b6-report.mjs";
-import { releaseChecks } from "./release-gate.mjs";
+import { releaseChecks, WARN_ONLY_2_0_0 } from "./release-gate.mjs";
 
 const b1 = (withP, without) => ({
   totals: {
@@ -42,10 +42,10 @@ const ten = (arm, tokens, cost, success) =>
 const status = (out, id) => out.find((r) => r.id === id)?.status;
 
 describe("release gate (P14)", () => {
-  it("GATE-T1: B1 ratio above 1.0 fails, at or below passes", () => {
+  it("GATE-T1: B1 ratio above 1.0 warns for 2.0.0, at or below passes", () => {
     assert.equal(
       status(releaseChecks({ b1: b1(120, 100) }), "GATE-T1.B1ratio"),
-      "fail",
+      "warn",
     );
     assert.equal(
       status(releaseChecks({ b1: b1(100, 100) }), "GATE-T1.B1ratio"),
@@ -69,8 +69,15 @@ describe("release gate (P14)", () => {
     );
     const worse = raw(ten("A", 100, 1), ten("B", 120, 2));
     const out = releaseChecks({ raw: worse, doc: renderDoc(worse) });
-    assert.equal(status(out, "GATE-T2.ClaudeCode.tokens"), "fail");
-    assert.equal(status(out, "GATE-T2.ClaudeCode.cost"), "fail");
+    // 2.0.0 only: Claude Code tokens and cost warn (WARN_ONLY_2_0_0); 2.0.1
+    // makes them failures again.
+    assert.equal(status(out, "GATE-T2.ClaudeCode.tokens"), "warn");
+    assert.equal(status(out, "GATE-T2.ClaudeCode.cost"), "warn");
+    assert.deepEqual([...WARN_ONLY_2_0_0].sort(), [
+      "GATE-T1.B1ratio",
+      "GATE-T2.ClaudeCode.cost",
+      "GATE-T2.ClaudeCode.tokens",
+    ]);
     const lower = raw(ten("A", 100, 1, true), ten("B", 90, 1, false));
     assert.equal(
       status(
@@ -107,10 +114,11 @@ describe("release gate (P14)", () => {
     );
   });
   it("GATE-T3: a private repo name in the proof fails", () => {
+    process.env.PRISM_PRIVATE_NAMES = "private-repo-x";
     const r = raw(ten("A", 100, 1), ten("B", 90, 1));
     assert.equal(
       status(
-        releaseChecks({ raw: r, doc: `${renderDoc(r)}rentmaadi` }),
+        releaseChecks({ raw: r, doc: `${renderDoc(r)}private-repo-x` }),
         "GATE-T3.publicOnly",
       ),
       "fail",

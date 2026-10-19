@@ -99,7 +99,7 @@ const MAP = [
 
 export function MapChat() {
   return (
-    <Window title="Claude Code" kind="chat">
+    <Window title="Your agent" kind="chat">
       <Bubble who="you">What is in this repo?</Bubble>
       <Bubble who="prism">
         <ToolTag>graph</ToolTag> mode: map
@@ -108,7 +108,7 @@ export function MapChat() {
         <br />
         ## src/lib/money.ts · callers: invoice.ts, totals.ts
       </Bubble>
-      <Bubble who="agent" name="Claude Code">
+      <Bubble who="agent" name="Agent">
         Billing lives in src/billing. Money helpers are in src/lib/money.ts.
       </Bubble>
     </Window>
@@ -135,9 +135,9 @@ export function StartDemo() {
         <Window title="~/northwind">
           <Typed cmd="prism start" />
           <Ln>
-            <span className="d">Installing for Claude Code…</span>
+            <span className="d">Installing for your agent…</span>
           </Ln>
-          <Ln>Prism {PRISM_VERSION} installed for Claude Code.</Ln>
+          <Ln>Prism {PRISM_VERSION} installed for your agent.</Ln>
           <Ln>Indexed 12 files in 0.1 s.</Ln>
           <Ln />
           {MapLines().slice(0, 5)}
@@ -163,14 +163,18 @@ export function PrepareDemo() {
             Add VAT to computeTotals in the billing totals
           </Bubble>
           <Bubble who="prism">
-            <span className="w">Open this file first.</span>
+            <span className="w">Prism · files for this task:</span>
+            <br />- src/billing/totals.ts: matches compute, total
             <br />
-            src/billing/totals.ts — computeTotals is here
+            {"  3: function computeTotals(lines: Line[])"}
             <br />
             Tests: test/invoice.test.ts, test/totals.test.ts
+            <br />
+            <span className="d">Run:</span> npx vitest run test/invoice.test.ts
+            test/totals.test.ts
           </Bubble>
           <Bubble who="agent" name="Agent">
-            I’ll start in totals.ts and run those two tests after.
+            Starting in totals.ts and running those two tests after.
           </Bubble>
         </Window>
       }
@@ -201,18 +205,55 @@ export function PrepareDemo() {
   );
 }
 
+/** During the edit: point at a file in this repo to copy. */
+export function MatchCodeDemo() {
+  return (
+    <ChatTerminalPair
+      chat={
+        <Window title="Your agent" kind="chat">
+          <Bubble who="you">
+            Add VAT the way this repo already does money
+          </Bubble>
+          <Bubble who="prism">
+            <span className="w">Copy this, do not invent a new shape:</span>
+            <br />
+            src/billing/invoice.ts · invoiceTotal
+            <br />
+            <span className="d">Not a fixture. Not a test.</span>
+          </Bubble>
+          <Bubble who="agent" name="Agent">
+            I will follow invoiceTotal in invoice.ts for the new total.
+          </Bubble>
+        </Window>
+      }
+      terminal={
+        <Window title="~/northwind">
+          <Typed cmd={`prism prepare "${PROMPT}"`} />
+          <Ln>
+            <span className="d">Reuse</span>
+          </Ln>
+          <Ln>{"  invoiceTotal  src/billing/invoice.ts"}</Ln>
+          <Ln>
+            <span className="d">Copy the shape of that function.</span>
+          </Ln>
+        </Window>
+      }
+    />
+  );
+}
+
 /** Step 3: the edit hook denies a generated file; strength in the terminal. */
 export function GuardDemo() {
   return (
     <ChatTerminalPair
       chat={
-        <Window title="Claude Code" kind="chat">
+        <Window title="Your agent" kind="chat">
           <Bubble who="you">Add an email field to the API schema</Bubble>
           <Bubble who="prism">
             <span className="r">✗ Denied:</span> src/api/generated/schema.ts is
             generated. Do not edit generated or vendored files.
           </Bubble>
-          <Bubble who="agent" name="Claude Code">
+          <Bubble who="agent" name="Agent">
             That file is generated. I’ll change its source and regenerate it.
           </Bubble>
         </Window>
@@ -234,9 +275,9 @@ export function VerifyDemo() {
   return (
     <ChatTerminalPair
       chat={
-        <Window title="Claude Code" kind="chat">
+        <Window title="Your agent" kind="chat">
           <Bubble who="you">Tidy up the reduce in computeTotals</Bubble>
-          <Bubble who="agent" name="Claude Code">
+          <Bubble who="agent" name="Agent">
             Done. The reduce in computeTotals is shorter now.
           </Bubble>
           <Bubble who="prism">
@@ -249,7 +290,7 @@ export function VerifyDemo() {
             <br />
             <Failed />
           </Bubble>
-          <Bubble who="agent" name="Claude Code">
+          <Bubble who="agent" name="Agent">
             The test caught it: I wrote price + qty instead of price * qty.
             Fixed, and the next receipt says SHIP.
           </Bubble>
@@ -282,7 +323,7 @@ export function ReviewDemo() {
   return (
     <ChatTerminalPair
       chat={
-        <Window title="opencode" kind="chat">
+        <Window title="Your agent" kind="chat">
           <Bubble who="you">Review my changes before I open a PR</Bubble>
           <Bubble who="prism">
             <div className="rvw">
@@ -290,43 +331,35 @@ export function ReviewDemo() {
                 <ToolTag>guard_session</ToolTag>
                 <span>review: true · this session</span>
               </div>
-              <div className="rv-risk">
-                <span className="lab">Risk</span>
-                <span className="meter">
-                  <i style={{ width: "40%" }} />
-                </span>
-                <b>40</b>
-                <span className="d">/100</span>
-                <span className="band mid">mid</span>
-              </div>
               <div className="rv-stats">
                 <span>
-                  <b>1</b> changed
-                </span>
-                <span>
-                  <b>5</b> affected
-                </span>
-                <span>
-                  <b>2</b> tests reach it
+                  <b>1</b> finding
                 </span>
               </div>
               <div className="rv-f">
                 <div className="rv-fh">
-                  <span className="sev">high</span>
-                  <span className="lens">QA lens</span>
-                  <span className="ck">dependents_not_in_diff</span>
+                  <span className="sev">Critical</span>
                 </div>
                 <div className="rv-w">
-                  src/billing/totals.ts changes <b>computeTotals</b>; not
-                  edited: credit-note.ts, invoice.ts, test/totals.test.ts
+                  <b>1.</b> A caller was left unchanged (<b>src/report.ts</b>)
                 </div>
-                <div className="rv-fix">→ Fix this before shipping.</div>
+                <div className="rv-fix">
+                  Change: update that caller, then review again.
+                </div>
+              </div>
+              <div className="rv-why">
+                A caller of the changed function was left unchanged.
+              </div>
+              <div className="rv-stats rv-end">
+                <span>
+                  Receipt <b>NO-SHIP</b>
+                </span>
               </div>
             </div>
           </Bubble>
-          <Bubble who="agent" name="opencode">
-            One fix before the PR: computeTotals now also returns vat, so I’ll
-            update invoice.ts, credit-note.ts and the totals test.
+          <Bubble who="agent" name="Agent">
+            One Critical finding: a caller in src/report.ts was left unchanged.
+            I’ll update it, then review again.
           </Bubble>
         </Window>
       }
@@ -334,57 +367,32 @@ export function ReviewDemo() {
         <Window title="~/northwind">
           <Typed cmd="prism review" />
           <Ln>
-            <span className="w">Change review</span>
+            <span className="w">Review</span>
+          </Ln>
+          <Ln>1 finding</Ln>
+          <Ln />
+          <Ln>
+            <span className="w">Critical</span>
           </Ln>
           <Ln>
-            <span className="kv">
-              <span className="d">Base</span>working tree
-            </span>
+            1. <span className="w">A caller was left unchanged</span>{" "}
+            (`src/report.ts`)
           </Ln>
           <Ln>
-            <span className="kv">
-              <span className="d">Risk</span>
-              <span>
-                40/100 <span className="y">Moderate Impact</span>
-              </span>
-            </span>
+            <span className="d"> - This code: </span>one caller still uses the
+            old result
           </Ln>
           <Ln>
-            <span className="kv">
-              <span className="d">Changed files</span>1
-            </span>
+            <span className="d"> - Change: </span>update that caller
+          </Ln>
+          <Ln />
+          <Ln>A caller of the changed function was left unchanged.</Ln>
+          <Ln />
+          <Ln>
+            <span className="w">Receipt</span>
           </Ln>
           <Ln>
-            <span className="kv">
-              <span className="d">Affected files</span>5
-            </span>
-          </Ln>
-          <Ln>
-            <span className="tbl">
-              <span className="tr th">
-                <span>CHANGED FILE</span>
-                <span>RISK</span>
-                <span>AFFECTS</span>
-                <span>TESTS</span>
-              </span>
-              <span className="tr">
-                <span>src/billing/totals.ts</span>
-                <span className="y">40</span>
-                <span>5</span>
-                <span>2</span>
-              </span>
-            </span>
-          </Ln>
-          <Ln>
-            <span className="sep" />
-            <span className="d">$ </span>
-            prism review --fail-on mid &gt; /dev/null; echo $?
-          </Ln>
-          <Ln>
-            <span className="r">1</span>{" "}
-            <span className="d">
-              # exits 1 when the risk is at or above the band
-            </span>
+            <span className="r">NO-SHIP</span>
           </Ln>
         </Window>
       }
@@ -397,7 +405,7 @@ export function SafeDeleteDemo() {
   return (
     <ChatTerminalPair
       chat={
-        <Window title="Codex" kind="chat">
+        <Window title="Your agent" kind="chat">
           <Bubble who="you">Can I delete src/legacy/cart.js?</Bubble>
           <Bubble who="prism">
             <ToolTag>safe_delete</ToolTag>
@@ -406,7 +414,7 @@ export function SafeDeleteDemo() {
             <br />
             src/pages/checkout.ts imports src/legacy/cart.js
           </Bubble>
-          <Bubble who="agent" name="Codex">
+          <Bubble who="agent" name="Agent">
             Not yet. I’ll move checkout.ts off cart.js first.
           </Bubble>
         </Window>

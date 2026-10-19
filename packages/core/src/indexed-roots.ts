@@ -35,7 +35,7 @@ export function listIndexedWorkspaces(
     if (!existsSync(dbPath)) continue;
     let db: ReturnType<typeof openSqliteDatabase> | undefined;
     try {
-      db = openSqliteDatabase(dbPath, { readonly: true });
+      db = openSqliteDatabase(dbPath);
       const row = db
         .prepare("SELECT root_path, indexed_at FROM index_meta LIMIT 1")
         .get() as { root_path?: string; indexed_at?: string } | undefined;

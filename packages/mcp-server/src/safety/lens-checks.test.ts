@@ -39,7 +39,6 @@ function signals(overrides: Partial<LensSignals> = {}): LensSignals {
     dependenciesAdded: [],
     removedLines: new Map(),
     dependentsNotInDiff: new Map(),
-    mentions: () => true,
     fingerprint: () => "h1",
     ...overrides,
   };
@@ -177,61 +176,6 @@ describe("lens checks (plan §5.3)", () => {
       status: "fail",
       evidence: [expect.stringContaining("src/function/throttle.ts")],
     });
-  });
-
-  it("a declaration that only moved does not fail", () => {
-    const path = "src/git/git-signals.ts";
-    const line = "export function readGitSignals(";
-    const out = evaluateLensChecks(
-      [lens("qa")],
-      receipt(),
-      signals({
-        changed: [path],
-        addedLines: new Map([[path, [line]]]),
-        removedLines: new Map([[path, [line]]]),
-        dependentsNotInDiff: new Map([[path, ["src/git/git-signals.test.ts"]]]),
-      }),
-    );
-    expect(status(out, "dependents_not_in_diff")?.status).toBe("pass");
-  });
-
-  it("a const that keeps its name is a new value, not a signature change", () => {
-    const path = "src/instructions.ts";
-    const out = evaluateLensChecks(
-      [lens("qa")],
-      receipt(),
-      signals({
-        changed: [path],
-        removedLines: new Map([
-          [path, ["export const SERVER_INSTRUCTIONS = `old`"]],
-        ]),
-        addedLines: new Map([
-          [path, ["export const SERVER_INSTRUCTIONS = `new`"]],
-        ]),
-        dependentsNotInDiff: new Map([[path, ["src/server.ts"]]]),
-      }),
-    );
-    expect(status(out, "dependents_not_in_diff")?.status).toBe("pass");
-  });
-
-  it("an importer that never names the changed export is not a caller", () => {
-    const path = "src/server.ts";
-    const out = evaluateLensChecks(
-      [lens("qa")],
-      receipt(),
-      signals({
-        changed: [path],
-        removedLines: new Map([
-          [path, ["export const MAX_READY_WAIT_MS = 3_000;"]],
-        ]),
-        addedLines: new Map([
-          [path, ["export const MAX_READY_WAIT_MS = 900;"]],
-        ]),
-        dependentsNotInDiff: new Map([[path, ["src/no-network.test.ts"]]]),
-        mentions: () => false,
-      }),
-    );
-    expect(status(out, "dependents_not_in_diff")?.status).toBe("pass");
   });
 
   it("a new export or a new file breaks no dependent (website round)", () => {

@@ -28,7 +28,7 @@ prism habit show "start my day"
 prism habit remove "start my day"
 ```
 
-`prism habit edit "name" --template "…" --output standup` changes the habit in place. The same flags work for `--step` and `--description`. With no flags, and `$EDITOR` set, it opens the habit's `SKILL.md` and checks it again on save. An agent should call the `habits` tool with `update` rather than opening an editor. Keep the layout: `# name`, an optional `Description:` line, `## Steps` as `1. source: action | filter`, and `## Output` as `format: template`. The template has no length cap.
+`prism habit edit` opens `$EDITOR` on the habit's `SKILL.md` and checks it again on save. Keep the layout: `# name`, an optional `Description:` line, `## Steps` as `1. source: action | filter`, and `## Output` as `format: template`.
 
 Habits saved by an older Prism in `~/.prism/habits.json` move to skill files the first time Prism reads them. The old file is kept as `habits.json.migrated-<time>.bak`.
 

@@ -92,9 +92,9 @@ export default async function AdminPage() {
   ].filter(Boolean);
 
   const cliSeries =
-    snap.npm.find((p) => p.name === "@repo-prism/cli")?.series ?? [];
+    snap.npm.find((p) => p.name === "@prismapp/cli")?.series ?? [];
   const mcpSeries =
-    snap.npm.find((p) => p.name === "@repo-prism/mcp-server")?.series ?? [];
+    snap.npm.find((p) => p.name === "@prismapp/mcp-server")?.series ?? [];
 
   return (
     <main className="min-h-screen bg-fd-background text-fd-foreground">
@@ -169,7 +169,7 @@ export default async function AdminPage() {
               <Instrument
                 label="CLI npm / 30d"
                 value={
-                  snap.npm.find((p) => p.name === "@repo-prism/cli")?.downloads
+                  snap.npm.find((p) => p.name === "@prismapp/cli")?.downloads
                 }
                 series={cliSeries}
                 hint="daily"
@@ -177,7 +177,7 @@ export default async function AdminPage() {
               <Instrument
                 label="MCP npm / 30d"
                 value={
-                  snap.npm.find((p) => p.name === "@repo-prism/mcp-server")
+                  snap.npm.find((p) => p.name === "@prismapp/mcp-server")
                     ?.downloads
                 }
                 series={mcpSeries}

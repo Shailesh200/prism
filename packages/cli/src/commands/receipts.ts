@@ -11,7 +11,7 @@ import {
   ok,
   PrismErrorCode,
   prismError,
-  renderReceiptTerminal,
+  renderReceipt,
   renderReceiptMarkdown,
   renderReceiptSvg,
   shipVerdictLabel,
@@ -37,7 +37,7 @@ export function readReceiptHistory(root: string): ReceiptRow[] {
     verdict: shipVerdictLabel(receipt),
     durationMs: receipt.durationMs,
     ...(receipt.sessionId ? { sessionId: receipt.sessionId } : {}),
-    text: renderReceiptTerminal(receipt),
+    text: renderReceipt(receipt),
     receipt,
   }));
 }
@@ -68,7 +68,7 @@ export const receiptsCommand: CommandHandler = async (context) => {
         : row.receipt && as === "svg"
           ? renderReceiptSvg(row.receipt)
           : row.receipt
-            ? renderReceiptTerminal(row.receipt)
+            ? renderReceipt(row.receipt)
             : row.text;
     return ok({ data: row, human: () => body });
   }
