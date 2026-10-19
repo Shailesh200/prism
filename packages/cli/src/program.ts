@@ -10,6 +10,7 @@
  */
 
 import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@repo-prism/core";
+import { reportUsage } from "@repo-prism/shared/pulse";
 import { Command, CommanderError } from "commander";
 import { COMMANDS, COMMANDS_BY_NAME } from "./commands.js";
 import { firstRunCommand } from "./commands/start.js";
@@ -24,6 +25,40 @@ import {
 } from "./runtime.js";
 
 export const CLI_NAME = "prism";
+
+const INSTALL_CLIENTS = new Set([
+  "claude",
+  "cursor",
+  "codex",
+  "opencode",
+  "all",
+]);
+
+function reportCommand(
+  env: NodeJS.ProcessEnv,
+  name: string,
+  code: ExitCode,
+  positionals: readonly string[] = [],
+): ExitCode {
+  const client = positionals[0];
+  reportUsage(
+    {
+      surface: "cli",
+      name,
+      result:
+        code === ExitCode.OK
+          ? "ok"
+          : code === ExitCode.FINDINGS
+            ? "findings"
+            : "failed",
+      ...(name === "install" && client && INSTALL_CLIENTS.has(client)
+        ? { client }
+        : {}),
+    },
+    env,
+  );
+  return code;
+}
 
 type RawGlobals = {
   workspace?: string;
@@ -178,26 +213,30 @@ export async function run(
   // A bare `prism` is the first-run card. Parse is skipped so Commander does
   // not print help and exit. `--help` still has arguments and is handled below.
   if (argv.length === 0) {
-    return runCommand(
-      firstRunCommand,
-      {
-        json: false,
-        color: shouldUseColor({
-          noColorFlag: false,
-          env: options.env,
-          isTty: options.isTty,
-        }),
-        quiet: false,
-        verbose: false,
-        yes: false,
-      },
-      options,
-      {
-        positionals: [],
-        option: () => undefined,
-        values: () => [],
-        flag: () => false,
-      },
+    return reportCommand(
+      options.env,
+      "start",
+      await runCommand(
+        firstRunCommand,
+        {
+          json: false,
+          color: shouldUseColor({
+            noColorFlag: false,
+            env: options.env,
+            isTty: options.isTty,
+          }),
+          quiet: false,
+          verbose: false,
+          yes: false,
+        },
+        options,
+        {
+          positionals: [],
+          option: () => undefined,
+          values: () => [],
+          flag: () => false,
+        },
+      ),
     );
   }
 
@@ -234,27 +273,31 @@ export async function run(
   const commandName = parsed.args[0];
   if (commandName === undefined) {
     const root = parsed.opts<RawGlobals>();
-    return runCommand(
-      firstRunCommand,
-      {
-        workspace: root.workspace,
-        json: root.json === true,
-        color: shouldUseColor({
-          noColorFlag: root.color === false,
-          env: options.env,
-          isTty: options.isTty,
-        }),
-        quiet: root.quiet === true,
-        verbose: root.verbose === true,
-        yes: root.yes === true,
-      },
-      options,
-      {
-        positionals: [],
-        option: () => undefined,
-        values: () => [],
-        flag: () => false,
-      },
+    return reportCommand(
+      options.env,
+      "start",
+      await runCommand(
+        firstRunCommand,
+        {
+          workspace: root.workspace,
+          json: root.json === true,
+          color: shouldUseColor({
+            noColorFlag: root.color === false,
+            env: options.env,
+            isTty: options.isTty,
+          }),
+          quiet: root.quiet === true,
+          verbose: root.verbose === true,
+          yes: root.yes === true,
+        },
+        options,
+        {
+          positionals: [],
+          option: () => undefined,
+          values: () => [],
+          flag: () => false,
+        },
+      ),
     );
   }
 
@@ -264,7 +307,7 @@ export async function run(
     const suggestion = suggestCommand(commandName);
     const hint = suggestion ? `\n(Did you mean ${suggestion}?)` : "";
     options.writer.err(`error: unknown command '${commandName}'${hint}`);
-    return ExitCode.USAGE;
+    return reportCommand(options.env, "unknown", ExitCode.USAGE);
   }
 
   const subOptions = sub.opts<Record<string, unknown>>();
@@ -331,7 +374,12 @@ export async function run(
     },
   };
 
-  return runCommand(spec.handler, globals, options, args);
+  return reportCommand(
+    options.env,
+    commandName,
+    await runCommand(spec.handler, globals, options, args),
+    sub.args,
+  );
 }
 
 /**

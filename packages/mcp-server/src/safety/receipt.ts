@@ -138,6 +138,8 @@ export function folderExistedAtHead(root: string, path: string): boolean {
 
 export type BuildReceiptOptions = {
   readonly preExistingChanges?: readonly string[];
+  /** Review these paths instead of the working-tree diff. */
+  readonly sessionPaths?: readonly string[];
   /** False → analyse only, run nothing (`not_proven(skipped_offline)`). */
   readonly runChecks?: boolean;
   /** Injectable for tests and the benchmark. */
@@ -294,9 +296,17 @@ export async function buildStructuralReceipt(
     if (!indexed.ok) return indexed;
   }
 
-  const guardInput = options.preExistingChanges
-    ? { preExistingChanges: options.preExistingChanges }
-    : undefined;
+  const guardInput =
+    options.preExistingChanges || options.sessionPaths
+      ? {
+          ...(options.preExistingChanges
+            ? { preExistingChanges: options.preExistingChanges }
+            : {}),
+          ...(options.sessionPaths
+            ? { sessionPaths: options.sessionPaths }
+            : {}),
+        }
+      : undefined;
   let guard = await workspace.guardSession(guardInput);
   if (!guard.ok) return guard;
   // J-09: a file git sees and the index does not is dropped from `files`

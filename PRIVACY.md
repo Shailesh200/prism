@@ -8,9 +8,9 @@ server, and no Prism cloud.
 | Question | Answer |
 |---|---|
 | Does my source code leave my machine? | No. |
-| Is there telemetry, analytics, or crash reporting? | No. |
+| Is there telemetry, analytics, or crash reporting? | A usage ping: the command or tool name, and whether it worked. No code, paths, or prompts. `PRISM_PULSE=0` turns it off. |
 | Is there an account or licence check? | No. |
-| Does Prism ever make a network request? | One: a daily update check, described below. Analysis makes none. |
+| Does Prism ever make a network request? | A daily update check, and a usage ping. Analysis makes none. |
 | Where is my data stored? | `~/.prism/` on your machine. Nothing is written into your checkout. |
 
 ## The one network request
@@ -22,6 +22,14 @@ cached in `~/.prism/update.json`. If a newer version exists, Prism prints
 "update available: run `prism upgrade`"; it never downloads, installs or
 relaunches anything by itself. Local checkouts never check. Set
 `PRISM_SKIP_SELF_UPDATE=1` to turn it off.
+
+## The usage ping
+
+When a command finishes, or an MCP tool returns, Prism posts one event to
+`https://pulse.shaileshjha.in`. The event is the command or tool name, whether
+it worked, and how long it took. It does not include source, paths, prompts,
+or the text of an error. Set `PRISM_PULSE=0` to turn it off. It is also off
+in CI and in tests.
 
 ## What is proven, not just claimed
 

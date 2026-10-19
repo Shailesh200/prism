@@ -148,9 +148,7 @@ Click **Skip**, then retry what you asked for. It appears once per session.
 
 ## The agent asks for a tool that is not listed
 
-The server registers nine tools by default. The others (graphs, findings,
-`agents_md`, and more) are opt-in: list them in `extraTools` in
-`~/.prism/config.json`. See [Usage](/docs/usage) and the
+Every tool is registered, including `receipt`. An unknown name is a tool from an older Prism, or a typo. See [Usage](/docs/usage) and the
 [MCP reference](/docs/reference/mcp-tools).
 
 ## A tool from an older Prism is gone

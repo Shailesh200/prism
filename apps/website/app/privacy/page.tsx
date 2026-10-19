@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "Privacy",
   description:
-    "Privacy is the default. No account, no telemetry, nothing uploaded: Prism reads your repo on your machine and keeps its data in ~/.prism/.",
+    "Privacy is the default. No account, and your code stays on your machine. A usage ping sends the command or tool name and whether it worked. PRISM_PULSE=0 turns that off.",
   path: "/privacy",
 });
 
@@ -67,7 +67,7 @@ export default function PrivacyPage() {
               Your code stays <em>home.</em>
             </>
           }
-          lede="No account, no server, no telemetry. Prism reads your repo on your machine and keeps its library in ~/.prism/. It does not write that library into your checkout. prism install --project and prism strength --repo do write config into the repository."
+          lede="No account, and your code stays on your machine. A usage ping sends the command or tool name and whether it worked. PRISM_PULSE=0 turns that off. Prism keeps its library in ~/.prism/ and does not write that library into your checkout. prism install --project and prism strength --repo do write config into the repository."
         />
         <section className="sec">
           <Container className="grid3">

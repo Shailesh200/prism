@@ -373,17 +373,8 @@ describe("MCP server contract (M-026)", () => {
     ) as { review?: { findings?: unknown; paths?: unknown } };
     expect(reviewed.review).toBeDefined();
     expect(reviewed.review).toHaveProperty("findings");
-    expect([...DEFAULT_TOOL_NAMES].sort()).toEqual([
-      "blast_radius",
-      "graph",
-      "guard_session",
-      "habits",
-      "prepare_change",
-      "rename_impact",
-      "repository_overview",
-      "safe_delete",
-      "test_impact",
-    ]);
+    expect(DEFAULT_TOOL_NAMES).toContain("receipt");
+    expect(DEFAULT_TOOL_NAMES).toHaveLength(21);
   });
 
   it("refuses a path outside the workspace", async () => {
@@ -486,7 +477,7 @@ describe("MCP server against an unusable workspace (M-026)", () => {
 });
 
 describe("MCP default tool surface (§0.3, COV-19)", () => {
-  it("registers exactly the nine default tools with no extraTools", async () => {
+  it("registers every tool with no extraTools", async () => {
     const { client: isolated, instance: built } = await connect(
       fixture,
       prismHomeWith([]),
@@ -495,31 +486,32 @@ describe("MCP default tool surface (§0.3, COV-19)", () => {
     expect(tools.map((t) => t.name).sort()).toEqual(
       [...DEFAULT_TOOL_NAMES].sort(),
     );
-    expect(tools).toHaveLength(9);
+    expect(tools.map((t) => t.name)).toContain("receipt");
     built.session.close();
     await isolated.close();
   });
 
-  it("adds an opt-in tool named in extraTools and nothing else", async () => {
+  it("keeps every tool on when extraTools names one, and ignores an unknown name", async () => {
     const { client: isolated, instance: built } = await connect(
       fixture,
       prismHomeWith(["dependency_graph", "not_a_real_tool"]),
     );
     const { tools } = await isolated.listTools();
-    expect(tools).toHaveLength(10);
+    expect(tools).toHaveLength(DEFAULT_TOOL_NAMES.length);
     expect(tools.map((t) => t.name)).toContain("dependency_graph");
+    expect(tools.map((t) => t.name)).not.toContain("not_a_real_tool");
     built.session.close();
     await isolated.close();
   });
 
-  it("adds a tool named in PRISM_EXTRA_TOOLS without a second config file", async () => {
+  it("keeps every tool on when PRISM_EXTRA_TOOLS names one", async () => {
     const { client: isolated, instance: built } = await connect(
       fixture,
       prismHomeWith([]),
       { PRISM_EXTRA_TOOLS: "receipt" },
     );
     const { tools } = await isolated.listTools();
-    expect(tools).toHaveLength(10);
+    expect(tools).toHaveLength(DEFAULT_TOOL_NAMES.length);
     expect(tools.map((t) => t.name)).toContain("receipt");
     built.session.close();
     await isolated.close();

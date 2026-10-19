@@ -14,33 +14,33 @@ network call or holds a credential.
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-An agent sees **9 default tools**. The other 12 are opt-in:
-list them in `extraTools` in `~/.prism/config.json`. Every count elsewhere in
-the docs is checked against these, so the numbers cannot drift into prose.
+An agent sees **all 21 tools**, including receipt.
+`extraTools` is not required. Every count elsewhere in the docs is
+checked against these, so the numbers cannot drift into prose.
 
 | Tool | Default | What it answers |
 |---|---|---|
-| [`agents_md`](#agents_md) | opt-in | Generate or verify the Living AGENTS.md |
+| [`agents_md`](#agents_md) | yes | Generate or verify the Living AGENTS.md |
 | [`blast_radius`](#blast_radius) | yes | What depends on a file or symbol, and how risky changing it is |
-| [`capabilities`](#capabilities) | opt-in | List every Core analysis capability with availability and a reason when unavailable |
-| [`dependency_cycles`](#dependency_cycles) | opt-in | Import and re-export cycles, each returned as the list of files forming the loop |
-| [`dependency_graph`](#dependency_graph) | opt-in | The import/re-export dependency graph, at file level or aggregated to packages |
-| [`explain_area`](#explain_area) | opt-in | Explain what a module or folder does |
-| [`explore_code`](#explore_code) | opt-in | Everything about one file or symbol in a single call |
+| [`capabilities`](#capabilities) | yes | List every Core analysis capability with availability and a reason when unavailable |
+| [`dependency_cycles`](#dependency_cycles) | yes | Import and re-export cycles, each returned as the list of files forming the loop |
+| [`dependency_graph`](#dependency_graph) | yes | The import/re-export dependency graph, at file level or aggregated to packages |
+| [`explain_area`](#explain_area) | yes | Explain what a module or folder does |
+| [`explore_code`](#explore_code) | yes | Everything about one file or symbol in a single call |
 | [`graph`](#graph) | yes | One structural question about the repository, answered from Prism's local graph |
 | [`guard_session`](#guard_session) | yes | Check my changes |
 | [`habits`](#habits) | yes | The user's saved routines (e.g |
-| [`knowledge_graph`](#knowledge_graph) | opt-in | The symbol-level graph — declarations and the references between them — with summary stats |
-| [`list_findings`](#list_findings) | opt-in | Queueable findings from the last index |
-| [`list_packages`](#list_packages) | opt-in | List the packages in a monorepo with their roots |
+| [`knowledge_graph`](#knowledge_graph) | yes | The symbol-level graph — declarations and the references between them — with summary stats |
+| [`list_findings`](#list_findings) | yes | Queueable findings from the last index |
+| [`list_packages`](#list_packages) | yes | List the packages in a monorepo with their roots |
 | [`prepare_change`](#prepare_change) | yes | One call before you edit |
-| [`receipt`](#receipt) | opt-in | What this session changed and whether it is proven |
+| [`receipt`](#receipt) | yes | What this session changed and whether it is proven |
 | [`rename_impact`](#rename_impact) | yes | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | [`repository_overview`](#repository_overview) | yes | What this repository is, in one bounded call |
-| [`review_with`](#review_with) | opt-in | Review a task or the current change through a lens |
+| [`review_with`](#review_with) | yes | Review a task or the current change through a lens |
 | [`safe_delete`](#safe_delete) | yes | Whether a file or symbol can be deleted safely |
 | [`test_impact`](#test_impact) | yes | Which tests import the changed symbol, or a symbol that reaches it — the tests worth running after touching a target |
-| [`workspace_status`](#workspace_status) | opt-in | Compact workspace readiness |
+| [`workspace_status`](#workspace_status) | yes | Compact workspace readiness |
 
 ## `agents_md`
 

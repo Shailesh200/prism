@@ -11,9 +11,8 @@ export const HERO_TOOL_NAMES = [
 ] as const;
 
 /**
- * Default `tools/list`: exactly nine tools. Every tool a shipped skill,
- * command, prompt, hook or instruction names must be here (`skills-tools`
- * contract test).
+ * Every tool an agent sees. A shipped skill, command, prompt, hook or
+ * instruction may name any of them.
  */
 export const DEFAULT_TOOL_NAMES = [
   ...HERO_TOOL_NAMES,
@@ -23,10 +22,6 @@ export const DEFAULT_TOOL_NAMES = [
   "rename_impact",
   "repository_overview",
   "graph",
-] as const;
-
-/** Opt-in tools, enabled by name in `~/.prism/config.json` `extraTools[]` or `PRISM_EXTRA_TOOLS`. */
-export const OPT_IN_TOOL_NAMES = [
   "dependency_graph",
   "knowledge_graph",
   "dependency_cycles",
@@ -40,3 +35,6 @@ export const OPT_IN_TOOL_NAMES = [
   "review_with",
   "receipt",
 ] as const;
+
+/** Older `extraTools` and `PRISM_EXTRA_TOOLS` names. They are already on. */
+export const OPT_IN_TOOL_NAMES = [] as const;

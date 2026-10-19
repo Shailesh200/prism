@@ -422,8 +422,9 @@ export default function HomePage() {
               }
               title="Privacy is the default"
             >
-              Runs on your machine. No account, no telemetry, nothing uploaded.
-              The only network call is a daily update check you can turn off.
+              Runs on your machine. No account, and your code stays here. A
+              usage ping sends the command or tool name and whether it worked.
+              `PRISM_PULSE=0` turns that off.
             </Card>
             <Card
               icon={

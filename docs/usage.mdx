@@ -81,7 +81,7 @@ Prism does not make the edit. Your agent does, in your chat.
 
 ## Default tools
 
-The server registers nine tools by default:
+The server registers every tool, including `receipt`. The ones the instructions teach first:
 
 | Tool | For |
 |---|---|
@@ -95,9 +95,7 @@ The server registers nine tools by default:
 | `repository_overview` | What this repository is and where to start |
 | `graph` | Find a symbol or path, its neighbours, how A reaches B, what an area is for |
 
-List more in `extraTools` in `~/.prism/config.json` to register opt-in tools
-(dependency and knowledge graphs, cycles, findings, `agents_md`, and others).
-Each is listed in the [MCP reference](/docs/reference/mcp-tools).
+The rest, including `receipt`, are on too. Each is listed in the [MCP reference](/docs/reference/mcp-tools).
 
 ## How to talk
 

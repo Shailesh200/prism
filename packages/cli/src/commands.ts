@@ -348,12 +348,14 @@ export const COMMANDS: readonly CommandSpec[] = [
   {
     name: "review",
     group: "Assess a change",
-    summary: "Risk of the current changes, or of the paths you name",
+    summary:
+      "Risk of the working tree, the files you name, or a GitHub pull request",
     handler: reviewCommand,
     arguments: [
       {
-        syntax: "[paths...]",
-        description: "Files to review (default: the working-tree diff)",
+        syntax: "[target...]",
+        description:
+          "Files to review, or one github.com pull request URL. Default: the working-tree diff",
       },
     ],
     options: [
@@ -370,7 +372,7 @@ export const COMMANDS: readonly CommandSpec[] = [
     examples: [
       "prism review --lens qa",
       "prism review --base origin/main --fail-on high",
-      "prism review --base origin/main --format sarif",
+      "prism review https://github.com/org/repo/pull/1",
     ],
   },
   {

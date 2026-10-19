@@ -8,7 +8,7 @@ import {
   readLastPrepareChange,
   readPrepareHistory,
   writeLastPrepareChange,
-} from "./prepare-last.js";
+} from "./index.js";
 
 const temps: string[] = [];
 

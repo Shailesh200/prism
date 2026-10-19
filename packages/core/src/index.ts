@@ -1,6 +1,10 @@
 /** @repo-prism/core — public SDK façade (only supported integration surface). */
 
 export { Prism, type PrismClient, type PrismClientOptions } from "./prism.js";
+export {
+  listIndexedWorkspaces,
+  type IndexedWorkspace,
+} from "./indexed-roots.js";
 export { readChangedPaths, type ChangedPaths } from "./git/changed-paths.js";
 export type { PrismGitignoreStatus } from "./git/prism-gitignore.js";
 export { loadPrismConfig, loadPrismConfigSync } from "./prism-config-load.js";

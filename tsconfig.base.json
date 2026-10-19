@@ -16,6 +16,7 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "tsBuildInfoFile": "${configDir}/dist/tsconfig.tsbuildinfo"
   }
 }

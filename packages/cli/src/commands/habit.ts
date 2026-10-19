@@ -135,8 +135,53 @@ export const habitCommand: CommandHandler = async (context) => {
   }
 
   if (action === "edit") {
+    const template = context.args.option("template");
+    const description = context.args.option("description");
+    const output = context.args.option("output");
+    const rawSteps = context.args.values("step");
+    if (
+      template !== undefined ||
+      description !== undefined ||
+      output !== undefined ||
+      rawSteps.length > 0
+    ) {
+      const steps = rawSteps.map(parseStep);
+      const bad = rawSteps.find((_, i) => !steps[i]);
+      if (bad !== undefined) {
+        return usage(
+          `Step "${bad.slice(0, 40)}" must look like "source: action".`,
+        );
+      }
+      if (
+        output !== undefined &&
+        !(HABIT_OUTPUT_FORMATS as readonly string[]).includes(output)
+      ) {
+        return usage(
+          `--output must be one of ${HABIT_OUTPUT_FORMATS.join(", ")}.`,
+        );
+      }
+      const saved = await replaceHabit(habit.name, {
+        ...habit,
+        ...(description !== undefined ? { description } : {}),
+        ...(rawSteps.length > 0 ? { steps } : {}),
+        output: {
+          ...habit.output,
+          ...(output !== undefined ? { format: output } : {}),
+          ...(template !== undefined ? { template } : {}),
+        },
+      });
+      if (!saved.ok) return saved;
+      return ok({
+        data: saved.value,
+        human: () => `Saved habit "${saved.value.name}".`,
+      });
+    }
     const editor = process.env.VISUAL || process.env.EDITOR;
-    if (!editor) return usage("Set $EDITOR to edit a habit.");
+    if (!editor) {
+      return usage(
+        "No $EDITOR is set. Pass --template, --step, --output, or --description, or edit the habit's SKILL.md.",
+      );
+    }
     const dir = await mkdtemp(join(tmpdir(), "prism-habit-"));
     const path = join(dir, "SKILL.md");
     try {

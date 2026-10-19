@@ -62,7 +62,7 @@ export const HabitSchema = z.object({
   steps: z.array(HabitStepSchema).min(1).max(20),
   output: z.object({
     format: z.enum(HABIT_OUTPUT_FORMATS),
-    template: z.string().trim().max(500).optional(),
+    template: z.string().trim().min(1).optional(),
   }),
 });
 export const HabitsFileSchema = z.object({

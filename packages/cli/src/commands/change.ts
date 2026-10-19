@@ -20,6 +20,7 @@ import { paint, renderFields, renderHeading } from "../output.js";
 import { renderReviewReading } from "./review-text.js";
 import type { CommandHandler, CommandContext } from "../runtime.js";
 import { bandStyle, plural, renderTable, wrap } from "../table.js";
+import { classifyReviewTarget, reviewPullRequestCommand } from "./review-pr.js";
 import { allWorkspaceRelative, resolveTarget } from "../target.js";
 import { parseFormat, reviewToSarif } from "../sarif.js";
 import {
@@ -177,6 +178,14 @@ export const reviewCommand: CommandHandler = async (context) => {
   if (!limit.ok) return limit;
   const format = parseFormat(context.args.option("format"));
   if (!format.ok) return format;
+
+  const targetKind = classifyReviewTarget(context.args.positionals);
+  if (targetKind.kind === "invalid") {
+    return err(prismError(PrismErrorCode.VALIDATION, targetKind.message));
+  }
+  if (targetKind.kind === "pull") {
+    return reviewPullRequestCommand(context, targetKind.request);
+  }
 
   const opened = await context.open();
   if (!opened.ok) return opened;

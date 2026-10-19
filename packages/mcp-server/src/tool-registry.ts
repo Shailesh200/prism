@@ -13,6 +13,7 @@ import type { PrismWorkspace } from "@repo-prism/core";
 import type { DaemonOutcome } from "@repo-prism/daemon";
 import type { PrismError, Result } from "@repo-prism/shared";
 import { budgetFor, fitToBudget } from "@repo-prism/shared";
+import { reportUsage } from "@repo-prism/shared/pulse";
 import { z, type ZodRawShape } from "zod";
 import { toMcpError, toMcpErrorFromThrown } from "./errors.js";
 import type { WorkspaceSession } from "./session.js";
@@ -137,6 +138,19 @@ export function registerTools(
       },
       // The SDK has already validated `args` against `inputSchema` by here.
       async (rawArgs: unknown) => {
+        const started = Date.now();
+        const note = (ok: boolean, code?: string) => {
+          reportUsage(
+            {
+              surface: "mcp",
+              name: tool.name,
+              result: ok ? "ok" : "failed",
+              ms: Date.now() - started,
+              ...(code ? { code } : {}),
+            },
+            env,
+          );
+        };
         const { maxTokens, offset, ...args } = (rawArgs ?? {}) as {
           maxTokens?: number;
           offset?: number;
@@ -150,7 +164,10 @@ export function registerTools(
           result = { ok: false, error: attached.error };
         } else {
           const ready = await session.ready();
-          if (!ready.ok) throw toMcpError(ready.error);
+          if (!ready.ok) {
+            note(false, ready.error.code);
+            throw toMcpError(ready.error);
+          }
           try {
             root = resolveRoot();
             result = await tool.call(
@@ -158,11 +175,15 @@ export function registerTools(
               args as Parameters<typeof tool.call>[1],
             );
           } catch (cause) {
+            note(false);
             throw toMcpErrorFromThrown(cause);
           }
         }
 
-        if (!result.ok) throw toMcpError(result.error);
+        if (!result.ok) {
+          note(false, result.error.code);
+          throw toMcpError(result.error);
+        }
         let value = result.value;
         if (tool.present) {
           try {
@@ -172,6 +193,7 @@ export function registerTools(
               { workspaceRoot: root, env, tools: offered },
             );
           } catch (cause) {
+            note(false);
             throw toMcpErrorFromThrown(cause);
           }
         }
@@ -181,6 +203,7 @@ export function registerTools(
           offset ?? 0,
         ).value;
         const text = serialiseForMcp(fitted);
+        note(true);
         return {
           content: [{ type: "text" as const, text }],
         };

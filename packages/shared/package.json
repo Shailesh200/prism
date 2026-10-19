@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/shared",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "private": true,
   "type": "module",
   "description": "Shared contracts, DTOs, errors, Zod schemas",
@@ -48,6 +48,10 @@
     "./habits": {
       "types": "./dist/habits.d.ts",
       "import": "./dist/habits.js"
+    },
+    "./pulse": {
+      "types": "./dist/pulse.d.ts",
+      "import": "./dist/pulse.js"
     },
     "./session-store": {
       "types": "./dist/session-store.d.ts",

@@ -466,6 +466,8 @@ export type PrismWorkspace = {
   guardSession(input?: {
     readonly preExistingChanges?: readonly string[];
     readonly paths?: readonly string[];
+    /** Use these paths as the change set instead of the working tree. */
+    readonly sessionPaths?: readonly string[];
   }): Promise<Result<GuardSession, PrismError>>;
   /**
    * Living AGENTS.md (M-073 C1/C3): composes features, import cycles, test
@@ -2020,7 +2022,12 @@ export function createWorkspace(options: {
       const gate = ensureImpact();
       if (!gate.ok) return gate;
       const snapshot = gate.value;
-      const changed = readChangedPaths(rootPath, {});
+      const explicit = input?.sessionPaths?.map((p) =>
+        p.replace(/\\/g, "/").replace(/^\.\//, ""),
+      );
+      const changed = explicit
+        ? { paths: explicit }
+        : readChangedPaths(rootPath, {});
       if (changed === null) {
         return err(
           prismError(

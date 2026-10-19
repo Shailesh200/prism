@@ -118,8 +118,10 @@ export function createPrismMcpServer(
       rootsSettled = true;
       const hints = listed.roots.map((root) => root.uri);
       if (binding.applyHints(hints)) {
-        process.stderr.write(
-          `prism-mcp: workspace ${binding.current()} (from mcp roots)\n`,
+        const root = binding.current();
+        process.stderr.write(`prism-mcp: workspace ${root} (from mcp roots)\n`);
+        void startDaemonFor(root, options.env ?? process.env).catch(
+          () => undefined,
         );
       }
     } catch (error) {
