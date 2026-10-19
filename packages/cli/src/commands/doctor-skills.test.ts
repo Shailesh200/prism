@@ -36,11 +36,9 @@ describe("prism doctor skills (plan §5.4)", () => {
     );
   });
 
-  it("an opt-in tool warns with the extraTools fix until it is enabled", () => {
+  it("review_with is on without extraTools", () => {
     const off = setup("Then `review_with` the lenses.");
-    expect(checkSkills(off.repo, off.env)[0]?.problems[0]).toMatch(
-      /opt-in: add "review_with" to extraTools/,
-    );
+    expect(checkSkills(off.repo, off.env)[0]?.status).toBe("ok");
     const on = setup("Then `review_with` the lenses.", {
       extraTools: ["review_with"],
     });
