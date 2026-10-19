@@ -11,6 +11,13 @@ a supported configuration.
 
 ## Unreleased
 
+## 2.0.3 — Review a pull request
+
+- `prism review https://github.com/owner/repo/pull/1` reviews that pull request from the checkout Prism already indexed, and posts a sticky comment that includes the receipt.
+- Every MCP tool is on, including receipt. Opening or switching a repo indexes it.
+- A usage ping records the command or tool name and whether it worked. It does not include code, paths, or prompts. `PRISM_PULSE=0` turns it off.
+- `prism habit edit` accepts `--template`, `--step`, `--output`, and `--description` without `$EDITOR`. A habit template has no length cap.
+
 ## 2.0.2 — One install entry
 
 - A hand-written MCP entry starts `@prismapp/mcp-server` with no version, so npx takes the latest release. `PRISM_EXTRA_TOOLS=receipt` on that same entry turns on the receipt tool.
