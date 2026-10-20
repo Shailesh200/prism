@@ -11,7 +11,7 @@
  * with UI "—", never Failure.
  */
 
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import { constants as osConstants, homedir, setPriority } from "node:os";
@@ -435,6 +435,348 @@ function lowerPriority(pid: number | undefined): void {
   }
 }
 
+/**
+ * Yield mode (round 5, item D). Round-4 Sonnet follow-ups: the agent's own
+ * test commands ran a median 1.9x slower (es-toolkit up to 7.8x) while the
+ * previous turn's checks were still running, and not at all slower in
+ * turn 1. Nice 19 is not enough on macOS, which schedules by QoS: the check
+ * workers still shared the performance cores. While the agent is working
+ * (a prompt or session start reached the daemon) the checks drop to the
+ * idlest class the platform has; the stop that asks for the next receipt
+ * ends it, and puts the checks still running back to normal check priority
+ * (nice 19). A missing tool only means the check keeps nice 19.
+ */
+export const CHECK_YIELD_MS = 600_000;
+
+/** Commands that move one running process (and its later children) to idle. */
+export function yieldCommands(
+  pid: number,
+  platform: NodeJS.Platform = process.platform,
+): string[][] {
+  const id = String(pid);
+  if (platform === "darwin") {
+    // Background QoS: efficiency cores only, throttled disk I/O.
+    return [["/usr/sbin/taskpolicy", "-b", "-p", id]];
+  }
+  if (platform === "linux") {
+    // Idle I/O class. Not SCHED_IDLE: an unprivileged process cannot leave
+    // it again (EPERM), and nice 19 already gives the CPU to the agent.
+    return [["ionice", "-c", "3", "-p", id]];
+  }
+  return [];
+}
+
+/** Commands that put a yielded process back to normal check priority. */
+export function restoreCommands(
+  pid: number,
+  platform: NodeJS.Platform = process.platform,
+): string[][] {
+  const id = String(pid);
+  if (platform === "darwin") {
+    // Out of background QoS; nice 19 stays.
+    return [["/usr/sbin/taskpolicy", "-B", "-p", id]];
+  }
+  if (platform === "linux") {
+    // I/O class "none": priority follows nice again.
+    return [["ionice", "-c", "0", "-p", id]];
+  }
+  return [];
+}
+
+/**
+ * One command for a whole process group, where the platform has one. Linux
+ * `ionice -P` sets every thread of every process in the group in one kernel
+ * call (`-p` sets a single thread: a forked child kept its normal I/O class,
+ * Scout round 5). macOS `taskpolicy` only takes pids: null, so the group is
+ * swept pid by pid.
+ */
+export function groupCommand(
+  mode: "yield" | "restore",
+  pgid: number,
+  platform: NodeJS.Platform = process.platform,
+): string[] | null {
+  if (platform !== "linux") return null;
+  return ["ionice", "-c", mode === "yield" ? "3" : "0", "-P", String(pgid)];
+}
+
+/** Runs a tool; resolves its stdout, or null when it failed or is missing. */
+export type YieldExec = (argv: readonly string[]) => Promise<string | null>;
+
+const execTool: YieldExec = (argv) =>
+  new Promise((done) => {
+    const [bin, ...args] = argv;
+    if (!bin) return done(null);
+    execFile(bin, args, { timeout: 2_000 }, (error, stdout) =>
+      done(error ? null : String(stdout)),
+    );
+  });
+
+/** Process groups of checks still running (each check leads its own group). */
+const liveCheckGroups = new Set<number>();
+/**
+ * Mode last applied to each live group; absent means normal. `unknown` marks
+ * a sweep that did not take (Arc review): it matches no wanted mode, so the
+ * next sync tries again instead of skipping a group nothing was applied to.
+ */
+const groupMode = new Map<number, "yield" | "restore" | "unknown">();
+/** Per-group queue, so a launch sweep and a stop cannot interleave. */
+const groupQueue = new Map<number, Promise<void>>();
+let yieldUntil = 0;
+let yieldExpiry: ReturnType<typeof setTimeout> | undefined;
+
+export function checksYielding(now: number = Date.now()): boolean {
+  return now < yieldUntil;
+}
+
+/** Passes before a sweep gives up on a group that keeps forking. */
+const SWEEP_PASSES = 5;
+
+/** A sweep that could not finish (Arc review): reported, never silent. */
+export type YieldIncomplete = {
+  readonly platform: NodeJS.Platform;
+  readonly pgid: number;
+  readonly mode: "yield" | "restore";
+  readonly passes: number;
+  /** `passes`: still forking after the last pass; `failed`: no command took; `error`: exec threw. */
+  readonly reason: "passes" | "failed" | "error";
+};
+
+export type YieldEventSink = (event: YieldIncomplete) => void;
+
+let yieldEventSink: YieldEventSink = () => undefined;
+
+/**
+ * Where incomplete sweeps are reported. `checks` has no dependency on
+ * `@repo-prism/shared`, so the daemon wires this to `recordEvent`
+ * (`checks.yield_incomplete`). Returns the previous sink.
+ */
+export function setYieldEventSink(sink: YieldEventSink): YieldEventSink {
+  const previous = yieldEventSink;
+  yieldEventSink = sink;
+  return previous;
+}
+
+function reportIncomplete(event: YieldIncomplete): void {
+  try {
+    yieldEventSink(event);
+  } catch {
+    // Reporting must never break a check.
+  }
+}
+
+/** Outcome of one sweep: whether the leader took the mode, and how it ended. */
+type SweepResult = {
+  readonly leaderChanged: boolean;
+  readonly passes: number;
+  readonly incomplete: "passes" | "failed" | null;
+};
+
+/**
+ * Apply `mode` to every process of one check's group. Linux: one `ionice -P`
+ * (per-pid fallback if that fails). macOS: list the group, apply to each pid
+ * not done yet, and list again until a pass finds nothing new; a process
+ * forked after its parent was moved inherits the new class (checked on a
+ * real Mac), so a quiet pass leaves no process behind.
+ *
+ * Not covered on either platform: a process that leaves the group itself
+ * (`setsid`, `setpgid`). Neither `ionice -P` nor `pgrep -g` can see it. That
+ * is acceptable for vitest, jest and eslint, which keep their workers in the
+ * group; do not assume it holds for every runner.
+ */
+async function sweepGroup(
+  pgid: number,
+  mode: "yield" | "restore",
+  exec: YieldExec,
+  platform: NodeJS.Platform = process.platform,
+): Promise<SweepResult> {
+  const perPid = (pid: number): string[][] =>
+    mode === "yield"
+      ? yieldCommands(pid, platform)
+      : restoreCommands(pid, platform);
+  // Nothing this platform can apply: done, and nothing to report.
+  if (perPid(pgid).length === 0)
+    return { leaderChanged: true, passes: 0, incomplete: null };
+  const group = groupCommand(mode, pgid, platform);
+  if (group && (await exec(group)) !== null)
+    return { leaderChanged: true, passes: 0, incomplete: null };
+  const done = new Set<number>();
+  let leaderChanged = false;
+  let anyChanged = false;
+  const apply = async (pid: number): Promise<void> => {
+    const results = await Promise.all(perPid(pid).map((argv) => exec(argv)));
+    if (results.every((out) => out !== null)) {
+      anyChanged = true;
+      if (pid === pgid) leaderChanged = true;
+    }
+  };
+  for (let pass = 0; pass < SWEEP_PASSES; pass++) {
+    const listed = (await exec(["pgrep", "-g", String(pgid)])) ?? "";
+    const pids = new Set(pass === 0 ? [pgid] : []);
+    for (const line of listed.split(/\s+/)) {
+      const pid = Number(line);
+      if (Number.isInteger(pid) && pid > 0) pids.add(pid);
+    }
+    const fresh = [...pids].filter((pid) => !done.has(pid));
+    if (fresh.length === 0) {
+      return {
+        leaderChanged,
+        passes: pass,
+        incomplete: anyChanged ? null : "failed",
+      };
+    }
+    for (const pid of fresh) done.add(pid);
+    await Promise.all(fresh.map(apply));
+  }
+  return {
+    leaderChanged,
+    passes: SWEEP_PASSES,
+    incomplete: anyChanged ? "passes" : "failed",
+  };
+}
+
+/**
+ * Bring one group to the current mode (yield while the agent works, normal
+ * otherwise). Queued per group and read when it runs, so the last state wins:
+ * a stop that lands during a launch's yield sweep still restores the group.
+ */
+function syncGroup(
+  pgid: number,
+  exec: YieldExec,
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> {
+  const prev = groupQueue.get(pgid) ?? Promise.resolve();
+  const next = prev.then(async () => {
+    if (!liveCheckGroups.has(pgid)) return;
+    const want = checksYielding() ? "yield" : "restore";
+    if ((groupMode.get(pgid) ?? "restore") === want) return;
+    let result: SweepResult;
+    try {
+      result = await sweepGroup(pgid, want, exec, platform);
+    } catch {
+      result = { leaderChanged: false, passes: 0, incomplete: null };
+      reportIncomplete({
+        platform,
+        pgid,
+        mode: want,
+        passes: 0,
+        reason: "error",
+      });
+    }
+    // The check may have ended while the sweep ran: leave no entry behind.
+    if (!liveCheckGroups.has(pgid)) return;
+    // Recorded only once the sweep took (Arc review); otherwise the next
+    // sync tries again.
+    groupMode.set(pgid, result.leaderChanged ? want : "unknown");
+    if (result.incomplete) {
+      reportIncomplete({
+        platform,
+        pgid,
+        mode: want,
+        passes: result.passes,
+        reason: result.incomplete,
+      });
+    }
+  });
+  const settled = next.catch(() => undefined);
+  groupQueue.set(pgid, settled);
+  return settled;
+}
+
+/** A check started: lower its whole group at once if the agent is working. */
+export function checkStarted(
+  pgid: number,
+  exec: YieldExec = execTool,
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> {
+  liveCheckGroups.add(pgid);
+  return checksYielding() ? syncGroup(pgid, exec, platform) : Promise.resolve();
+}
+
+export function checkEnded(pgid: number): void {
+  liveCheckGroups.delete(pgid);
+  groupMode.delete(pgid);
+  groupQueue.delete(pgid);
+}
+
+/**
+ * On: running checks move to idle now and new ones start there, for at most
+ * {@link CHECK_YIELD_MS}. Off (the stop, or that limit running out): every
+ * check still running goes back to normal check priority (nice 19), and new
+ * ones start there.
+ */
+export async function setChecksYield(
+  on: boolean,
+  options: {
+    readonly now?: number;
+    readonly exec?: YieldExec;
+    readonly platform?: NodeJS.Platform;
+  } = {},
+): Promise<void> {
+  const exec = options.exec ?? execTool;
+  clearTimeout(yieldExpiry);
+  yieldExpiry = undefined;
+  if (!on) {
+    const wasYielding = yieldUntil > 0;
+    yieldUntil = 0;
+    if (!wasYielding) return;
+  } else {
+    yieldUntil = (options.now ?? Date.now()) + CHECK_YIELD_MS;
+    yieldExpiry = setTimeout(() => {
+      void setChecksYield(false, options);
+    }, CHECK_YIELD_MS);
+    yieldExpiry.unref?.();
+  }
+  await Promise.all(
+    [...liveCheckGroups].map((g) => syncGroup(g, exec, options.platform)),
+  );
+}
+
+/** Test hook: track a fake running check. */
+export function trackCheckGroupForTest(pgid: number, live: boolean): void {
+  if (live) liveCheckGroups.add(pgid);
+  else checkEnded(pgid);
+}
+
+/** Nice value of {@link CHECK_PRIORITY} as `nice -n` takes it. */
+const CHECK_NICE = 19;
+
+/**
+ * Where `nice` lives, or null (Windows, or a system without it). Checked
+ * once per process.
+ */
+let nicePath: string | null | undefined;
+function findNice(): string | null {
+  if (nicePath === undefined) {
+    nicePath =
+      process.platform === "win32"
+        ? null
+        : (["/usr/bin/nice", "/bin/nice"].find((p) => existsSync(p)) ?? null);
+  }
+  return nicePath;
+}
+
+/**
+ * The argv a check is launched with. Through `nice -n 19` the check and every
+ * child start low, with no window: setting the priority after `spawn` left a
+ * child forked in the first instant at nice 0 (Linux setpriority covers one
+ * process). Without `nice`, the argv is unchanged and `lowerPriority` still
+ * applies.
+ */
+export function niceLaunch(
+  argv: readonly string[],
+  nice: string | null = findNice(),
+): readonly string[] {
+  return nice ? [nice, "-n", String(CHECK_NICE), ...argv] : argv;
+}
+
+/** `nice` could not find the check's binary (exit 127). */
+export function niceMissingBinary(
+  code: number | null,
+  stderr: string,
+): boolean {
+  return code === 127 && /^nice: .*: No such file or directory/m.test(stderr);
+}
+
 /** Output of a check stopped because a newer change superseded it. */
 export const CHECK_CANCELLED =
   "cancelled: a newer change superseded these checks";
@@ -463,7 +805,9 @@ function spawnArgv(
       return;
     }
 
-    const child = spawn(bin, argv.slice(1), {
+    const launch = niceLaunch(argv);
+    const wrapped = launch !== argv;
+    const child = spawn(launch[0] ?? bin, launch.slice(1), {
       cwd,
       env: gitChildEnv(),
       stdio: ["ignore", "pipe", "pipe"],
@@ -471,7 +815,16 @@ function spawnArgv(
       windowsHide: true,
     });
 
-    lowerPriority(child.pid);
+    // Nice 19 exactly once: `nice -n` adds to the current value, so also
+    // calling setpriority could stack to 20 on macOS (Scout, round 5).
+    if (!wrapped) lowerPriority(child.pid);
+    const group = child.pid;
+    if (group !== undefined) {
+      // Detached: the check leads its own group, so the yield sweep and the
+      // restore reach every process it forks.
+      void checkStarted(group);
+      child.once("close", () => checkEnded(group));
+    }
 
     let stdout = "";
     let stderr = "";
@@ -532,6 +885,10 @@ function spawnArgv(
       }
       if (code === 0) {
         finish({ ok: true, output: stdout });
+        return;
+      }
+      if (wrapped && niceMissingBinary(code, stderr)) {
+        finish(verifyRunFailure({ code: "ENOENT", stdout, stderr }));
         return;
       }
       if (
