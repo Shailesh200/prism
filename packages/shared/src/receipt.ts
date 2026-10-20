@@ -89,16 +89,15 @@ export const ReceiptProofSchema = z.object({
 export type ReceiptProof = z.infer<typeof ReceiptProofSchema>;
 
 /**
- * What Prism did for this session (plan P13): tokens it put into context,
- * the estimated saving against reading the covered files without Prism
- * (null until calibrated, ADR-0066; negative = Prism cost more), NO-SHIP
- * issues the agent fixed before this stop, and proofs Prism suggested.
+ * What Prism did for this session (plan P13): files it covered, NO-SHIP
+ * issues the agent fixed before this stop, and proofs Prism suggested. No
+ * token saving: 2.0.0 makes no token-savings claim. A stored receipt that
+ * still has the old `estimatedSaved` key parses; zod drops the key.
  */
 export const SessionValueSchema = z.object({
   /** Written by receipts before the token ledger was removed; read-only now. */
   tokensIn: z.number().int().nonnegative().optional(),
   filesCovered: z.number().int().nonnegative(),
-  estimatedSaved: z.number().int().nullable(),
   issuesCaught: z.number().int().nonnegative(),
   checksSuggested: z.number().int().nonnegative(),
   /** Files session memory gained since this session's previous receipt (round 2). */

@@ -34,14 +34,13 @@ const failed = (id: string, name = "test"): ChangeReceipt => ({
 });
 
 describe("P13 session value line", () => {
-  it("VAL-1 leaves the saving out until a calibration exists", () => {
+  it("VAL-1 states no saving at all", () => {
     const value = sessionValue({
       filesCovered: 6,
       current: base,
       earlier: [],
-      tokensPerFile: null,
     });
-    expect(value.estimatedSaved).toBeNull();
+    expect(value).not.toHaveProperty("estimatedSaved");
     expect(sessionValueLine(value)).toBe(
       "Prism: remembered 6 files for next time",
     );
@@ -52,27 +51,29 @@ describe("P13 session value line", () => {
       filesCovered: 5,
       current: base,
       earlier: [failed("a1")],
-      tokensPerFile: 1500,
     };
     expect(sessionValue(input)).toEqual(sessionValue(input));
     expect(sessionValueLine(sessionValue(input))).toBe(
-      "Prism: saved ~7.5k tokens · remembered 5 files for next time · 1 issue caught",
+      "Prism: remembered 5 files for next time · 1 issue caught",
     );
   });
 
-  it("VAL-3 shows negative savings as a cost", () => {
-    const value = {
-      ...sessionValue({
-        filesCovered: 2,
-        current: base,
-        earlier: [],
-        tokensPerFile: null,
-      }),
-      estimatedSaved: -6000,
-    };
-    expect(sessionValueLine(value)).toContain(
-      "Prism: cost ~6.0k more tokens than it saved",
-    );
+  it("VAL-3 the stop receipt never claims tokens or a saving (2.0.0)", () => {
+    const value = sessionValue({
+      filesCovered: 5,
+      current: base,
+      earlier: [failed("a1")],
+    });
+    // A receipt stored before this change may still carry the old key.
+    const stale = { ...value, estimatedSaved: 7500 } as typeof value;
+    const negative = { ...value, estimatedSaved: -6000 } as typeof value;
+    for (const v of [value, stale, negative]) {
+      const line = sessionValueLine(v) ?? "";
+      expect(line).not.toMatch(/tokens|saved/i);
+      const text = renderReceipt({ ...base, value: v });
+      expect(text).toContain("Prism: remembered 5 files for next time");
+      expect(text).not.toMatch(/tokens|saved/i);
+    }
   });
 
   it("VAL-4 counts only NO-SHIP issues that are fixed by this stop", () => {
@@ -80,7 +81,6 @@ describe("P13 session value line", () => {
       filesCovered: 0,
       current: failed("c", "test"),
       earlier: [failed("e1", "test"), failed("e2", "typecheck")],
-      tokensPerFile: null,
     });
     // `test` still fails now; only `typecheck` was fixed.
     expect(stillFailing.issuesCaught).toBe(1);
@@ -90,7 +90,6 @@ describe("P13 session value line", () => {
       earlier: [
         { ...base, id: "n1", verdict: "not_proven", reason: "untested" },
       ],
-      tokensPerFile: null,
     });
     expect(notProven.issuesCaught).toBe(0);
   });
@@ -105,7 +104,6 @@ describe("P13 session value line", () => {
       filesCovered: 1,
       current: { ...base, proof },
       earlier: [{ ...base, id: "p1", proof }],
-      tokensPerFile: null,
     });
     expect(value.checksSuggested).toBe(1);
     expect(renderReceipt({ ...base, value })).toContain(
@@ -124,19 +122,17 @@ describe("P13 session value line", () => {
           id: "turn1",
           value: {
             filesCovered: 3,
-            estimatedSaved: null,
             issuesCaught: 0,
             checksSuggested: 0,
           },
         },
       ],
-      tokensPerFile: null,
     });
     expect(value.filesRemembered).toBe(2);
     expect(sessionValueLine(value)).toBe(
       "Prism: remembered 2 files for next time",
     );
-    // Nothing calibrated and nothing new: no line at all.
+    // Nothing new and nothing caught: no line at all.
     expect(sessionValueLine({ ...value, filesRemembered: 0 })).toBeNull();
   });
 });

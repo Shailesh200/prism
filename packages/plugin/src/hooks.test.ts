@@ -725,6 +725,50 @@ describe("stop hook (round 2)", () => {
   });
 });
 
+describe("stop hook makes no token-savings claim (2.0.0)", () => {
+  for (const estimatedSaved of [7500, -6000, null]) {
+    it(`value line has no tokens or saving (stored estimatedSaved: ${estimatedSaved})`, async () => {
+      const { home, cwd } = layout({
+        orientation: "x",
+        offLimits: [],
+        needsSignOff: [],
+      });
+      const server = await fakeDaemon(home, {
+        receipt: {
+          id: "r-val",
+          verdict: "proven",
+          checksState: "done",
+          touched: { totalFiles: 1, dependents: 0 },
+          checks: [],
+          testFiles: [],
+          unsupported: [],
+          lensFindings: [],
+          // A receipt written before this change may still carry the key.
+          value: {
+            filesCovered: 5,
+            filesRemembered: 5,
+            issuesCaught: 1,
+            checksSuggested: 0,
+            estimatedSaved,
+          },
+        },
+      });
+      try {
+        const { out } = await runAsync("stop", home, {
+          cwd,
+          session_id: `st-val-${String(estimatedSaved)}`,
+        });
+        expect(out.systemMessage).toContain(
+          "Prism: remembered 5 files for next time · 1 issue caught",
+        );
+        expect(out.systemMessage).not.toMatch(/tokens|saved/i);
+      } finally {
+        server.close();
+      }
+    });
+  }
+});
+
 describe("stop hook shows the last finished verdict (round 4)", () => {
   it("a pending receipt carries the earlier change's finished verdict", async () => {
     const { home, cwd } = layout({

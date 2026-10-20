@@ -641,21 +641,14 @@ function renderReceiptLite(receipt) {
   return lines.join("\n");
 }
 
-/** Mirrors shared `sessionValueLine` (plan P13, round 2): one line. */
+/** Mirrors shared `sessionValueLine` (plan P13, round 2): one line, no token claim. */
 function valueLineLite(value) {
   if (!value || typeof value !== "object") return null;
   const n = (v) => (Number.isFinite(v) ? v : 0);
   const caught = n(value.issuesCaught);
   const remembered = n(value.filesRemembered);
-  const saved = value.estimatedSaved;
-  const compact = (t) => (t >= 1000 ? `${(t / 1000).toFixed(1)}k` : String(t));
   const plural = (c, one) => `${c} ${c === 1 ? one : `${one}s`}`;
   const parts = [
-    ...(typeof saved !== "number"
-      ? []
-      : saved >= 0
-        ? [`saved ~${compact(saved)} tokens`]
-        : [`cost ~${compact(-saved)} more tokens than it saved`]),
     ...(remembered > 0
       ? [`remembered ${plural(remembered, "file")} for next time`]
       : []),
