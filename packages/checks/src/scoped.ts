@@ -96,6 +96,83 @@ export function detectTestRunner(cwd: string): DetectedTestRunner | null {
   return null;
 }
 
+/**
+ * True when `body` is one plain runner command (`vitest …`, `jest …`,
+ * `bun test …`) whose every flag is on {@link SAFE_FLAGS}. Only then does
+ * swapping it for the bare runner over the reached files drop nothing that
+ * could change the result. Anything else (a chain such as Hono's
+ * `tsc --noEmit && vitest --run`, a pipe, redirect, substitution, quote, env
+ * prefix, wrapper, positional filter, or any flag not on the list) runs the
+ * whole script instead.
+ */
+export function isPlainRunnerScript(body: string): boolean {
+  if (/[;&|<>`\n'"\\$]/.test(body)) return false;
+  const tokens = body.trim().split(/\s+/).filter(Boolean);
+  let flags: string[];
+  if (tokens[0] === "vitest") {
+    flags = tokens[1] === "run" ? tokens.slice(2) : tokens.slice(1);
+  } else if (tokens[0] === "jest") {
+    flags = tokens.slice(1);
+  } else if (tokens[0] === "bun" && tokens[1] === "test") {
+    flags = tokens.slice(2);
+  } else {
+    return false;
+  }
+  for (let i = 0; i < flags.length; i++) {
+    const flag = flags[i] ?? "";
+    if (SAFE_FLAGS.has(flag)) continue;
+    if (/^--coverage\.[\w.]+(?:=\S+)?$/.test(flag)) continue;
+    if (/^--reporter=\S+$/.test(flag)) continue;
+    const value = flags[i + 1];
+    if (flag === "--reporter" && value && !value.startsWith("-")) {
+      i++;
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Flags a narrowed run may drop because they cannot turn a failing suite into
+ * a passing one. Everything else (config, project, root, environment, setup
+ * files, mode, typecheck, preload, `--ci`, `-u`, …) keeps the full script.
+ *
+ * - `--run`: the narrowed vitest call is already `vitest run`.
+ * - `--coverage`, `--coverage.*`: coverage collection; dropping it is the
+ *   es-toolkit speed fix (Arc). A coverage threshold is the one way it could
+ *   fail a run, and the full suite, not a scoped one, is where that belongs.
+ * - `--silent`, `--verbose`, `--color`, `--no-color`, and `--reporter <name>`
+ *   / `--reporter=<name>` (checked in the loop, since it takes a value):
+ *   output only.
+ * - `--passWithNoTests`: only matters when no test file matches; a narrowed
+ *   run always names reached test files (jest's narrowed call adds it too).
+ */
+const SAFE_FLAGS = new Set([
+  "--run",
+  "--coverage",
+  "--silent",
+  "--verbose",
+  "--color",
+  "--no-color",
+  "--passWithNoTests",
+]);
+
+function scriptBody(cwd: string, name: string): string {
+  const scripts = readJson(join(cwd, "package.json"))?.scripts;
+  if (!scripts || typeof scripts !== "object") return "";
+  const body = (scripts as Record<string, unknown>)[name];
+  return typeof body === "string" ? body : "";
+}
+
+/** A `pre<name>` or `post<name>` script runs with the script; narrowing would skip it. */
+function hasPrePost(cwd: string, name: string): boolean {
+  return (
+    scriptBody(cwd, `pre${name}`) !== "" ||
+    scriptBody(cwd, `post${name}`) !== ""
+  );
+}
+
 const CHECK_SCRIPT =
   /^(typecheck|types|check:types|lint|lint:check|oxlint|test|test:unit|test:ci)$/;
 
@@ -137,7 +214,9 @@ export type ScopedPlan = {
  * The detected plan with its `test` step narrowed to `testFiles`.
  *
  * - runner known + tests reached → runner over those files
- * - runner unknown + tests reached → the repo's own test script
+ * - runner unknown, or the test script is more than one plain runner
+ *   command, or it has a `pre`/`post` script (narrowing would drop a part of
+ *   it) + tests reached → the repo's own test script
  * - no tests reached → no test step (the receipt says "not proven")
  */
 export async function resolveScopedPlan(
@@ -151,7 +230,12 @@ export async function resolveScopedPlan(
   if (testFiles.length === 0) {
     return { plan: { ...plan, steps: others }, testFiles, testMode: "none" };
   }
-  const runner = detectTestRunner(cwd);
+  const script = plan.steps.find((step) => step.name === "test");
+  const narrowable =
+    script?.kind !== "package-script" ||
+    (isPlainRunnerScript(scriptBody(cwd, script.script)) &&
+      !hasPrePost(cwd, script.script));
+  const runner = narrowable ? detectTestRunner(cwd) : null;
   if (runner) {
     const step: VerifyStep = {
       name: "test",
